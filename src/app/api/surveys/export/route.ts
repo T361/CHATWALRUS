@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdminOrCron, unauthorizedJson } from '@/lib/auth/guards';
 import { createServerClientSafe } from '@/lib/supabase/server';
 import { toCSV, csvResponse } from '@/lib/exports/csv';
 
-export async function GET(req: NextRequest) {
+export async function GET(
+  req: NextRequest
+) {
+  if (!requireAdminOrCron(req)) return unauthorizedJson();
   const db = createServerClientSafe();
   if (!db) return NextResponse.json({ error: 'DB not configured' }, { status: 503 });
 

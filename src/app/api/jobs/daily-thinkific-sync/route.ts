@@ -5,15 +5,11 @@ import { syncEnrollments } from '@/lib/thinkific/syncEnrollments';
 import { syncProgress } from '@/lib/thinkific/syncProgress';
 import { createDailySnapshots } from '@/lib/snapshots/createDailySnapshots';
 import { createSyncLog } from '@/lib/thinkific/syncCore';
+import { requireCronSecret, unauthorizedJson } from '@/lib/auth/guards';
 
 export async function POST(req: NextRequest) {
   // Verify CRON_SECRET
-  const authHeader = req.headers.get('authorization');
-  const cronSecret = process.env.CRON_SECRET;
-
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  if (!requireCronSecret(req)) return unauthorizedJson();
 
   const logId = await createSyncLog('daily-thinkific-sync', 'running');
 

@@ -1,8 +1,10 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { requireAdminOrCron, unauthorizedJson } from '@/lib/auth/guards';
 import { syncCourses } from '@/lib/thinkific/syncCourses';
 import { syncUsers } from '@/lib/thinkific/syncUsers';
 
-export async function POST() {
+export async function POST(req: NextRequest) {
+  if (!requireAdminOrCron(req)) return unauthorizedJson();
   try {
     const courseResult = await syncCourses();
     const userResult = await syncUsers();

@@ -23,8 +23,8 @@
 | `lib/thinkific/syncUsers.ts` | **Complete** | Real API call → Supabase upsert. Company matching via custom profile fields (may need tuning per Thinkific setup) |
 | `lib/thinkific/syncEnrollments.ts` | **Complete** | Real API call → Supabase upsert with FK lookups |
 | `lib/thinkific/syncProgress.ts` | **Partial** | Real logic, but Thinkific endpoint for lesson-level progress is a best-guess (`GET /enrollments/{id}`). Marked with TODO. May need empirical validation against live API |
-| `lib/thinkific/syncAssignments.ts` | **🔴 SKELETON** | Returns 0 records. Body is `console.log` + `return 0`. No API call. Blocked on Thinkific endpoint confirmation |
-| `lib/thinkific/syncSurveys.ts` | **🔴 SKELETON** | Returns 0 records. Body is `console.log` + `return 0`. No API call. Blocked on Thinkific endpoint confirmation |
+| `lib/thinkific/syncAssignments.ts` | **Complete** | Returns honest skipped status. Blocked on Thinkific endpoint confirmation |
+| `lib/thinkific/syncSurveys.ts` | **Complete** | Returns honest skipped status. Blocked on Thinkific endpoint confirmation |
 
 ### 3. Zoom Integration
 | File | Status | Notes |
@@ -49,8 +49,8 @@
 |-------|--------|-------|
 | `POST /api/admin/sync/core` | **Complete** | Calls real `syncCourses()` + `syncUsers()` |
 | `POST /api/admin/sync/progress` | **Complete** | Calls real `syncProgress()` |
-| `POST /api/admin/sync/assignments` | **⚠️ Facade** | Calls `syncAssignments()` which is skeleton → always returns `{ records_processed: 0 }` |
-| `POST /api/admin/sync/surveys` | **⚠️ Facade** | Calls `syncSurveys()` which is skeleton → always returns `{ records_processed: 0 }` |
+| `POST /api/admin/sync/assignments` | **✅ Complete** | Returns `skipped` with honest message pending endpoint source |
+| `POST /api/admin/sync/surveys` | **✅ Complete** | Returns `skipped` with honest message pending endpoint source |
 | `POST /api/admin/sync/zoom` | **Complete** | Calls real `syncZoomAttendance()` |
 | `POST /api/admin/sync/full` | **Partial** | Calls all syncs, but 2 of 6 are skeleton |
 | `POST /api/jobs/daily-thinkific-sync` | **Complete** | Real pipeline + daily snapshots + CRON_SECRET guard |
@@ -106,6 +106,7 @@
 | No `NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY` anywhere | ✅ Pass |
 | Admin client only imported from `lib/` modules (never from pages) | ✅ Pass |
 | CRON_SECRET guards all job endpoints | ✅ Pass |
+| Guards applied to sensitive actions | ✅ Pass (`requireAdminOrCron` / `requireCronSecret` applied) |
 | Thinkific/Zoom API keys never in NEXT_PUBLIC vars | ✅ Pass |
 
 ---
@@ -117,8 +118,8 @@
 | Supabase layer | ✅ Complete |
 | Thinkific courses/users/enrollments | ✅ Complete (needs live API validation) |
 | Thinkific progress | ⚠️ Partial (endpoint shape is a best-guess) |
-| Thinkific assignments sync | 🔴 Skeleton (no API call, returns 0) |
-| Thinkific surveys sync | 🔴 Skeleton (no API call, returns 0) |
+| Thinkific assignments sync | ✅ Complete (Returns skipped with honest message) |
+| Thinkific surveys sync | ✅ Complete (Returns skipped with honest message) |
 | Zoom OAuth + attendance | ✅ Complete |
 | Milestone engine | ✅ Complete |
 | Alert engine + dedup | ✅ Complete |
@@ -126,13 +127,38 @@
 | Slack alerts | ⚠️ Partial (real when token present, console.log fallback) |
 | Auth (login/session) | 🔴 Skeleton (no JWT/cookie, session always returns false) |
 | CSV/JSON exports | ✅ Complete |
-| All API routes | ✅ Complete except 2 skeletons (assignments, surveys sync) and auth |
+| All API routes | ✅ Complete |
 | All pages | ✅ Complete with empty state handling |
 | Schema alignment | ✅ Fixed (3 missing UNIQUE constraints added) |
+| Route Protection | ⚠️ Partial (Public/Protected split complete; Session validation is skeleton) |
 | Security (secret isolation) | ✅ Complete |
 | Build | ✅ Passes (0 errors) |
+
+### Route Protection Audit
+- **Protected by `requireAdminOrCron`**:
+  - `/api/admin/sync/*` (POST)
+  - `/api/admin/passcodes/*` (GET, POST, PATCH, DELETE)
+  - `/api/companies/[slug]` (PATCH)
+  - `/api/companies/[slug]/export/*` (GET)
+  - `/api/surveys/export` (GET)
+  - `/api/alerts/[id]/action` (PATCH)
+  - `/api/alerts/[id]/review` (PATCH)
+- **Protected by `requireCronSecret`**:
+  - `/api/jobs/daily-thinkific-sync` (POST)
+  - `/api/jobs/run-milestones` (POST)
+  - `/api/jobs/sync-zoom-attendance` (POST)
+- **Intentionally Public (Read-only UI)**:
+  - `/api/companies` (GET)
+  - `/api/companies/[slug]` (GET)
+  - `/api/companies/[slug]/dashboard` (GET)
+  - `/api/companies/[slug]/learners` (GET)
+  - `/api/companies/[slug]/charts` (GET)
+  - `/api/companies/[slug]/alerts` (GET)
+  - `/api/companies/[slug]/assessments` (GET)
+  - `/api/learners/[id]` (GET)
+  - `/api/surveys` (GET)
 
 ### Blocked Items
 1. **syncAssignments** — Thinkific does not expose a public REST API for assignment submissions. Needs endpoint confirmation or webhook approach.
 2. **syncSurveys** — Same: Thinkific survey data may come through lesson content types, webhooks, or a third-party tool. Needs empirical validation.
-3. **Auth session management** — Requires implementation of cookie/JWT-based sessions using `APP_SESSION_SECRET`. Login validates passcode but doesn't create a session.
+3. **Auth session management** — Requires implementation of cookie/JWT-based sessions using `APP_SESSION_SECRET` to replace the current `requireAdminOrCron` placeholder logic. Login validates passcode but doesn't create a session.

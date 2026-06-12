@@ -28,7 +28,11 @@
 3. Go to Admin Settings → Run "Import Core Data"
 4. Check sync logs in Supabase
 
-## Then: Connect Zoom
+## Pending Backend Integrations
+
+1. Validate Thinkific endpoint for assignments sync (Currently returning skipped)
+2. Validate Thinkific endpoint for survey sync (Currently returning skipped)
+3. Implement Auth Session Management (Currently returning skeleton values)
 
 1. Create Server-to-Server OAuth app in Zoom Marketplace
 2. Add scopes: report:read:admin, meeting:read:admin, user:read:admin

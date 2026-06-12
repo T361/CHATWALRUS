@@ -14,11 +14,19 @@ export default function AdminSettingsPage() {
     try {
       const res = await fetch(endpoint, { method: 'POST' });
       const data = await res.json();
+      
+      let statusMessageText = '';
+      if (data.status === 'success') {
+        statusMessageText = `✅ Done (${data.records_processed ?? 0} records)`;
+      } else if (data.status === 'skipped' || data.status === 'unavailable') {
+        statusMessageText = `⏭️ Skipped (${data.message || 'Unavailable'})`;
+      } else {
+         statusMessageText = `❌ ${data.error || data.message || 'Failed'}`;
+      }
+
       setSyncStatus((prev) => ({
         ...prev,
-        [type]: data.status === 'success'
-          ? `✅ Done (${data.records_processed ?? 0} records)`
-          : `❌ ${data.error || 'Failed'}`,
+        [type]: statusMessageText,
       }));
     } catch (err) {
       setSyncStatus((prev) => ({ ...prev, [type]: `❌ ${err}` }));
@@ -30,8 +38,8 @@ export default function AdminSettingsPage() {
   const syncButtons = [
     { type: 'core', label: 'Import Core Data (Courses + Users)', endpoint: '/api/admin/sync/core' },
     { type: 'progress', label: 'Import Progress', endpoint: '/api/admin/sync/progress' },
-    { type: 'assignments', label: 'Import Assignments', endpoint: '/api/admin/sync/assignments' },
-    { type: 'surveys', label: 'Import Surveys', endpoint: '/api/admin/sync/surveys' },
+    { type: 'assignments', label: 'Import Assignments from Thinkific (Endpoint Pending)', endpoint: '/api/admin/sync/assignments' },
+    { type: 'surveys', label: 'Import Surveys from Thinkific (Endpoint Pending)', endpoint: '/api/admin/sync/surveys' },
     { type: 'zoom', label: 'Sync Zoom Attendance', endpoint: '/api/admin/sync/zoom' },
     { type: 'full', label: 'Full Sync (All)', endpoint: '/api/admin/sync/full' },
   ];
