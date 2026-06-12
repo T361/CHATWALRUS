@@ -1,65 +1,99 @@
-import Image from "next/image";
+import PageShell from '@/components/layout/PageShell';
+import Link from 'next/link';
+import { createServerClientSafe } from '@/lib/supabase/server';
 
-export default function Home() {
+export default async function HomePage() {
+  let companies: Array<{
+    id: string; name: string; slug: string;
+    start_date: string | null; is_active: boolean;
+    learner_count?: number;
+  }> = [];
+  let dbError = false;
+
+  const db = createServerClientSafe();
+  if (db) {
+    try {
+      const { data, error } = await db
+        .from('companies')
+        .select('id, name, slug, start_date, is_active')
+        .eq('is_active', true)
+        .order('name');
+
+      if (error) throw error;
+
+      if (data) {
+        // Get learner counts
+        const companiesWithCounts = await Promise.all(
+          data.map(async (c) => {
+            const { count } = await db
+              .from('learners')
+              .select('*', { count: 'exact', head: true })
+              .eq('company_id', c.id)
+              .eq('is_active', true);
+            return { ...c, learner_count: count ?? 0 };
+          })
+        );
+        companies = companiesWithCounts;
+      }
+    } catch {
+      dbError = true;
+    }
+  } else {
+    dbError = true;
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <PageShell>
+      <div style={{ marginBottom: '1.5rem' }}>
+        <h1 style={{ fontSize: '1.5rem', fontWeight: 700 }}>Companies</h1>
+        <p style={{ color: '#6b7280', fontSize: '0.875rem', marginTop: '0.25rem' }}>
+          Select a company to view engagement details
+        </p>
+      </div>
+
+      {dbError && (
+        <div className="card" style={{ background: '#fffbeb', border: '1px solid #fde68a', marginBottom: '1rem' }}>
+          <p style={{ fontSize: '0.875rem', color: '#92400e' }}>
+            ⚠️ Database not connected. Configure Supabase environment variables to load data.
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      )}
+
+      {companies.length === 0 && !dbError ? (
+        <div className="empty-state card">
+          <h3>No Companies Found</h3>
+          <p>Sync data from Thinkific or add companies via the admin settings.</p>
+          <Link href="/admin/settings" className="btn btn-primary" style={{ marginTop: '1rem', textDecoration: 'none' }}>
+            Go to Settings
+          </Link>
         </div>
-      </main>
-    </div>
+      ) : (
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+          gap: '1rem',
+        }}>
+          {companies.map((company) => (
+            <Link
+              key={company.id}
+              href={`/company/${company.slug}`}
+              style={{ textDecoration: 'none', color: 'inherit' }}
+            >
+              <div className="card" style={{ cursor: 'pointer', transition: 'box-shadow 0.15s ease' }}>
+                <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.5rem' }}>
+                  {company.name}
+                </h3>
+                <div style={{ display: 'flex', gap: '1rem', fontSize: '0.8125rem', color: '#6b7280' }}>
+                  <span>{company.learner_count ?? 0} learners</span>
+                  {company.start_date && (
+                    <span>Started {company.start_date}</span>
+                  )}
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
+    </PageShell>
   );
 }

@@ -1,0 +1,13 @@
+{
+  "version": "1.0.0",
+  "projectName": "CHATWALRUS",
+  "userName": "developer",
+  "skillLevel": "intermediate",
+  "outputFolder": ".vibecheck/flow",
+  "planningArtifacts": ".vibecheck/flow/planning-artifacts",
+  "implementationArtifacts": ".vibecheck/flow/implementation-artifacts",
+  "installedAt": "2026-06-12T19:56:22.341Z",
+  "ide": [
+    "vscode"
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "crons": [
+    {
+      "path": "/api/jobs/daily-thinkific-sync",
+      "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/jobs/run-milestones",
+      "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/jobs/sync-zoom-attendance",
+      "schedule": "0 8 * * *"
+    }
+  ]
+}

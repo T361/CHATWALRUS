@@ -1,0 +1,83 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { createServerClientSafe } from '@/lib/supabase/server';
+
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ slug: string }> }
+) {
+  const { slug } = await params;
+  const db = createServerClientSafe();
+  if (!db) return NextResponse.json({ error: 'DB not configured' }, { status: 503 });
+
+  const { data: company } = await db
+    .from('companies')
+    .select('id')
+    .eq('slug', slug)
+    .single();
+
+  if (!company) return NextResponse.json({ error: 'Company not found' }, { status: 404 });
+
+  // Completion trend from daily_snapshots (aggregated by date)
+  const { data: snapshots } = await db
+    .from('daily_snapshots')
+    .select('snapshot_date, completion_percent')
+    .eq('company_id', company.id)
+    .order('snapshot_date', { ascending: true })
+    .limit(365);
+
+  // Aggregate by date
+  const dateMap = new Map<string, { total: number; count: number }>();
+  for (const snap of snapshots || []) {
+    const entry = dateMap.get(snap.snapshot_date) || { total: 0, count: 0 };
+    entry.total += Number(snap.completion_percent || 0);
+    entry.count += 1;
+    dateMap.set(snap.snapshot_date, entry);
+  }
+
+  const completionTrend = Array.from(dateMap.entries()).map(([date, { total, count }]) => ({
+    date,
+    average_completion: Math.round((total / count) * 10) / 10,
+  }));
+
+  // Status distribution from latest learner_status_snapshots
+  const { data: statusData } = await db
+    .from('learner_status_snapshots')
+    .select('status')
+    .eq('company_id', company.id)
+    .order('snapshot_date', { ascending: false });
+
+  // Get unique latest status per learner
+  const learnerStatuses = new Map<string, string>();
+  // We need learner_id too
+  const { data: statusWithLearner } = await db
+    .from('learner_status_snapshots')
+    .select('learner_id, status, snapshot_date')
+    .eq('company_id', company.id)
+    .order('snapshot_date', { ascending: false });
+
+  if (statusWithLearner) {
+    for (const s of statusWithLearner) {
+      if (!learnerStatuses.has(s.learner_id)) {
+        learnerStatuses.set(s.learner_id, s.status);
+      }
+    }
+  }
+
+  const statusCounts: Record<string, number> = {
+    not_started: 0, at_risk: 0, slightly_behind: 0, on_track: 0, high_engagement: 0,
+  };
+  for (const status of learnerStatuses.values()) {
+    if (status in statusCounts) statusCounts[status]++;
+  }
+
+  // Suppress unused variable warning
+  void statusData;
+
+  return NextResponse.json({
+    completion_trend: completionTrend,
+    status_distribution: Object.entries(statusCounts).map(([status, count]) => ({
+      status,
+      count,
+    })),
+  });
+}
