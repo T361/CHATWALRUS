@@ -1,5 +1,5 @@
 // =============================================================================
-// Thinkific Enrollment Sync
+// Thinkific Enrollment Sync (Optimized)
 // =============================================================================
 
 import { thinkificPaginate, isThinkificConfigured } from './client';
@@ -22,6 +22,8 @@ interface ThinkificEnrollment {
 
 /**
  * Sync enrollments from Thinkific to Supabase.
+ * Optimized: pre-loads all learners and courses into memory maps,
+ * then batch-upserts enrollments in chunks of 100.
  */
 export async function syncEnrollments(): Promise<SyncResult> {
   if (!isThinkificConfigured()) {
@@ -29,54 +31,84 @@ export async function syncEnrollments(): Promise<SyncResult> {
   }
 
   return runSync('enrollments', async () => {
-    const enrollments = await thinkificPaginate<ThinkificEnrollment>('/enrollments');
     const db = createAdminClient();
+
+    // Pre-load ALL learners and courses into memory for O(1) lookups
+    const { data: allLearners } = await db
+      .from('learners')
+      .select('id, thinkific_user_id, company_id');
+    const learnerMap = new Map(
+      (allLearners || []).map((l) => [l.thinkific_user_id, { id: l.id, company_id: l.company_id }])
+    );
+    console.log(`[SyncEnrollments] Pre-loaded ${learnerMap.size} learners`);
+
+    const { data: allCourses } = await db
+      .from('courses')
+      .select('id, thinkific_course_id');
+    const courseMap = new Map(
+      (allCourses || []).map((c) => [c.thinkific_course_id, c.id])
+    );
+    console.log(`[SyncEnrollments] Pre-loaded ${courseMap.size} courses`);
+
+    // Paginate enrollments from Thinkific
+    const enrollments = await thinkificPaginate<ThinkificEnrollment>('/enrollments');
+    console.log(`[SyncEnrollments] Fetched ${enrollments.length} enrollments from Thinkific`);
+
     let count = 0;
+    let skipped = 0;
+    const batchSize = 100;
+    let batch: Array<Record<string, unknown>> = [];
 
     for (const enrollment of enrollments) {
-      // Look up internal learner ID
-      const { data: learner } = await db
-        .from('learners')
-        .select('id, company_id')
-        .eq('thinkific_user_id', String(enrollment.user_id))
-        .single();
+      const learner = learnerMap.get(String(enrollment.user_id));
+      const courseId = courseMap.get(String(enrollment.course_id));
 
-      if (!learner) {
-        console.warn(`[SyncEnrollments] Learner not found for Thinkific user ${enrollment.user_id}`);
+      if (!learner || !courseId) {
+        skipped++;
         continue;
       }
 
-      // Look up internal course ID
-      const { data: course } = await db
-        .from('courses')
-        .select('id')
-        .eq('thinkific_course_id', String(enrollment.course_id))
-        .single();
+      const progressPercent = clampPercent(safeNumber(enrollment.percentage_completed) * 100);
 
-      if (!course) {
-        console.warn(`[SyncEnrollments] Course not found for Thinkific course ${enrollment.course_id}`);
-        continue;
+      batch.push({
+        thinkific_enrollment_id: String(enrollment.id),
+        company_id: learner.company_id,
+        learner_id: learner.id,
+        course_id: courseId,
+        progress_percent: progressPercent,
+        started_at: enrollment.started_at || null,
+        completed_at: enrollment.completed_at || null,
+        expires_at: enrollment.expiry_date || null,
+        is_active: !enrollment.expired,
+      });
+
+      // Flush batch
+      if (batch.length >= batchSize) {
+        const { error } = await db.from('enrollments').upsert(batch, {
+          onConflict: 'thinkific_enrollment_id',
+        });
+        if (error) {
+          console.warn(`[SyncEnrollments] Batch upsert error:`, error.message);
+        }
+        count += batch.length;
+        batch = [];
+        // Log progress every 1000 records
+        if (count % 1000 === 0) {
+          console.log(`[SyncEnrollments] Processed ${count}/${enrollments.length}...`);
+        }
       }
-
-      const progressPercent = clampPercent(safeNumber(enrollment.percentage_completed));
-
-      await db.from('enrollments').upsert(
-        {
-          thinkific_enrollment_id: String(enrollment.id),
-          company_id: learner.company_id,
-          learner_id: learner.id,
-          course_id: course.id,
-          progress_percent: progressPercent,
-          started_at: enrollment.started_at || null,
-          completed_at: enrollment.completed_at || null,
-          expires_at: enrollment.expiry_date || null,
-          is_active: !enrollment.expired,
-        },
-        { onConflict: 'thinkific_enrollment_id' }
-      );
-      count++;
     }
 
+    // Flush remaining
+    if (batch.length > 0) {
+      const { error } = await db.from('enrollments').upsert(batch, {
+        onConflict: 'thinkific_enrollment_id',
+      });
+      if (error) console.warn(`[SyncEnrollments] Final batch error:`, error.message);
+      count += batch.length;
+    }
+
+    console.log(`[SyncEnrollments] Done: ${count} synced, ${skipped} skipped`);
     return count;
   });
 }

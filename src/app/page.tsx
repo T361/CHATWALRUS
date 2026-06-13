@@ -54,7 +54,7 @@ export default async function HomePage() {
       {dbError && (
         <div className="card" style={{ background: '#fffbeb', border: '1px solid #fde68a', marginBottom: '1rem' }}>
           <p style={{ fontSize: '0.875rem', color: '#92400e' }}>
-            ⚠️ Database not connected. Configure Supabase environment variables to load data.
+            ⚠️ Database unavailable. Check Supabase environment variables and credentials.
           </p>
         </div>
       )}

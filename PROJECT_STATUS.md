@@ -1,6 +1,6 @@
 # Project Status — Honest Audit
 
-> Last audited: 2026-06-13 (final audit-hardening pass)
+> Last audited: 2026-06-14 (live integration verification pass)
 > Build: `npm run build` ✅ passes (0 TypeScript errors, 22 app routes)
 > Lint: `npm run lint` ✅ 0 errors, 1 warning (`@next/next/no-page-custom-font` in `layout.tsx`)
 > Typecheck: `npm run typecheck` ✅ passes (uses `tsc --noEmit`)
@@ -25,7 +25,7 @@
 | **Build** | `npm run build` | **Complete** | Compiles cleanly; static generation logs Supabase warning when env missing (expected) |
 | **Build** | `npm run lint` | **Complete** | 1 non-blocking font warning |
 | **Build** | `npm run typecheck` | **Complete** | Script added to `package.json`; runs `tsc --noEmit` |
-| **Env** | `.env.example` | **Complete** | All required vars documented (Supabase, Thinkific, Zoom, CRON, Slack, session secrets) |
+| **Env** | `.env.example` | **Blocked** | File is not present in the repo; env names are documented in `ENVIRONMENT.md` instead |
 | **Env** | Missing Supabase | **Complete** | API routes return `{ error: "Database not configured" }` (503); pages show warning banners |
 | **Env** | Missing Thinkific | **Complete** | Sync functions return `{ status: "skipped", errorMessage: "Thinkific not configured" }` |
 | **Env** | Missing Zoom | **Complete** | `syncZoomAttendance()` returns skipped status |
@@ -37,10 +37,10 @@
 | **Supabase** | `lib/supabase/admin.ts` | **Complete** | Service role server-only; singleton |
 | **Supabase** | Schema ↔ query alignment | **Complete** | All `.from()` table/column names match `supabase/schema.sql` |
 | **Supabase** | Upsert `onConflict` keys | **Complete** | All conflict keys have matching UNIQUE constraints (see below) |
-| **Supabase** | Live database | **Blocked** | Supabase project/env not fully configured yet |
-| **Auth** | `POST /api/auth/login` | **Complete** | Validates `ADMIN_PASSCODE_SECRET`, sets signed httpOnly `chatwalrus_admin_session` cookie |
-| **Auth** | `GET /api/auth/session` | **Complete** | Verifies signed admin session cookie and returns real authenticated state |
-| **Auth** | `POST /api/auth/logout` | **Complete** | Clears admin session cookie |
+| **Supabase** | Live database | **Blocked** | Env vars are present, the anon/service-role JWTs decode cleanly and match the project ref, but live admin calls still return `401 Invalid API key` |
+| **Auth** | `POST /api/auth/login` | **Complete** | Verified live on 2026-06-14; validates `ADMIN_PASSCODE_SECRET` and sets signed httpOnly `chatwalrus_admin_session` cookie |
+| **Auth** | `GET /api/auth/session` | **Complete** | Verified live on 2026-06-14 before login, after login, and after logout |
+| **Auth** | `POST /api/auth/logout` | **Complete** | Verified live on 2026-06-14; clears admin session cookie |
 | **Auth** | `lib/auth/guards.ts` | **Complete** | `CRON_SECRET` fails closed; admin routes accept valid session or valid cron bearer only |
 | **Auth** | Admin Settings sync UI | **Complete** | Same-origin sync calls work with httpOnly admin session cookie; no browser cron secret |
 | **Auth** | Passcode admin UI | **Skeleton** | Settings page shows placeholder text; API CRUD exists but UI not wired |
@@ -48,10 +48,10 @@
 | **Thinkific** | `syncCourses` | **Partial** | Real `/courses` upsert; lesson sync helper exists but is not called from any sync route |
 | **Thinkific** | `syncUsers` | **Complete** | Real `/users` upsert; company match via custom profile field (may need client tuning) |
 | **Thinkific** | `syncEnrollments` | **Complete** | Real `/enrollments` upsert; only in Full Sync + daily cron (not Core Sync button) |
-| **Thinkific** | `syncProgress` | **Partial** | Real loop over enrollments; uses best-guess `GET /enrollments/{id}` — endpoint shape unvalidated |
+| **Thinkific** | `syncProgress` | **Partial** | Real loop over enrollments; uses best-guess `GET /enrollments/{id}` — response shape still unvalidated because current creds return `401` |
 | **Thinkific** | `syncAssignments` | **Blocked** | Returns honest `skipped` + message; no Thinkific REST endpoint confirmed |
 | **Thinkific** | `syncSurveys` | **Blocked** | Returns honest `skipped` + message; no Thinkific REST endpoint confirmed |
-| **Thinkific** | Live API validation | **Blocked** | Needs `THINKIFIC_API_KEY` + `THINKIFIC_SUBDOMAIN` from client |
+| **Thinkific** | Live API validation | **Blocked** | Env vars are present and not obviously malformed, but `GET /courses`, `GET /users`, and `GET /enrollments` currently return `401 Authentication Error` |
 | **Zoom** | `lib/zoom/client.ts` | **Complete** | Real Server-to-Server OAuth (`account_credentials`), token cache, Base64 Basic auth |
 | **Zoom** | `syncZoomAttendance` | **Partial** | Real pipeline with `zoom_attendance.dedupe_key` upsert; participant/meeting errors are non-fatal (warn and continue); live credentials still needed |
 | **Zoom** | Live API validation | **Blocked** | Needs `ZOOM_ACCOUNT_ID`, `ZOOM_CLIENT_ID`, `ZOOM_CLIENT_SECRET` from client |
@@ -63,7 +63,7 @@
 | **API** | Public read routes | **Complete** | Company/learner/dashboard/chart/alert/survey reads work without auth (by design) |
 | **API** | Admin/sync/write routes | **Complete** | Protected by signed admin session or valid cron bearer |
 | **API** | Job routes | **Complete** | `CRON_SECRET` Bearer guard fails closed; missing secret returns 503 |
-| **API** | `POST /api/admin/sync/core` | **Complete** | Aggregates child sync statuses honestly (`success`, `partial`, `skipped`, `failed`) |
+| **API** | `POST /api/admin/sync/core` | **Complete** | Verified live on 2026-06-14; no-auth returns `401`, valid bearer returns honest failure payloads |
 | **API** | `POST /api/admin/sync/assignments` | **Complete** | Honest skipped JSON |
 | **API** | `POST /api/admin/sync/surveys` | **Complete** | Honest skipped JSON |
 | **Pages** | All dashboard pages | **Complete** | Empty DB handled; no `"Company undefined"` strings found |
@@ -83,6 +83,14 @@
 | GET | `/enrollments/{id}` | `syncProgress` | Partial (response shape unvalidated) |
 
 **Not implemented (blocked):** assignment submissions, survey/feedback responses.
+
+### 2026-06-14 live endpoint check
+
+| Endpoint | Result |
+|----------|--------|
+| `GET /courses` | `401 Authentication Error` |
+| `GET /users` | `401 Authentication Error` |
+| `GET /enrollments` | `401 Authentication Error` |
 
 ---
 
@@ -145,6 +153,18 @@ Requires `Authorization: Bearer <CRON_SECRET>`. Returns 503 when `CRON_SECRET` i
 - `POST /api/jobs/run-milestones`
 - `POST /api/jobs/sync-zoom-attendance`
 
+### 2026-06-14 route verification
+
+- `GET /api/auth/session` before login returned `200` with `authenticated: false`
+- `POST /api/auth/login` returned `200` with authenticated admin session
+- `GET /api/auth/session` after login returned `200` with `authenticated: true`
+- `POST /api/auth/logout` returned `200`, and session returned to unauthenticated
+- `POST /api/jobs/daily-thinkific-sync` returned `401` without auth and `200 partial` with valid bearer
+- `POST /api/admin/sync/core`, `/full`, and `/progress` each returned `401` without auth
+- `POST /api/admin/sync/core` returned `500 failed` with valid bearer because Thinkific auth failed
+- `POST /api/admin/sync/full` returned `200 partial` with valid bearer; assignments and surveys remained honest `skipped`
+- `POST /api/admin/sync/progress` returned `200 error` with valid bearer because Supabase admin calls failed with `Invalid API key`
+
 ### Intentionally public (read-only UI support)
 
 - `GET /api/companies`
@@ -180,9 +200,9 @@ Requires `Authorization: Bearer <CRON_SECRET>`. Returns 503 when `CRON_SECRET` i
 | Build & TypeScript | ✅ Complete |
 | Env handling (graceful degradation) | ✅ Complete |
 | Supabase layer (code) | ✅ Complete |
-| Supabase (live connection) | 🔴 Blocked — env not configured |
-| Thinkific courses/users/enrollments | ✅ Complete (needs live validation) |
-| Thinkific progress | ⚠️ Partial |
+| Supabase (live connection) | 🔴 Blocked — env vars exist, but current admin key is rejected |
+| Thinkific courses/users/enrollments | 🔴 Blocked — current Thinkific credentials are rejected with `401` |
+| Thinkific progress | ⚠️ Partial and still unvalidated |
 | Thinkific assignments/surveys | 🔴 Blocked (honest skip in place) |
 | Zoom OAuth + attendance sync | ⚠️ Partial (real code with dedup; needs credentials) |
 | Milestone / alert engine | ✅ Complete |

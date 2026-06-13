@@ -1,14 +1,27 @@
 # Next Steps
 
-Ordered checklist once client credentials arrive. No new architecture required — validate, connect, and finish skeleton pieces.
+Ordered checklist based on the 2026-06-14 live verification pass. No new architecture required — the current blockers are credential validity and external API access, not missing app routes.
 
 ---
 
-## Step 1: Supabase (unblocks all dashboard data)
+## Step 1: Fix live credentials first
+
+1. Re-check the configured Supabase admin key.
+   Current verified result: live admin calls return `401 Invalid API key`.
+   The current anon and service-role JWTs are structurally valid, unexpired, and match the configured Supabase project ref, so this now looks more like rotated/revoked credentials or a project-side auth mismatch than a copy/paste formatting issue.
+2. Re-check the configured Thinkific API key and subdomain pair.
+   Current verified result: `GET /courses`, `GET /users`, and `GET /enrollments` all return `401 Authentication Error`.
+   The configured values are present and not obviously malformed, so the next check should be whether the API key is active and tied to the same Thinkific site as the configured subdomain.
+3. Keep `.env.local` as the source of truth for local testing.
+   There is no `.env.example` file in the repo right now; env names are documented in `ENVIRONMENT.md`.
+
+---
+
+## Step 2: Supabase (unblocks all dashboard data)
 
 1. Create a Supabase project at https://supabase.com
 2. Run `supabase/schema.sql` in the SQL editor (includes `zoom_attendance.dedupe_key` UNIQUE dedup)
-3. Copy keys into `.env.local` (from `.env.example`):
+3. Put the Supabase values into `.env.local`:
 
    ```env
    NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
@@ -32,7 +45,7 @@ If `zoom_attendance` already contains live rows, dedupe existing rows before app
 
 ---
 
-## Step 2: Admin auth and cron secrets
+## Step 3: Admin auth and cron secrets
 
 1. Generate local/server-only secrets:
 
@@ -67,13 +80,13 @@ If `zoom_attendance` already contains live rows, dedupe existing rows before app
 
 ---
 
-## Step 3: Thinkific (unblocks core engagement data)
+## Step 4: Thinkific (unblocks core engagement data)
 
 1. Obtain from Thinkific admin:
    - API key
    - Subdomain
 
-2. Add to `.env.local`:
+2. Put the Thinkific values into `.env.local`:
 
    ```env
    THINKIFIC_API_KEY=your-key
@@ -97,14 +110,14 @@ If `zoom_attendance` already contains live rows, dedupe existing rows before app
    - Rows in `courses`, `learners`, `enrollments`
    - `lesson_progress` after progress sync (confirm Thinkific response shape)
 
-6. **Empirical validation needed:**
+6. **Empirical validation still needed after credentials are fixed:**
    - `GET /enrollments/{id}` response shape for `syncProgress` — adjust mapping if fields differ
    - Whether `/courses/{id}/chapters` returns `contents[]` as expected — wire `syncCourseLessons` into sync flow if confirmed
    - Company assignment: confirm which Thinkific custom profile field maps learners to companies
 
 ---
 
-## Step 4: Thinkific assignments & surveys (blocked on API source)
+## Step 5: Thinkific assignments & surveys (blocked on API source)
 
 1. With client Thinkific admin access, confirm whether assignment submissions and survey responses are available via:
    - Public REST endpoints
@@ -119,7 +132,7 @@ If `zoom_attendance` already contains live rows, dedupe existing rows before app
 
 ---
 
-## Step 5: Zoom (unblocks live session attendance)
+## Step 6: Zoom (unblocks live session attendance)
 
 1. Create Server-to-Server OAuth app in Zoom Marketplace
 2. Scopes: `report:read:admin`, `meeting:read:admin`, `user:read:admin`
@@ -143,15 +156,18 @@ If `zoom_attendance` already contains live rows, dedupe existing rows before app
 
 ---
 
-## Step 6: Auth/admin follow-up
+## Step 7: Auth/admin follow-up
 
 1. Minimal admin cookie sessions are implemented and use `APP_SESSION_SECRET`
-2. Admin Settings sync buttons work with the httpOnly admin session cookie
+2. Verified on 2026-06-14:
+   - `GET /api/auth/session` works before login, after login, and after logout
+   - `POST /api/auth/login` succeeds with `ADMIN_PASSCODE_SECRET`
+   - Protected sync routes return `401` without auth and accept a valid bearer token
 3. Passcode management UI is still a placeholder; wire it to existing `/api/admin/passcodes` routes when needed
 
 ---
 
-## Step 7: Optional integrations
+## Step 8: Optional integrations
 
 ### Slack alerts
 

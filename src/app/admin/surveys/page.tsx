@@ -17,6 +17,7 @@ interface SurveyItem {
 export default function SurveysPage() {
   const [surveys, setSurveys] = useState<SurveyItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [avgRating, setAvgRating] = useState(0);
   const [totalResponses, setTotalResponses] = useState(0);
@@ -30,8 +31,14 @@ export default function SurveysPage() {
           setSurveys(data.surveys || []);
           setAvgRating(data.average_rating || 0);
           setTotalResponses(data.total_responses || 0);
+          setError(null);
+        } else {
+          const data = await res.json().catch(() => ({}));
+          setError(data.error || 'Could not load survey data.');
         }
-      } catch { /* empty */ }
+      } catch {
+        setError('Could not load survey data.');
+      }
       setLoading(false);
     }
     load();
@@ -83,6 +90,11 @@ export default function SurveysPage() {
 
       {loading ? (
         <div className="empty-state card"><div className="spinner" style={{ margin: '0 auto' }} /></div>
+      ) : error ? (
+        <div className="empty-state card">
+          <h3>Survey Data Unavailable</h3>
+          <p>{error}</p>
+        </div>
       ) : filtered.length === 0 ? (
         <div className="empty-state card">
           <h3>No Survey Responses</h3>

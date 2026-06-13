@@ -47,8 +47,7 @@ export async function thinkificGet<T>(
   const response = await fetch(url.toString(), {
     headers: {
       'Content-Type': 'application/json',
-      'X-Auth-API-Key': config.apiKey,
-      'X-Auth-Subdomain': config.subdomain,
+      'Authorization': `Bearer ${config.apiKey}`,
     },
   });
 

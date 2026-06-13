@@ -5,11 +5,15 @@ export async function GET() {
   const db = createServerClientSafe();
   if (!db) return NextResponse.json({ error: 'DB not configured' }, { status: 503 });
 
-  const { data: surveys } = await db
+  const { data: surveys, error } = await db
     .from('surveys')
     .select('*, companies(name), learners(full_name), courses(name)')
     .order('submitted_at', { ascending: false })
     .limit(100);
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 
   const items = (surveys || []).map((s) => ({
     id: s.id,
