@@ -3,9 +3,9 @@
 ## Authentication
 | Method | Route | Purpose | Auth |
 |--------|-------|---------|------|
-| POST | `/api/auth/login` | Login with passcode | None |
-| POST | `/api/auth/logout` | Clear session | None |
-| GET | `/api/auth/session` | Check session status | None |
+| POST | `/api/auth/login` | Login with `ADMIN_PASSCODE_SECRET`; sets signed httpOnly admin cookie | None |
+| POST | `/api/auth/logout` | Clear admin session cookie | None |
+| GET | `/api/auth/session` | Check signed admin session status | None |
 
 ## Companies
 | Method | Route | Purpose | Auth |
@@ -26,8 +26,8 @@
 ## Exports
 | Method | Route | Purpose | Auth |
 |--------|-------|---------|------|
-| GET | `/api/companies/[slug]/export/csv` | CSV export (type param) | None |
-| GET | `/api/companies/[slug]/export/json` | Full company JSON export | None |
+| GET | `/api/companies/[slug]/export/csv` | CSV export (type param) | Admin |
+| GET | `/api/companies/[slug]/export/json` | Full company JSON export | Admin |
 
 ## Admin Sync
 | Method | Route | Purpose | Auth |
@@ -39,12 +39,16 @@
 | POST | `/api/admin/sync/zoom` | Sync Zoom attendance | Admin |
 | POST | `/api/admin/sync/full` | Full sync (all above) | Admin |
 
+`Admin` means a valid `chatwalrus_admin_session` httpOnly cookie or server-side `Authorization: Bearer <CRON_SECRET>`.
+
 ## Protected Jobs (CRON_SECRET)
 | Method | Route | Purpose | Auth |
 |--------|-------|---------|------|
 | POST | `/api/jobs/daily-thinkific-sync` | Daily data sync + snapshots | CRON_SECRET |
 | POST | `/api/jobs/run-milestones` | Run milestone checks | CRON_SECRET |
 | POST | `/api/jobs/sync-zoom-attendance` | Sync Zoom attendance | CRON_SECRET |
+
+Missing `CRON_SECRET` returns `503 { "error": "Cron secret not configured" }`. Missing or invalid bearer returns `401 { "error": "Unauthorized" }`.
 
 ## Alert Management
 | Method | Route | Purpose | Auth |
@@ -58,3 +62,10 @@ Use `?type=` query parameter:
 - `assessments` - Quiz data
 - `surveys` - Survey responses
 - `attendance` - Zoom attendance
+
+## Sync Response Statuses
+Aggregate sync routes can return:
+- `success` - all child sync operations completed
+- `partial` - mixed success/skipped/error child results
+- `skipped` - all child sync operations skipped, usually missing external credentials
+- `failed` - all child sync operations failed

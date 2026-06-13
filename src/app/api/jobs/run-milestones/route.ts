@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { runAllMilestoneChecks } from '@/lib/milestones/runMilestoneCheck';
-import { requireCronSecret, unauthorizedJson } from '@/lib/auth/guards';
+import { requireCronSecret } from '@/lib/auth/guards';
 
 export async function POST(req: NextRequest) {
-  if (!requireCronSecret(req)) return unauthorizedJson();
+  const authError = requireCronSecret(req);
+  if (authError) return authError;
 
   try {
     const results = await runAllMilestoneChecks();

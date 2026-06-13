@@ -21,8 +21,8 @@
 | `CRON_SECRET` | Protects scheduled job endpoints |
 | `SLACK_BOT_TOKEN` | Optional Slack integration |
 | `SLACK_DEFAULT_CHANNEL_ID` | Default Slack channel for alerts |
-| `APP_SESSION_SECRET` | Session encryption |
-| `ADMIN_PASSCODE_SECRET` | Admin passcode encryption |
+| `APP_SESSION_SECRET` | HMAC signing key for admin session cookies (random 32+ byte secret) |
+| `ADMIN_PASSCODE_SECRET` | Admin login passcode (plaintext value that must be supplied to log in) |
 
 ## Security Rules
 
@@ -39,4 +39,6 @@
 - **Thinkific missing**: Sync operations return `skipped` status
 - **Zoom missing**: Zoom sync returns `skipped` status
 - **Slack missing**: Alerts log to console instead of sending
-- **CRON_SECRET missing**: Job endpoints are unprotected (for development)
+- **CRON_SECRET missing**: Job endpoints return 503 (fail closed); no requests are accepted
+- **APP_SESSION_SECRET missing**: Admin login returns 503; no sessions can be created
+- **ADMIN_PASSCODE_SECRET missing**: Admin login returns 503; no authentication is possible

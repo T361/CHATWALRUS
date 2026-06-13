@@ -295,6 +295,7 @@ CREATE TABLE IF NOT EXISTS zoom_attendance (
   zoom_session_id UUID REFERENCES zoom_sessions(id) ON DELETE CASCADE,
   learner_id UUID REFERENCES learners(id) ON DELETE SET NULL,
   company_id UUID REFERENCES companies(id) ON DELETE SET NULL,
+  dedupe_key TEXT UNIQUE,
   attendee_name TEXT,
   attendee_email TEXT,
   join_time TIMESTAMPTZ,

@@ -1,10 +1,12 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { getAdminSession } from '@/lib/auth/session';
 
-export async function GET() {
-  // TODO: Implement proper session validation with APP_SESSION_SECRET
+export async function GET(req: NextRequest) {
+  const session = getAdminSession(req);
+
   return NextResponse.json({
-    authenticated: false,
-    role: null,
-    message: 'Session management not yet implemented.',
+    authenticated: !!session,
+    role: session?.role ?? null,
+    expires_at: session ? new Date(session.expiresAt * 1000).toISOString() : null,
   });
 }

@@ -12,16 +12,18 @@ export default function AdminSettingsPage() {
     setSyncStatus((prev) => ({ ...prev, [type]: 'Running...' }));
 
     try {
-      const res = await fetch(endpoint, { method: 'POST' });
+      const res = await fetch(endpoint, { method: 'POST', credentials: 'same-origin' });
       const data = await res.json();
       
       let statusMessageText = '';
       if (data.status === 'success') {
         statusMessageText = `✅ Done (${data.records_processed ?? 0} records)`;
+      } else if (data.status === 'partial') {
+        statusMessageText = `Partial (${data.records_processed ?? 0} records): ${data.message || 'See sync details'}`;
       } else if (data.status === 'skipped' || data.status === 'unavailable') {
-        statusMessageText = `⏭️ Skipped (${data.message || 'Unavailable'})`;
+        statusMessageText = `Skipped (${data.message || 'Unavailable'})`;
       } else {
-         statusMessageText = `❌ ${data.error || data.message || 'Failed'}`;
+         statusMessageText = `${data.error || data.message || 'Failed'}`;
       }
 
       setSyncStatus((prev) => ({

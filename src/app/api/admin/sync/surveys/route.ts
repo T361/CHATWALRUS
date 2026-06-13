@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAdminOrCron, unauthorizedJson } from '@/lib/auth/guards';
+import { requireAdminOrCron } from '@/lib/auth/guards';
 import { syncSurveys } from '@/lib/thinkific/syncSurveys';
 
 export async function POST(req: NextRequest) {
-  if (!requireAdminOrCron(req)) return unauthorizedJson();
+  const authError = requireAdminOrCron(req);
+  if (authError) return authError;
   try {
     const result = await syncSurveys();
     return NextResponse.json({

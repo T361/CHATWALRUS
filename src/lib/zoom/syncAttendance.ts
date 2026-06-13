@@ -61,33 +61,53 @@ export async function syncZoomAttendance(): Promise<SyncResult> {
             }>(`/past_meetings/${meeting.uuid}/participants`, { page_size: '300' });
 
             for (const p of participants.participants || []) {
-              // Match email to learner
-              const { data: learner } = await db
-                .from('learners')
-                .select('id, company_id')
-                .eq('email', p.user_email.toLowerCase())
-                .limit(1)
-                .single();
+              const attendeeEmail = (p.user_email || '').trim().toLowerCase();
+              const attendeeIdentity = attendeeEmail || `participant:${(p.id || p.name || '').trim().toLowerCase()}`;
+              const dedupeKey = [
+                session.id,
+                attendeeIdentity,
+                p.join_time || 'unknown-join-time',
+              ].join(':');
 
-              await db.from('zoom_attendance').insert({
+              // Match email to learner
+              const { data: learner } = attendeeEmail
+                ? await db
+                    .from('learners')
+                    .select('id, company_id')
+                    .eq('email', attendeeEmail)
+                    .limit(1)
+                    .single()
+                : { data: null };
+
+              const { error: attendanceError } = await db.from('zoom_attendance').upsert({
                 zoom_session_id: session.id,
                 learner_id: learner?.id || null,
                 company_id: learner?.company_id || null,
+                dedupe_key: dedupeKey,
                 attendee_name: p.name,
-                attendee_email: p.user_email,
+                attendee_email: attendeeEmail || null,
                 join_time: p.join_time,
                 leave_time: p.leave_time,
                 duration_minutes: Math.round(p.duration / 60),
                 attended: true,
+              }, {
+                onConflict: 'dedupe_key',
               });
+
+              if (attendanceError) {
+                throw new Error(`Failed to upsert Zoom attendance: ${attendanceError.message}`);
+              }
+
               count++;
             }
-          } catch {
-            console.warn(`[ZoomSync] Failed to fetch participants for meeting ${meeting.id}`);
+          } catch (error) {
+            // Non-fatal: log and continue so partial results are preserved
+            console.warn(`[ZoomSync] Failed to sync participants for meeting ${meeting.id}:`, error);
           }
         }
-      } catch {
-        console.warn(`[ZoomSync] Failed to fetch meetings for user ${user.id}`);
+      } catch (error) {
+        // Non-fatal: log and continue to next user so partial results are preserved
+        console.warn(`[ZoomSync] Failed to sync meetings for user ${user.id}:`, error);
       }
     }
 

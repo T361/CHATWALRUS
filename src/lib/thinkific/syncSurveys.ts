@@ -4,7 +4,7 @@
 // TODO: Validate actual Thinkific survey/feedback endpoint.
 
 import { isThinkificConfigured } from './client';
-import { runSync, type SyncResult } from './syncCore';
+import { type SyncResult } from './syncCore';
 
 /**
  * Sync survey responses from Thinkific.

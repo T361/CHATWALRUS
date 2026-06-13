@@ -1,33 +1,44 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClientSafe } from '@/lib/supabase/server';
+import {
+  createAdminSessionToken,
+  isAdminAuthConfigured,
+  setAdminSessionCookie,
+  verifyAdminPasscode,
+} from '@/lib/auth/session';
 
 export async function POST(req: NextRequest) {
-  const db = createServerClientSafe();
-  if (!db) return NextResponse.json({ error: 'DB not configured' }, { status: 503 });
+  if (!isAdminAuthConfigured()) {
+    return NextResponse.json({ error: 'Admin auth not configured' }, { status: 503 });
+  }
 
-  const body = await req.json();
-  const { passcode } = body;
+  let body: { passcode?: unknown };
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+
+  const passcode = typeof body.passcode === 'string' ? body.passcode : '';
 
   if (!passcode) {
     return NextResponse.json({ error: 'Passcode required' }, { status: 400 });
   }
 
-  const { data: entry } = await db
-    .from('passcodes')
-    .select('id, role, company_id, status')
-    .eq('code', passcode)
-    .eq('status', 'active')
-    .single();
-
-  if (!entry) {
+  if (!verifyAdminPasscode(passcode)) {
     return NextResponse.json({ error: 'Invalid passcode' }, { status: 401 });
   }
 
-  // TODO: Implement proper session management with APP_SESSION_SECRET
-  // For now, return role info that the frontend can store
-  return NextResponse.json({
+  const sessionToken = createAdminSessionToken();
+  if (!sessionToken) {
+    return NextResponse.json({ error: 'Admin auth not configured' }, { status: 503 });
+  }
+
+  const response = NextResponse.json({
     authenticated: true,
-    role: entry.role,
-    company_id: entry.company_id,
+    role: sessionToken.session.role,
+    expires_at: sessionToken.expiresAt.toISOString(),
   });
+  setAdminSessionCookie(response, sessionToken.token, sessionToken.expiresAt);
+
+  return response;
 }

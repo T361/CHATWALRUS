@@ -16,15 +16,19 @@ export default function SyncButton({ label, endpoint }: SyncButtonProps) {
     setStatus('Running...');
 
     try {
-      const res = await fetch(endpoint, { method: 'POST' });
+      const res = await fetch(endpoint, { method: 'POST', credentials: 'same-origin' });
       const data = await res.json();
-      setStatus(
-        data.status === 'success'
-          ? `✅ Done (${data.records_processed ?? 0} records)`
-          : `❌ ${data.error || 'Failed'}`
-      );
+      if (data.status === 'success') {
+        setStatus(`✅ Done (${data.records_processed ?? 0} records)`);
+      } else if (data.status === 'partial') {
+        setStatus(`Partial (${data.records_processed ?? 0} records): ${data.message || 'See sync details'}`);
+      } else if (data.status === 'skipped') {
+        setStatus(`Skipped (${data.message || 'Unavailable'})`);
+      } else {
+        setStatus(`${data.error || data.message || 'Failed'}`);
+      }
     } catch (err) {
-      setStatus(`❌ ${err}`);
+      setStatus(`${err}`);
     }
 
     setLoading(false);

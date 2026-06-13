@@ -12,6 +12,61 @@ export interface SyncResult {
   logId?: string;
 }
 
+export type SyncSummaryStatus = 'success' | 'partial' | 'skipped' | 'failed';
+
+export interface SyncSummary {
+  status: SyncSummaryStatus;
+  message: string;
+  recordsProcessed: number;
+}
+
+export function summarizeSyncResults(results: Record<string, SyncResult>): SyncSummary {
+  const values = Object.values(results);
+  const recordsProcessed = values.reduce((sum, result) => sum + result.recordsProcessed, 0);
+
+  if (values.length === 0) {
+    return {
+      status: 'skipped',
+      message: 'No sync operations were run.',
+      recordsProcessed,
+    };
+  }
+
+  const successCount = values.filter((result) => result.status === 'success').length;
+  const skippedCount = values.filter((result) => result.status === 'skipped').length;
+  const errorCount = values.filter((result) => result.status === 'error').length;
+
+  if (successCount === values.length) {
+    return {
+      status: 'success',
+      message: 'All sync operations completed successfully.',
+      recordsProcessed,
+    };
+  }
+
+  if (skippedCount === values.length) {
+    return {
+      status: 'skipped',
+      message: 'All sync operations were skipped.',
+      recordsProcessed,
+    };
+  }
+
+  if (errorCount === values.length) {
+    return {
+      status: 'failed',
+      message: 'All sync operations failed.',
+      recordsProcessed,
+    };
+  }
+
+  return {
+    status: 'partial',
+    message: 'Some sync operations completed, skipped, or failed. See results for details.',
+    recordsProcessed,
+  };
+}
+
 /**
  * Create a sync log entry in the database.
  */

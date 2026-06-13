@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getAdminSession, verifySecret } from './session';
+
+export type AuthGuardResult = NextResponse | null;
 
 /**
  * Common response for unauthorized requests.
  */
 export function unauthorizedJson(message = 'Unauthorized') {
   return NextResponse.json({ error: message }, { status: 401 });
+}
+
+export function cronSecretNotConfiguredJson() {
+  return NextResponse.json({ error: 'Cron secret not configured' }, { status: 503 });
 }
 
 export function getBearerToken(req: NextRequest): string | null {
@@ -17,36 +24,29 @@ export function getBearerToken(req: NextRequest): string | null {
 
 /**
  * Checks if the request provides a valid CRON_SECRET.
- * If CRON_SECRET is not set in env, it allows the request (for local dev dev).
  */
-export function requireCronSecret(req: NextRequest): boolean {
+export function requireCronSecret(req: NextRequest): AuthGuardResult {
   const token = getBearerToken(req);
   const cronSecret = process.env.CRON_SECRET;
-  
-  if (!cronSecret) return true; // Fail-open in dev if no secret set
-  return token === cronSecret;
+
+  if (!cronSecret) return cronSecretNotConfiguredJson();
+  if (!token || !verifySecret(token, cronSecret)) return unauthorizedJson();
+
+  return null;
 }
 
 /**
  * Checks if the request is allowed via CRON_SECRET or an Admin Session.
- * Since real session auth is a skeleton, this currently only checks CRON_SECRET
- * or a placeholder 'authorization' header for admin.
- * 
- * TODO: Implement real cookie/JWT based session check here.
  */
-export function requireAdminOrCron(req: NextRequest): boolean {
-  if (requireCronSecret(req)) return true;
-  
-  // Real auth is skeleton. For now, checking if there is ANY authorization
-  // token that signifies an admin. 
-  // TODO: Replace with real JWT/session validation.
+export function requireAdminOrCron(req: NextRequest): AuthGuardResult {
+  if (getAdminSession(req)) return null;
+
   const token = getBearerToken(req);
-  if (token) {
-    // Skeleton check: assume any bearer token that isn't the cron secret might be a test token
-    // In production, this MUST validate the token.
-    return true; 
-  }
-  
-  // No cron secret match, no session/token
-  return false;
+  if (!token) return unauthorizedJson();
+
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret) return cronSecretNotConfiguredJson();
+  if (!verifySecret(token, cronSecret)) return unauthorizedJson();
+
+  return null;
 }
