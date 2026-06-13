@@ -1,9 +1,8 @@
 import { NextResponse } from 'next/server';
-import { createServerClientSafe } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 export async function GET() {
-  const db = createServerClientSafe();
-  if (!db) return NextResponse.json({ error: 'DB not configured' }, { status: 503 });
+  const db = createAdminClient();
 
   const { data: surveys, error } = await db
     .from('surveys')

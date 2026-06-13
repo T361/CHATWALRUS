@@ -1,6 +1,6 @@
 import PageShell from '@/components/layout/PageShell';
 import Link from 'next/link';
-import { createServerClientSafe } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 export default async function HomePage() {
   let companies: Array<{
@@ -10,35 +10,31 @@ export default async function HomePage() {
   }> = [];
   let dbError = false;
 
-  const db = createServerClientSafe();
-  if (db) {
-    try {
-      const { data, error } = await db
-        .from('companies')
-        .select('id, name, slug, start_date, is_active')
-        .eq('is_active', true)
-        .order('name');
+  try {
+    const db = createAdminClient();
+    const { data, error } = await db
+      .from('companies')
+      .select('id, name, slug, start_date, is_active')
+      .eq('is_active', true)
+      .order('name');
 
-      if (error) throw error;
+    if (error) throw error;
 
-      if (data) {
-        // Get learner counts
-        const companiesWithCounts = await Promise.all(
-          data.map(async (c) => {
-            const { count } = await db
-              .from('learners')
-              .select('*', { count: 'exact', head: true })
-              .eq('company_id', c.id)
-              .eq('is_active', true);
-            return { ...c, learner_count: count ?? 0 };
-          })
-        );
-        companies = companiesWithCounts;
-      }
-    } catch {
-      dbError = true;
+    if (data) {
+      // Get learner counts
+      const companiesWithCounts = await Promise.all(
+        data.map(async (c) => {
+          const { count } = await db
+            .from('learners')
+            .select('*', { count: 'exact', head: true })
+            .eq('company_id', c.id)
+            .eq('is_active', true);
+          return { ...c, learner_count: count ?? 0 };
+        })
+      );
+      companies = companiesWithCounts;
     }
-  } else {
+  } catch {
     dbError = true;
   }
 
