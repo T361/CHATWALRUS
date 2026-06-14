@@ -405,6 +405,30 @@ CREATE INDEX idx_sync_logs_sync_type ON sync_logs(sync_type);
 CREATE INDEX idx_sync_logs_status ON sync_logs(status);
 
 -- =============================================================================
+-- Function: update_learner_last_active
+-- Updates last_active_at for all learners in one query instead of N queries.
+-- Called by syncProgress after lesson_progress upserts are complete.
+-- =============================================================================
+CREATE OR REPLACE FUNCTION update_learner_last_active()
+RETURNS void
+LANGUAGE sql
+SECURITY DEFINER
+AS $$
+  UPDATE learners l
+  SET last_active_at = subq.latest
+  FROM (
+    SELECT
+      learner_id,
+      MAX(COALESCE(completed_at, viewed_at)) AS latest
+    FROM lesson_progress
+    WHERE completed_at IS NOT NULL OR viewed_at IS NOT NULL
+    GROUP BY learner_id
+  ) subq
+  WHERE l.id = subq.learner_id
+    AND (l.last_active_at IS NULL OR subq.latest > l.last_active_at);
+$$;
+
+-- =============================================================================
 -- RLS Notes:
 -- For internal dashboard, RLS can be minimal.
 -- If needed, enable RLS and add policies per table.

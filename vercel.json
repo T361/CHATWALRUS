@@ -1,4 +1,9 @@
 {
+  "functions": {
+    "src/app/api/admin/sync/progress/route.ts":       { "maxDuration": 300 },
+    "src/app/api/admin/sync/full/route.ts":           { "maxDuration": 300 },
+    "src/app/api/jobs/daily-thinkific-sync/route.ts": { "maxDuration": 300 }
+  },
   "crons": [
     {
       "path": "/api/jobs/daily-thinkific-sync",
