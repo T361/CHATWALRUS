@@ -6,7 +6,7 @@
 // assignments are embedded inside course content (lessons of type quiz/survey).
 // We extract completion data from enrollment progress as a proxy.
 
-import { thinkificPaginate, isThinkificConfigured } from './client';
+import { thinkificPaginateFast, isThinkificConfigured } from './client';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { runSync, type SyncResult } from './syncCore';
 
@@ -39,11 +39,8 @@ export async function syncAssignments(): Promise<SyncResult> {
     const db = createAdminClient();
     let count = 0;
 
-    // Fetch completed enrollments from Thinkific
-    const enrollments = await thinkificPaginate<ThinkificEnrollment>(
-      '/enrollments',
-      { 'completed': 'true' }
-    );
+    // Fetch all enrollments in parallel — Thinkific ignores filter params
+    const enrollments = await thinkificPaginateFast<ThinkificEnrollment>('/enrollments');
 
     // Batch: pre-load all learners and courses for fast lookup
     const { data: allLearners } = await db

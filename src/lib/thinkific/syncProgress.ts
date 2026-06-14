@@ -1,37 +1,29 @@
 // =============================================================================
 // Thinkific Progress Sync (Optimized)
 // =============================================================================
+// Refreshes enrollment-level progress percentages from Thinkific.
+// Uses parallel page fetching (10 concurrent) to handle 66k+ enrollments
+// within Vercel's 300s function timeout (~60s vs 609s sequential).
 
-import { thinkificGet, isThinkificConfigured } from './client';
+import { thinkificPaginateFast, isThinkificConfigured } from './client';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { runSync, type SyncResult } from './syncCore';
-import { normalizeCompleted, normalizeProgressPercent } from '@/lib/utils/normalize';
+import { safeNumber, clampPercent } from '@/lib/utils/normalize';
 
-const CONCURRENCY = 10;   // parallel Thinkific calls at a time
-const UPSERT_BATCH = 100; // lesson_progress rows per upsert
-
-/**
- * Run async tasks with bounded concurrency.
- */
-async function withConcurrency<T>(
-  items: T[],
-  limit: number,
-  fn: (item: T) => Promise<void>
-): Promise<void> {
-  let i = 0;
-  async function worker() {
-    while (i < items.length) {
-      const item = items[i++];
-      await fn(item);
-    }
-  }
-  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+interface ThinkificEnrollment {
+  id: number;
+  user_id: number;
+  course_id: number;
+  percentage_completed: string | number;
+  completed_at: string | null;
+  updated_at: string | null;
 }
 
+const UPSERT_BATCH = 100;
+
 /**
- * Sync lesson-level progress for all active enrollments.
- * Optimized: parallel Thinkific calls (10 at a time), pre-loaded
- * lesson map, batched upserts, single SQL for last_active_at.
+ * Sync enrollment progress percentages from Thinkific.
+ * Uses parallel pagination (10 pages at once) — no per-enrollment API calls.
  */
 export async function syncProgress(): Promise<SyncResult> {
   if (!isThinkificConfigured()) {
@@ -45,115 +37,49 @@ export async function syncProgress(): Promise<SyncResult> {
 
   return runSync('progress', async () => {
     const db = createAdminClient();
+
+    console.log('[SyncProgress] Fetching all enrollments in parallel...');
+    const enrollments = await thinkificPaginateFast<ThinkificEnrollment>('/enrollments');
+    console.log(`[SyncProgress] Fetched ${enrollments.length} enrollments`);
+
     let count = 0;
-    let errors = 0;
+    let batch: Array<Record<string, unknown>> = [];
 
-    // --- Load all enrollments (unbounded, same as before) ---
-    const { data: enrollments, error: enrollErr } = await db
-      .from('enrollments')
-      .select('id, thinkific_enrollment_id, learner_id, course_id')
-      .eq('is_active', true);
+    for (const enrollment of enrollments) {
+      const progressPercent = clampPercent(safeNumber(enrollment.percentage_completed) * 100);
 
-    if (enrollErr || !enrollments) {
-      throw new Error(`Failed to fetch enrollments: ${enrollErr?.message}`);
+      batch.push({
+        thinkific_enrollment_id: String(enrollment.id),
+        progress_percent: progressPercent,
+        completed_at: enrollment.completed_at || null,
+      });
+
+      if (batch.length >= UPSERT_BATCH) {
+        const { error } = await db.from('enrollments').upsert(batch, {
+          onConflict: 'thinkific_enrollment_id',
+        });
+        if (error) console.warn('[SyncProgress] Upsert error:', error.message);
+        count += batch.length;
+        batch = [];
+      }
     }
 
-    // --- Pre-load ALL lessons into a Map (eliminates per-lesson DB query) ---
-    const { data: allLessons } = await db
-      .from('lessons')
-      .select('id, thinkific_lesson_id');
-
-    const lessonMap = new Map(
-      (allLessons || []).map((l) => [l.thinkific_lesson_id, l.id])
-    );
-    console.log(`[SyncProgress] ${enrollments.length} enrollments, ${lessonMap.size} lessons pre-loaded`);
-
-    // --- Collect lesson_progress rows to batch-upsert ---
-    const pendingUpserts: Array<Record<string, unknown>> = [];
-
-    async function flushUpserts() {
-      if (pendingUpserts.length === 0) return;
-      const batch = pendingUpserts.splice(0, pendingUpserts.length);
-      const { error } = await db
-        .from('lesson_progress')
-        .upsert(batch, { onConflict: 'learner_id,course_id,lesson_id', ignoreDuplicates: false });
-      if (error) console.warn('[SyncProgress] Upsert error:', error.message);
+    if (batch.length > 0) {
+      const { error } = await db.from('enrollments').upsert(batch, {
+        onConflict: 'thinkific_enrollment_id',
+      });
+      if (error) console.warn('[SyncProgress] Final upsert error:', error.message);
       count += batch.length;
     }
 
-    // --- Process enrollments with bounded concurrency ---
-    await withConcurrency(enrollments, CONCURRENCY, async (enrollment) => {
-      if (!enrollment.thinkific_enrollment_id) return;
-
-      try {
-        const progressData = await thinkificGet<{
-          items?: Array<{
-            content_id: number;
-            completed: boolean;
-            completed_at?: string;
-            percentage_completed?: number;
-            [key: string]: unknown;
-          }>;
-          percentage_completed?: number;
-        }>(`/enrollments/${enrollment.thinkific_enrollment_id}`);
-
-        // Update enrollment-level progress percent
-        if (progressData.percentage_completed !== undefined) {
-          await db
-            .from('enrollments')
-            .update({
-              progress_percent: normalizeProgressPercent(
-                progressData as unknown as Record<string, unknown>
-              ),
-            })
-            .eq('id', enrollment.id);
-        }
-
-        // Accumulate lesson-level progress rows
-        if (progressData.items) {
-          for (const item of progressData.items) {
-            const lessonId = lessonMap.get(String(item.content_id));
-            if (!lessonId) continue;
-
-            const raw = item as unknown as Record<string, unknown>;
-            pendingUpserts.push({
-              learner_id: enrollment.learner_id,
-              course_id: enrollment.course_id,
-              lesson_id: lessonId,
-              completed: normalizeCompleted(raw),
-              completed_at: item.completed_at || null,
-              progress_percent: normalizeProgressPercent(raw),
-              raw_payload: raw,
-            });
-
-            // Flush when batch is full
-            if (pendingUpserts.length >= UPSERT_BATCH) {
-              await flushUpserts();
-            }
-          }
-        }
-      } catch (err) {
-        errors++;
-        console.warn(
-          `[SyncProgress] Error on enrollment ${enrollment.thinkific_enrollment_id}:`,
-          err instanceof Error ? err.message : String(err)
-        );
-      }
-    });
-
-    // Flush any remaining rows
-    await flushUpserts();
-
-    // --- Update last_active_at for all learners in a single query ---
-    // Uses Supabase rpc to run one UPDATE...FROM instead of N queries
+    // Update last_active_at for all learners in a single SQL call
     try {
       await db.rpc('update_learner_last_active');
     } catch {
-      // Fallback: skip last_active_at if the RPC doesn't exist yet
-      console.warn('[SyncProgress] update_learner_last_active RPC not found — skipping last_active_at update');
+      console.warn('[SyncProgress] update_learner_last_active RPC not found — skipping');
     }
 
-    console.log(`[SyncProgress] Done: ${count} lesson records, ${errors} enrollment errors`);
+    console.log(`[SyncProgress] Done: ${count} enrollment records updated`);
     return count;
   });
 }

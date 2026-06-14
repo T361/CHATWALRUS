@@ -2,7 +2,7 @@
 // Thinkific Enrollment Sync (Optimized)
 // =============================================================================
 
-import { thinkificPaginate, isThinkificConfigured } from './client';
+import { thinkificPaginateFast, isThinkificConfigured } from './client';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { runSync, type SyncResult } from './syncCore';
 import { safeNumber, clampPercent } from '@/lib/utils/normalize';
@@ -51,7 +51,7 @@ export async function syncEnrollments(): Promise<SyncResult> {
     console.log(`[SyncEnrollments] Pre-loaded ${courseMap.size} courses`);
 
     // Paginate enrollments from Thinkific
-    const enrollments = await thinkificPaginate<ThinkificEnrollment>('/enrollments');
+    const enrollments = await thinkificPaginateFast<ThinkificEnrollment>('/enrollments');
     console.log(`[SyncEnrollments] Fetched ${enrollments.length} enrollments from Thinkific`);
 
     let count = 0;
