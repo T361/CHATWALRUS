@@ -51,19 +51,18 @@ export async function syncSurveys(): Promise<SyncResult> {
 
     if (!courses || courses.length === 0) return 0;
 
-    // Pre-load learner map for fast lookup
+    // Pre-load learner map: thinkific_user_id → { id, company_id }
     const { data: allLearners } = await db
       .from('learners')
-      .select('id, thinkific_user_id');
+      .select('id, thinkific_user_id, company_id');
     const learnerMap = new Map(
-      (allLearners || []).map((l) => [l.thinkific_user_id, l.id])
+      (allLearners || []).map((l) => [l.thinkific_user_id, { id: l.id, company_id: l.company_id }])
     );
 
     for (const course of courses) {
       if (!course.thinkific_course_id) continue;
 
       try {
-        // Fetch reviews for this course (paginated)
         let page = 1;
         let hasMore = true;
 
@@ -78,13 +77,13 @@ export async function syncSurveys(): Promise<SyncResult> {
             break;
           }
 
+          // Build records using pre-loaded map — zero extra DB queries
           const records = response.items.map((review) => {
-            const learnerId = learnerMap.get(String(review.user_id)) || null;
-
+            const learner = learnerMap.get(String(review.user_id));
             return {
-              thinkific_survey_id: String(review.id),
-              company_id: null as string | null, // Will be resolved below
-              learner_id: learnerId,
+              thinkific_response_id: String(review.id),  // matches schema UNIQUE column
+              company_id: learner?.company_id || null,
+              learner_id: learner?.id || null,
               course_id: course.id,
               rating: review.rating,
               feedback_text: review.review_text || review.title || null,
@@ -93,21 +92,9 @@ export async function syncSurveys(): Promise<SyncResult> {
             };
           });
 
-          // Resolve company_ids from learners
-          for (const record of records) {
-            if (record.learner_id) {
-              const { data: learner } = await db
-                .from('learners')
-                .select('company_id')
-                .eq('id', record.learner_id)
-                .single();
-              record.company_id = learner?.company_id || null;
-            }
-          }
-
           if (records.length > 0) {
             const { error } = await db.from('surveys').upsert(records, {
-              onConflict: 'thinkific_survey_id',
+              onConflict: 'thinkific_response_id',  // matches schema UNIQUE column
             });
             if (error) {
               console.warn(`[SurveySync] Upsert error for course ${course.name}:`, error.message);

@@ -21,18 +21,20 @@ export default async function HomePage() {
     if (error) throw error;
 
     if (data) {
-      // Get learner counts
-      const companiesWithCounts = await Promise.all(
-        data.map(async (c) => {
-          const { count } = await db
-            .from('learners')
-            .select('*', { count: 'exact', head: true })
-            .eq('company_id', c.id)
-            .eq('is_active', true);
-          return { ...c, learner_count: count ?? 0 };
-        })
-      );
-      companies = companiesWithCounts;
+      // Bulk-fetch all active learner counts in one query, group in memory
+      const companyIds = data.map((c) => c.id);
+      const { data: learnerRows } = await db
+        .from('learners')
+        .select('company_id')
+        .in('company_id', companyIds)
+        .eq('is_active', true);
+
+      const countMap = new Map<string, number>();
+      for (const row of learnerRows || []) {
+        countMap.set(row.company_id, (countMap.get(row.company_id) ?? 0) + 1);
+      }
+
+      companies = data.map((c) => ({ ...c, learner_count: countMap.get(c.id) ?? 0 }));
     }
   } catch {
     dbError = true;

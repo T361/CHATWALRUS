@@ -26,44 +26,67 @@ export async function GET(
     .eq('is_active', true)
     .order('full_name');
 
-  if (!learners) return NextResponse.json({ learners: [], company_name: company.name });
+  if (!learners || learners.length === 0) {
+    return NextResponse.json({ learners: [], company_name: company.name });
+  }
 
-  // For each learner, get progress and status
-  const enriched = await Promise.all(
-    learners.map(async (l) => {
-      const { data: enrollments } = await db
-        .from('enrollments')
-        .select('progress_percent, course_id')
-        .eq('learner_id', l.id)
-        .eq('is_active', true);
+  const learnerIds = learners.map((l) => l.id);
 
-      const avgProgress = enrollments && enrollments.length > 0
-        ? enrollments.reduce((s, e) => s + Number(e.progress_percent || 0), 0) / enrollments.length
-        : 0;
+  // Bulk-fetch all enrollments for this company in one query
+  const { data: allEnrollments } = await db
+    .from('enrollments')
+    .select('learner_id, progress_percent, course_id')
+    .eq('company_id', company.id)
+    .eq('is_active', true)
+    .in('learner_id', learnerIds);
 
-      // Get latest status snapshot
-      const { data: statusSnap } = await db
-        .from('learner_status_snapshots')
-        .select('status, live_sessions_last_30_days')
-        .eq('learner_id', l.id)
-        .order('snapshot_date', { ascending: false })
-        .limit(1)
-        .single();
+  // Bulk-fetch latest status snapshot per learner using a deduplicated approach
+  const { data: allSnapshots } = await db
+    .from('learner_status_snapshots')
+    .select('learner_id, status, live_sessions_last_30_days, snapshot_date')
+    .in('learner_id', learnerIds)
+    .order('snapshot_date', { ascending: false });
 
-      return {
-        id: l.id,
-        full_name: l.full_name || 'Unknown',
-        email: l.email,
-        department: l.department,
-        title: l.title,
-        progress_percent: Math.round(avgProgress * 10) / 10,
-        status: (statusSnap?.status || 'not_started') as LearnerStatus,
-        courses_enrolled: enrollments?.length ?? 0,
-        last_active_at: l.last_active_at,
-        live_sessions_last_30_days: statusSnap?.live_sessions_last_30_days ?? 0,
-      };
-    })
-  );
+  // Build Maps for O(1) lookups
+  const enrollmentsByLearner = new Map<string, Array<{ progress_percent: number; course_id: string }>>();
+  for (const e of allEnrollments || []) {
+    if (!enrollmentsByLearner.has(e.learner_id)) enrollmentsByLearner.set(e.learner_id, []);
+    enrollmentsByLearner.get(e.learner_id)!.push(e);
+  }
+
+  // Keep only the most recent snapshot per learner
+  const latestSnapshotByLearner = new Map<string, { status: LearnerStatus; live_sessions_last_30_days: number }>();
+  for (const snap of allSnapshots || []) {
+    if (!latestSnapshotByLearner.has(snap.learner_id)) {
+      latestSnapshotByLearner.set(snap.learner_id, {
+        status: snap.status as LearnerStatus,
+        live_sessions_last_30_days: snap.live_sessions_last_30_days ?? 0,
+      });
+    }
+  }
+
+  // Merge in memory — zero extra DB queries
+  const enriched = learners.map((l) => {
+    const enrollments = enrollmentsByLearner.get(l.id) || [];
+    const avgProgress = enrollments.length > 0
+      ? enrollments.reduce((s, e) => s + Number(e.progress_percent || 0), 0) / enrollments.length
+      : 0;
+
+    const snap = latestSnapshotByLearner.get(l.id);
+
+    return {
+      id: l.id,
+      full_name: l.full_name || 'Unknown',
+      email: l.email,
+      department: l.department,
+      title: l.title,
+      progress_percent: Math.round(avgProgress * 10) / 10,
+      status: (snap?.status || 'not_started') as LearnerStatus,
+      courses_enrolled: enrollments.length,
+      last_active_at: l.last_active_at,
+      live_sessions_last_30_days: snap?.live_sessions_last_30_days ?? 0,
+    };
+  });
 
   return NextResponse.json({ learners: enriched, company_name: company.name });
 }
