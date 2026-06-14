@@ -1,12 +1,14 @@
-import Navbar from './Navbar';
+import Sidebar from './Sidebar';
 
 export default function PageShell({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
-      <Navbar />
-      <main style={{ maxWidth: '1280px', margin: '0 auto', padding: '1.75rem 1.5rem' }}>
-        {children}
-      </main>
+    <div className="app-shell">
+      <Sidebar />
+      <div className="shell-main">
+        <main className="shell-content">
+          {children}
+        </main>
+      </div>
     </div>
   );
 }

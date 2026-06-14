@@ -4,6 +4,7 @@ import AlertBanner from '@/components/company/AlertBanner';
 import TimelineToggle from '@/components/company/TimelineToggle';
 import LearnerStatusChart from '@/components/company/LearnerStatusChart';
 import CompletionTrendChart from '@/components/company/CompletionTrendChart';
+import LearnerStatusBar from '@/components/company/LearnerStatusBar';
 import Link from 'next/link';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { notFound } from 'next/navigation';
@@ -129,6 +130,14 @@ export default async function CompanyDashboardPage(
         <KpiCard title="At Risk" value={atRisk} color="var(--at-risk)" />
         <KpiCard title="Not Started" value={notStarted} color="var(--not-started)" />
       </div>
+
+      <LearnerStatusBar
+        highEngagement={highEngagement}
+        onTrack={onTrack}
+        slightlyBehind={slightlyBehind}
+        atRisk={atRisk}
+        notStarted={notStarted}
+      />
 
       <div className="grid-2" style={{ marginBottom: '1.5rem' }}>
         <LearnerStatusChart data={statusDistribution} />
