@@ -1,10 +1,10 @@
 export const maxDuration = 300;
 import { NextRequest, NextResponse } from 'next/server';
 import { runAllMilestoneChecks } from '@/lib/milestones/runMilestoneCheck';
-import { requireCronSecret } from '@/lib/auth/guards';
+import { requireAdminOrCron } from '@/lib/auth/guards';
 
 export async function POST(req: NextRequest) {
-  const authError = requireCronSecret(req);
+  const authError = requireAdminOrCron(req);
   if (authError) return authError;
 
   try {
