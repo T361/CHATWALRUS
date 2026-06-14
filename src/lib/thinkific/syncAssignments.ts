@@ -1,102 +1,69 @@
 // =============================================================================
-// Thinkific Assignments Sync
+// Assignments Sync — Derived from Supabase enrollments (no Thinkific API call)
 // =============================================================================
-// Syncs quiz/assessment data from Thinkific enrollments.
-// Thinkific doesn't have a dedicated "assignments" API — quizzes and
-// assignments are embedded inside course content (lessons of type quiz/survey).
-// We extract completion data from enrollment progress as a proxy.
+// Thinkific doesn't expose a standalone assignments endpoint. We derive
+// assignment records from the enrollments already synced into Supabase.
+// This makes Import Assignments instant (no 66k enrollment pagination).
 
-import { thinkificPaginateFast, isThinkificConfigured } from './client';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createAdminClient, isAdminConfigured } from '@/lib/supabase/admin';
 import { runSync, type SyncResult } from './syncCore';
 
-interface ThinkificEnrollment {
-  id: number;
-  user_id: number;
-  user_email: string;
-  course_id: number;
-  course_name: string;
-  percentage_completed: string | number;
-  completed: boolean;
-  completed_at: string | null;
-  started_at: string | null;
-  activated_at: string | null;
-  updated_at: string | null;
-}
+const BATCH = 100;
 
-/**
- * Sync assignment/quiz completion data from Thinkific enrollments.
- * Since Thinkific doesn't expose a standalone assignments endpoint,
- * we derive assignment records from enrollment completion data —
- * each completed enrollment represents a "submitted" assignment.
- */
 export async function syncAssignments(): Promise<SyncResult> {
-  if (!isThinkificConfigured()) {
-    return { syncType: 'assignments', status: 'skipped', recordsProcessed: 0, errorMessage: 'Thinkific not configured' };
+  if (!isAdminConfigured()) {
+    return { syncType: 'assignments', status: 'skipped', recordsProcessed: 0, errorMessage: 'Admin DB not configured' };
   }
 
   return runSync('assignments', async () => {
     const db = createAdminClient();
+
+    // Read from Supabase enrollments — no Thinkific API call needed
+    const { data: enrollments, error } = await db
+      .from('enrollments')
+      .select('id, thinkific_enrollment_id, learner_id, company_id, course_id, progress_percent, completed_at, is_active')
+      .eq('is_active', true);
+
+    if (error) throw new Error(`Failed to fetch enrollments: ${error.message}`);
+    if (!enrollments || enrollments.length === 0) return 0;
+
+    console.log(`[SyncAssignments] Deriving assignments from ${enrollments.length} local enrollments`);
+
     let count = 0;
+    let batch: Array<Record<string, unknown>> = [];
 
-    // Fetch all enrollments in parallel — Thinkific ignores filter params
-    const enrollments = await thinkificPaginateFast<ThinkificEnrollment>('/enrollments');
-
-    // Batch: pre-load all learners and courses for fast lookup
-    const { data: allLearners } = await db
-      .from('learners')
-      .select('id, thinkific_user_id, company_id');
-    const learnerMap = new Map(
-      (allLearners || []).map((l) => [l.thinkific_user_id, { id: l.id, company_id: l.company_id }])
-    );
-
-    const { data: allCourses } = await db
-      .from('courses')
-      .select('id, thinkific_course_id');
-    const courseMap = new Map(
-      (allCourses || []).map((c) => [c.thinkific_course_id, c.id])
-    );
-
-    // Process in batches of 50
-    const batchSize = 50;
-    const records: Array<Record<string, unknown>> = [];
-
-    for (const enrollment of enrollments) {
-      const learner = learnerMap.get(String(enrollment.user_id));
-      const courseId = courseMap.get(String(enrollment.course_id));
-      if (!learner || !courseId) continue;
-
-      records.push({
-        thinkific_assignment_id: `enrollment-${enrollment.id}`,
-        learner_id: learner.id,
-        company_id: learner.company_id || null,
-        course_id: courseId,
-        submitted: enrollment.completed,
-        submitted_at: enrollment.completed_at,
-        score: enrollment.completed ? 100 : null,
-        status: enrollment.completed ? 'completed' : 'in_progress',
+    for (const e of enrollments) {
+      const isCompleted = !!e.completed_at;
+      batch.push({
+        thinkific_assignment_id: `enrollment-${e.thinkific_enrollment_id}`,
+        learner_id: e.learner_id,
+        company_id: e.company_id,
+        course_id: e.course_id,
+        submitted: isCompleted,
+        submitted_at: e.completed_at || null,
+        score: isCompleted ? 100 : null,
+        status: isCompleted ? 'completed' : 'in_progress',
       });
 
-      // Flush batch
-      if (records.length >= batchSize) {
-        const { error } = await db.from('assignments').upsert(records, {
+      if (batch.length >= BATCH) {
+        const { error: upsertErr } = await db.from('assignments').upsert(batch, {
           onConflict: 'thinkific_assignment_id',
         });
-        if (error) console.warn('[AssignmentSync] Batch upsert error:', error.message);
-        count += records.length;
-        records.length = 0;
+        if (upsertErr) console.warn('[SyncAssignments] Upsert error:', upsertErr.message);
+        count += batch.length;
+        batch = [];
       }
     }
 
-    // Flush remaining
-    if (records.length > 0) {
-      const { error } = await db.from('assignments').upsert(records, {
+    if (batch.length > 0) {
+      const { error: upsertErr } = await db.from('assignments').upsert(batch, {
         onConflict: 'thinkific_assignment_id',
       });
-      if (error) console.warn('[AssignmentSync] Final batch error:', error.message);
-      count += records.length;
+      if (upsertErr) console.warn('[SyncAssignments] Final upsert error:', upsertErr.message);
+      count += batch.length;
     }
 
+    console.log(`[SyncAssignments] Done: ${count} assignment records from local enrollments`);
     return count;
   });
 }

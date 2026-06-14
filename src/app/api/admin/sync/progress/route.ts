@@ -1,17 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminOrCron } from '@/lib/auth/guards';
-import { syncEnrollmentData } from '@/lib/thinkific/syncEnrollmentData';
+import { syncEnrollments } from '@/lib/thinkific/syncEnrollments';
+import { syncProgress } from '@/lib/thinkific/syncProgress';
 
 export async function POST(req: NextRequest) {
   const authError = requireAdminOrCron(req);
   if (authError) return authError;
   try {
-    const { enrollments, assignments } = await syncEnrollmentData();
+    const enrollmentResult = await syncEnrollments();
+    const progressResult = await syncProgress();
     return NextResponse.json({
-      status: 'success',
-      records_processed: enrollments.recordsProcessed + assignments.recordsProcessed,
-      enrollments,
-      assignments,
+      status: progressResult.status === 'error' ? 'error' : enrollmentResult.status,
+      records_processed: enrollmentResult.recordsProcessed + progressResult.recordsProcessed,
+      enrollments: enrollmentResult,
+      progress: progressResult,
     });
   } catch (error) {
     return NextResponse.json({ status: 'error', error: error instanceof Error ? error.message : String(error) }, { status: 500 });
