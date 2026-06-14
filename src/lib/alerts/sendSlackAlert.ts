@@ -11,6 +11,8 @@ export interface SlackAlertPayload {
   atRiskCount: number;
   notStartedCount: number;
   dashboardUrl: string;
+  /** Per-company Slack channel override (from companies.slack_channel_id) */
+  slackChannelId?: string | null;
 }
 
 /**
@@ -19,7 +21,8 @@ export interface SlackAlertPayload {
  */
 export async function sendSlackAlert(payload: SlackAlertPayload): Promise<boolean> {
   const slackToken = process.env.SLACK_BOT_TOKEN;
-  const channelId = process.env.SLACK_DEFAULT_CHANNEL_ID;
+  // Use per-company channel if set, fall back to default
+  const channelId = payload.slackChannelId || process.env.SLACK_DEFAULT_CHANNEL_ID;
 
   if (!slackToken || !channelId) {
     console.log('[Slack] SLACK_BOT_TOKEN or SLACK_DEFAULT_CHANNEL_ID not configured. Alert skipped.');

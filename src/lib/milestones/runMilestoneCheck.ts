@@ -168,6 +168,7 @@ export async function runMilestoneCheck(
       atRiskCount: statusCounts.at_risk,
       notStartedCount: statusCounts.not_started,
       dashboardUrl,
+      slackChannelId: (company as Company & { slack_channel_id?: string }).slack_channel_id,
     });
   }
 

@@ -1,14 +1,25 @@
 import PageShell from '@/components/layout/PageShell';
 import KpiCard from '@/components/company/KpiCard';
 import AlertBanner from '@/components/company/AlertBanner';
+import TimelineToggle from '@/components/company/TimelineToggle';
 import Link from 'next/link';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { notFound } from 'next/navigation';
 
+function daysSince(dateStr: string | null): number | null {
+  if (!dateStr) return null;
+  const start = new Date(dateStr);
+  const today = new Date();
+  return Math.floor((today.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+}
+
 export default async function CompanyDashboardPage(
-  props: { params: Promise<{ slug: string }> }
+  props: { params: Promise<{ slug: string }>; searchParams: Promise<{ view?: string }> }
 ) {
   const { slug } = await props.params;
+  const { view } = await props.searchParams;
+  const isDaysView = view === 'days';
+
   const db = createAdminClient();
 
   if (!db) {
@@ -29,7 +40,6 @@ export default async function CompanyDashboardPage(
 
   if (!company) notFound();
 
-  // Get metrics
   const { count: totalEnrolled } = await db
     .from('learners')
     .select('*', { count: 'exact', head: true })
@@ -47,7 +57,6 @@ export default async function CompanyDashboardPage(
     : 0;
   const courseCompletions = enrollments?.filter((e) => e.completed_at).length ?? 0;
 
-  // Status counts from latest milestone check
   const { data: latestMilestone } = await db
     .from('milestone_checks')
     .select('*')
@@ -63,7 +72,6 @@ export default async function CompanyDashboardPage(
   const highEngagement = latestMilestone?.high_engagement_count ?? 0;
   const onPace = totalEnrolled ? Math.round(((onTrack + highEngagement) / (totalEnrolled || 1)) * 100) : 0;
 
-  // Alerts
   const { data: alerts } = await db
     .from('alerts')
     .select('*')
@@ -71,6 +79,18 @@ export default async function CompanyDashboardPage(
     .eq('status', 'open')
     .order('created_at', { ascending: false })
     .limit(5);
+
+  // Timeline display
+  const programDayNumber = daysSince(company.start_date);
+  const totalDays = company.learning_timeline_days ?? null;
+
+  const programLabel = isDaysView
+    ? programDayNumber !== null
+      ? `Day ${programDayNumber}${totalDays ? ` of ${totalDays}` : ''}`
+      : 'Program not started'
+    : company.start_date
+      ? `${company.start_date}${company.end_date ? ` — ${company.end_date}` : ''}`
+      : null;
 
   return (
     <PageShell>
@@ -80,15 +100,16 @@ export default async function CompanyDashboardPage(
         </Link>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
         <div>
           <h1 style={{ fontSize: '1.5rem', fontWeight: 700 }}>{company.name}</h1>
-          {company.start_date && (
+          {programLabel && (
             <p style={{ color: '#6b7280', fontSize: '0.8125rem', marginTop: '0.25rem' }}>
-              Program: {company.start_date} — {company.end_date || 'Ongoing'}
+              Program: {programLabel}
             </p>
           )}
         </div>
+        <TimelineToggle slug={slug} current={isDaysView ? 'days' : 'calendar'} />
       </div>
 
       <AlertBanner alerts={alerts || []} />
@@ -108,6 +129,20 @@ export default async function CompanyDashboardPage(
         <KpiCard title="Not Started" value={notStarted} color="#9ca3af" />
         <KpiCard title="High Engagement" value={highEngagement} color="#2563eb" />
       </div>
+
+      {latestMilestone && (
+        <div className="card" style={{ marginBottom: '1rem', background: '#f9fafb' }}>
+          <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.25rem' }}>
+            Latest Milestone Check — Day {latestMilestone.milestone_day}
+          </p>
+          <p style={{ fontSize: '0.875rem', color: '#111827' }}>
+            Average completion <strong>{Number(latestMilestone.average_completion_percent).toFixed(1)}%</strong> vs benchmark <strong>{Number(latestMilestone.benchmark_percent).toFixed(1)}%</strong>
+            {latestMilestone.alert_triggered && (
+              <span style={{ color: '#dc2626', marginLeft: '0.5rem' }}>⚠️ Alert triggered</span>
+            )}
+          </p>
+        </div>
+      )}
 
       <div style={{
         display: 'grid',
