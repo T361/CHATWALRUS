@@ -109,6 +109,14 @@ export async function syncEnrollments(): Promise<SyncResult> {
     }
 
     console.log(`[SyncEnrollments] Done: ${count} synced, ${skipped} skipped`);
+
+    // Update last_active_at for all learners derived from enrollment activity
+    try {
+      await db.rpc('update_learner_last_active');
+    } catch {
+      console.warn('[SyncEnrollments] update_learner_last_active RPC not found — skipping');
+    }
+
     return count;
   });
 }

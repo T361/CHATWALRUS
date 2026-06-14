@@ -119,7 +119,7 @@ export async function thinkificPaginate<T>(
 export async function thinkificPaginateFast<T>(
   endpoint: string,
   params?: Record<string, string>,
-  concurrency = 5
+  concurrency = 8
 ): Promise<T[]> {
   const limit = '100';
 

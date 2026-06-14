@@ -1,19 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminOrCron } from '@/lib/auth/guards';
 import { syncEnrollments } from '@/lib/thinkific/syncEnrollments';
-import { syncProgress } from '@/lib/thinkific/syncProgress';
 
+// Single Thinkific pagination pass — enrollments already include progress_percent
+// and completed_at, so syncEnrollments handles both in one ~120s run.
 export async function POST(req: NextRequest) {
   const authError = requireAdminOrCron(req);
   if (authError) return authError;
   try {
-    const enrollmentResult = await syncEnrollments();
-    const progressResult = await syncProgress();
+    const result = await syncEnrollments();
     return NextResponse.json({
-      status: progressResult.status === 'error' ? 'error' : enrollmentResult.status,
-      records_processed: enrollmentResult.recordsProcessed + progressResult.recordsProcessed,
-      enrollments: enrollmentResult,
-      progress: progressResult,
+      status: result.status,
+      records_processed: result.recordsProcessed,
+      message: result.errorMessage,
     });
   } catch (error) {
     return NextResponse.json({ status: 'error', error: error instanceof Error ? error.message : String(error) }, { status: 500 });
