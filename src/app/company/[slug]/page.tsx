@@ -2,14 +2,14 @@ import PageShell from '@/components/layout/PageShell';
 import KpiCard from '@/components/company/KpiCard';
 import AlertBanner from '@/components/company/AlertBanner';
 import Link from 'next/link';
-import { createServerClientSafe } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { notFound } from 'next/navigation';
 
 export default async function CompanyDashboardPage(
   props: { params: Promise<{ slug: string }> }
 ) {
   const { slug } = await props.params;
-  const db = createServerClientSafe();
+  const db = createAdminClient();
 
   if (!db) {
     return (

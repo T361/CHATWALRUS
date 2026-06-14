@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminOrCron } from '@/lib/auth/guards';
-import { createServerClientSafe } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 export async function GET(req: NextRequest) {
   const authError = requireAdminOrCron(req);
   if (authError) return authError;
-  const db = createServerClientSafe();
+  const db = createAdminClient();
   if (!db) return NextResponse.json({ error: 'DB not configured' }, { status: 503 });
 
   const { data: passcodes, error } = await db
@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const authError = requireAdminOrCron(req);
   if (authError) return authError;
-  const db = createServerClientSafe();
+  const db = createAdminClient();
   if (!db) return NextResponse.json({ error: 'DB not configured' }, { status: 503 });
 
   const body = await req.json();

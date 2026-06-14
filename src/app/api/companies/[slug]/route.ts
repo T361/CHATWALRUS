@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminOrCron } from '@/lib/auth/guards';
-import { createServerClientSafe } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
   const { slug } = await params;
-  const db = createServerClientSafe();
+  const db = createAdminClient();
   if (!db) return NextResponse.json({ error: 'DB not configured' }, { status: 503 });
 
   const { data, error } = await db
@@ -30,7 +30,7 @@ export async function PATCH(
   const authError = requireAdminOrCron(req);
   if (authError) return authError;
   const { slug } = await params;
-  const db = createServerClientSafe();
+  const db = createAdminClient();
   if (!db) return NextResponse.json({ error: 'DB not configured' }, { status: 503 });
 
   // Find company by slug first

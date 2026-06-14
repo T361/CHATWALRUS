@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { createServerClientSafe } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 export async function GET() {
-  const db = createServerClientSafe();
+  const db = createAdminClient();
   if (!db) {
     return NextResponse.json({ error: 'Database not configured' }, { status: 503 });
   }

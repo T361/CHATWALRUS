@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminOrCron } from '@/lib/auth/guards';
-import { createServerClientSafe } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 export async function PATCH(
   req: NextRequest,
@@ -9,7 +9,7 @@ export async function PATCH(
   const authError = requireAdminOrCron(req);
   if (authError) return authError;
   const { id } = await params;
-  const db = createServerClientSafe();
+  const db = createAdminClient();
   if (!db) return NextResponse.json({ error: 'DB not configured' }, { status: 503 });
 
   const body = await req.json();

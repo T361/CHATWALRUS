@@ -1,7 +1,7 @@
 import PageShell from '@/components/layout/PageShell';
 import KpiCard from '@/components/company/KpiCard';
 import Link from 'next/link';
-import { createServerClientSafe } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { notFound } from 'next/navigation';
 import { median } from '@/lib/utils/normalize';
 
@@ -9,7 +9,7 @@ export default async function AssessmentsPage(
   props: { params: Promise<{ slug: string }> }
 ) {
   const { slug } = await props.params;
-  const db = createServerClientSafe();
+  const db = createAdminClient();
 
   if (!db) {
     return <PageShell><div className="card"><p>⚠️ Database not connected.</p></div></PageShell>;

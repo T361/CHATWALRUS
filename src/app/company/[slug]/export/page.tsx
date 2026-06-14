@@ -1,13 +1,13 @@
 import PageShell from '@/components/layout/PageShell';
 import Link from 'next/link';
-import { createServerClientSafe } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { notFound } from 'next/navigation';
 
 export default async function ExportPage(
   props: { params: Promise<{ slug: string }> }
 ) {
   const { slug } = await props.params;
-  const db = createServerClientSafe();
+  const db = createAdminClient();
 
   if (!db) {
     return <PageShell><div className="card"><p>⚠️ Database not connected.</p></div></PageShell>;

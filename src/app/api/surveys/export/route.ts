@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminOrCron } from '@/lib/auth/guards';
-import { createServerClientSafe } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { toCSV, csvResponse } from '@/lib/exports/csv';
 
 export async function GET(
@@ -8,7 +8,7 @@ export async function GET(
 ) {
   const authError = requireAdminOrCron(req);
   if (authError) return authError;
-  const db = createServerClientSafe();
+  const db = createAdminClient();
   if (!db) return NextResponse.json({ error: 'DB not configured' }, { status: 503 });
 
   const companyId = req.nextUrl.searchParams.get('company_id');

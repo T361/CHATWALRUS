@@ -1,6 +1,6 @@
 import PageShell from '@/components/layout/PageShell';
 import Link from 'next/link';
-import { createServerClientSafe } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { notFound } from 'next/navigation';
 import LearnerStatusBadge from '@/components/learners/LearnerStatusBadge';
 import type { LearnerStatus } from '@/types/learner';
@@ -9,7 +9,7 @@ export default async function LearnerDetailPage(
   props: { params: Promise<{ slug: string; learnerId: string }> }
 ) {
   const { slug, learnerId } = await props.params;
-  const db = createServerClientSafe();
+  const db = createAdminClient();
 
   if (!db) {
     return <PageShell><div className="card"><p>⚠️ Database not connected.</p></div></PageShell>;
