@@ -48,9 +48,9 @@ export async function syncAssignments(): Promise<SyncResult> {
     // Batch: pre-load all learners and courses for fast lookup
     const { data: allLearners } = await db
       .from('learners')
-      .select('id, thinkific_user_id');
+      .select('id, thinkific_user_id, company_id');
     const learnerMap = new Map(
-      (allLearners || []).map((l) => [l.thinkific_user_id, l.id])
+      (allLearners || []).map((l) => [l.thinkific_user_id, { id: l.id, company_id: l.company_id }])
     );
 
     const { data: allCourses } = await db
@@ -65,21 +65,14 @@ export async function syncAssignments(): Promise<SyncResult> {
     const records: Array<Record<string, unknown>> = [];
 
     for (const enrollment of enrollments) {
-      const learnerId = learnerMap.get(String(enrollment.user_id));
+      const learner = learnerMap.get(String(enrollment.user_id));
       const courseId = courseMap.get(String(enrollment.course_id));
-      if (!learnerId || !courseId) continue;
-
-      // Get the learner's company_id
-      const { data: learner } = await db
-        .from('learners')
-        .select('company_id')
-        .eq('id', learnerId)
-        .single();
+      if (!learner || !courseId) continue;
 
       records.push({
         thinkific_assignment_id: `enrollment-${enrollment.id}`,
-        learner_id: learnerId,
-        company_id: learner?.company_id || null,
+        learner_id: learner.id,
+        company_id: learner.company_id || null,
         course_id: courseId,
         submitted: enrollment.completed,
         submitted_at: enrollment.completed_at,
