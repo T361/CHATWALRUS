@@ -1,3 +1,4 @@
+export const maxDuration = 300;
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminOrCron } from '@/lib/auth/guards';
 import { syncEnrollments } from '@/lib/thinkific/syncEnrollments';

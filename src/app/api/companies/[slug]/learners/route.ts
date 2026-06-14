@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdminOrCron } from '@/lib/auth/guards';
 import { createAdminClient } from '@/lib/supabase/admin';
 import type { LearnerStatus } from '@/types/learner';
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
+  const authError = requireAdminOrCron(req);
+  if (authError) return authError;
   const { slug } = await params;
   const db = createAdminClient();
   if (!db) return NextResponse.json({ error: 'DB not configured' }, { status: 503 });
@@ -40,12 +43,13 @@ export async function GET(
     .eq('is_active', true)
     .in('learner_id', learnerIds);
 
-  // Bulk-fetch latest status snapshot per learner using a deduplicated approach
+  // Fetch today's snapshots only — avoids loading full history
+  const today = new Date().toISOString().split('T')[0];
   const { data: allSnapshots } = await db
     .from('learner_status_snapshots')
     .select('learner_id, status, live_sessions_last_30_days, snapshot_date')
     .in('learner_id', learnerIds)
-    .order('snapshot_date', { ascending: false });
+    .eq('snapshot_date', today);
 
   // Build Maps for O(1) lookups
   const enrollmentsByLearner = new Map<string, Array<{ progress_percent: number; course_id: string }>>();

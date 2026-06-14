@@ -12,13 +12,15 @@ export async function PATCH(
   const db = createAdminClient();
   if (!db) return NextResponse.json({ error: 'DB not configured' }, { status: 503 });
 
-  const body = await req.json();
+  // Verify the alert exists before updating
+  const { data: existing } = await db.from('alerts').select('id').eq('id', id).single();
+  if (!existing) return NextResponse.json({ error: 'Alert not found' }, { status: 404 });
 
   const { error } = await db
     .from('alerts')
     .update({
       status: 'reviewed',
-      reviewed_by: body.reviewed_by || 'admin',
+      reviewed_by: 'admin',
       reviewed_at: new Date().toISOString(),
     })
     .eq('id', id);

@@ -66,6 +66,11 @@ export default function AdminSettingsPage() {
         credentials: 'same-origin',
         cache: 'no-store',
       });
+      if (res.status === 401) {
+        // Not logged in — show login form only, no error
+        setSettingsStatus(null);
+        return;
+      }
       const data = (await res.json()) as SettingsStatusResponse;
       setSettingsStatus(data);
       setStatusError(null);

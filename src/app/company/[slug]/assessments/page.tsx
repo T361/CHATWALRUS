@@ -70,7 +70,7 @@ export default async function AssessmentsPage(
             <p className="empty-state" style={{ padding: '1rem' }}>No quiz data available.</p>
           ) : (
             <p style={{ fontSize: '0.8125rem', color: '#6b7280' }}>
-              {quizzes.length} quiz attempt(s) recorded. {quizScores.filter((s) => s >= 70).length} passed.
+              {quizzes.length} quiz attempt(s) recorded. {(quizzes || []).filter((q) => q.passed === true).length} passed.
             </p>
           )}
         </div>

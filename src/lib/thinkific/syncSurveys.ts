@@ -102,7 +102,7 @@ export async function syncSurveys(): Promise<SyncResult> {
             count += records.length;
           }
 
-          hasMore = response.meta?.pagination?.next_page !== null;
+          hasMore = !!(response.meta?.pagination?.next_page);
           page++;
         }
       } catch (error) {

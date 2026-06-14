@@ -21,12 +21,13 @@ export function calculateBenchmark(
 
 /**
  * Get the current milestone day for a company based on its start date.
+ * Returns null if the program hasn't started yet (prevents false Day-0 alerts).
  */
-export function getMilestoneDay(startDate: string | null): number {
+export function getMilestoneDay(startDate: string | null): number | null {
   const days = daysSince(startDate);
-  // Round down to nearest 30-day interval, minimum 30
-  const milestone = Math.floor(days / 30) * 30;
-  return Math.max(30, milestone);
+  if (days <= 0) return null; // program not started yet
+  // Round down to nearest 30-day interval
+  return Math.floor(days / 30) * 30 || 30;
 }
 
 /**

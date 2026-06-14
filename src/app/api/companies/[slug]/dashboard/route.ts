@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdminOrCron } from '@/lib/auth/guards';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { safeNumber } from '@/lib/utils/normalize';
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
+  const authError = requireAdminOrCron(req);
+  if (authError) return authError;
   const { slug } = await params;
   const db = createAdminClient();
   if (!db) return NextResponse.json({ error: 'DB not configured' }, { status: 503 });
@@ -51,7 +54,7 @@ export async function GET(
   const atRisk = latestMilestone?.at_risk_count ?? 0;
   const notStarted = latestMilestone?.not_started_count ?? 0;
   const highEngagement = latestMilestone?.high_engagement_count ?? 0;
-  const total = safeNumber(totalEnrolled, 1);
+  const total = Math.max(safeNumber(totalEnrolled), 1);
   const onPace = Math.round(((onTrack + highEngagement) / total) * 100);
 
   // Quiz median

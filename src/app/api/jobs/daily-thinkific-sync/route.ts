@@ -1,8 +1,8 @@
+export const maxDuration = 300;
 import { NextRequest, NextResponse } from 'next/server';
 import { syncCourses } from '@/lib/thinkific/syncCourses';
 import { syncUsers } from '@/lib/thinkific/syncUsers';
-import { syncEnrollments } from '@/lib/thinkific/syncEnrollments';
-import { syncProgress } from '@/lib/thinkific/syncProgress';
+import { syncEnrollmentData } from '@/lib/thinkific/syncEnrollmentData';
 import { createDailySnapshots } from '@/lib/snapshots/createDailySnapshots';
 import { createSyncLog, summarizeSyncResults, updateSyncLog, type SyncResult } from '@/lib/thinkific/syncCore';
 import { requireCronSecret } from '@/lib/auth/guards';
@@ -15,12 +15,12 @@ export async function POST(req: NextRequest) {
   const logId = await createSyncLog('daily-thinkific-sync', 'running');
 
   try {
-    const results: Record<string, SyncResult> = {
-      courses: await syncCourses(),
-      users: await syncUsers(),
-      enrollments: await syncEnrollments(),
-      progress: await syncProgress(),
-    };
+    const courses = await syncCourses();
+    const users = await syncUsers();
+    // Single Thinkific pass for enrollments + assignments (was two passes before)
+    const { enrollments, assignments } = await syncEnrollmentData();
+    const results: Record<string, SyncResult> = { courses, users, enrollments, assignments };
+
     const snapshotCount = await createDailySnapshots();
     results.snapshots = {
       syncType: 'snapshots',

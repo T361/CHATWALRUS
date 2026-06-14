@@ -1,3 +1,4 @@
+import 'server-only';
 // =============================================================================
 // Thinkific API Client (SERVER ONLY)
 // =============================================================================
@@ -136,18 +137,24 @@ export async function thinkificPaginateFast<T>(
 
   // Remaining pages fetched with bounded concurrency
   const remainingPages = Array.from({ length: totalPages - 1 }, (_, i) => i + 2);
-  const results: Array<T[]> = new Array(remainingPages.length);
+  // Initialize with empty arrays so a failed page doesn't leave an undefined slot
+  const results: Array<T[]> = Array.from({ length: remainingPages.length }, () => []);
 
   let idx = 0;
   async function worker() {
     while (idx < remainingPages.length) {
       const i = idx++;
       const page = remainingPages[i];
-      const res = await thinkificGet<{
-        items: T[];
-        meta: { pagination: { current_page: number; total_pages: number } };
-      }>(endpoint, { ...params, page: String(page), limit });
-      results[i] = res.items ?? [];
+      try {
+        const res = await thinkificGet<{
+          items: T[];
+          meta: { pagination: { current_page: number; total_pages: number } };
+        }>(endpoint, { ...params, page: String(page), limit });
+        results[i] = res.items ?? [];
+      } catch (err) {
+        console.warn(`[thinkificPaginateFast] Page ${page} failed, skipping:`, err);
+        results[i] = [];
+      }
     }
   }
 

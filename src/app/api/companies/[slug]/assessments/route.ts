@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdminOrCron } from '@/lib/auth/guards';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
+  const authError = requireAdminOrCron(req);
+  if (authError) return authError;
   const { slug } = await params;
   const db = createAdminClient();
   if (!db) return NextResponse.json({ error: 'DB not configured' }, { status: 503 });

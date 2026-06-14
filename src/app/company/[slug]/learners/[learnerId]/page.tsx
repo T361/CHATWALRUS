@@ -15,10 +15,17 @@ export default async function LearnerDetailPage(
     return <PageShell><div className="card"><p>⚠️ Database not connected.</p></div></PageShell>;
   }
 
-  const { data: learner } = await db.from('learners').select('*').eq('id', learnerId).single();
-  if (!learner) notFound();
+  const { data: company } = await db.from('companies').select('id, name').eq('slug', slug).single();
+  if (!company) notFound();
 
-  const { data: company } = await db.from('companies').select('name').eq('slug', slug).single();
+  // Scope learner fetch to this company to prevent cross-company data access
+  const { data: learner } = await db
+    .from('learners')
+    .select('*')
+    .eq('id', learnerId)
+    .eq('company_id', company.id)
+    .single();
+  if (!learner) notFound();
 
   // Get enrollments with course names
   const { data: enrollments } = await db

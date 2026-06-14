@@ -103,6 +103,9 @@ async function probeThinkific(): Promise<ProbeResult> {
 
 export async function GET(req: NextRequest) {
   const session = getAdminSession(req);
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
 
   const [supabasePublic, supabaseAdmin, thinkific] = await Promise.all([
     probeSupabase(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, 'companies'),

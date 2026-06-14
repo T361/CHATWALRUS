@@ -1,3 +1,4 @@
+export const maxDuration = 300;
 import { NextRequest, NextResponse } from 'next/server';
 import { runAllMilestoneChecks } from '@/lib/milestones/runMilestoneCheck';
 import { requireCronSecret } from '@/lib/auth/guards';

@@ -11,7 +11,7 @@ import { safeNumber } from '@/lib/utils/normalize';
 
 function daysSince(dateStr: string | null): number | null {
   if (!dateStr) return null;
-  return Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
+  return Math.max(0, Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000));
 }
 
 export default async function CompanyDashboardPage(
@@ -64,7 +64,7 @@ export default async function CompanyDashboardPage(
   const atRisk = latestMilestone?.at_risk_count ?? 0;
   const notStarted = latestMilestone?.not_started_count ?? 0;
   const highEngagement = latestMilestone?.high_engagement_count ?? 0;
-  const total = safeNumber(totalEnrolled, 1);
+  const total = Math.max(safeNumber(totalEnrolled), 1);
   const onPace = Math.round(((onTrack + highEngagement) / total) * 100);
 
   const statusDistribution = [

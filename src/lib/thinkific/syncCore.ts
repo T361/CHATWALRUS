@@ -83,13 +83,14 @@ export async function createSyncLog(
   }
 
   const db = createAdminClient();
+  const now = new Date().toISOString();
   const { data, error } = await db
     .from('sync_logs')
     .insert({
       sync_type: syncType,
       status,
-      started_at: new Date().toISOString(),
-      completed_at: status !== 'running' ? new Date().toISOString() : null,
+      started_at: now,
+      completed_at: status !== 'running' ? now : null,
       records_processed: recordsProcessed,
       error_message: errorMessage || null,
       metadata: metadata || null,

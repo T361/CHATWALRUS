@@ -36,6 +36,10 @@ export async function runMilestoneCheck(
 
   const db = createAdminClient();
   const milestoneDay = getMilestoneDay(company.start_date);
+  if (milestoneDay === null) {
+    console.log(`[MilestoneCheck] ${company.name} program has not started yet — skipping.`);
+    return null;
+  }
   const benchmarkPercent = calculateBenchmark(milestoneDay, company.learning_timeline_days);
 
   // Fetch active learners
@@ -254,11 +258,8 @@ export async function runAllMilestoneChecks(): Promise<MilestoneCheckResult[]> {
     return [];
   }
 
-  const results: MilestoneCheckResult[] = [];
-  for (const company of companies) {
-    const result = await runMilestoneCheck(company as Company);
-    if (result) results.push(result);
-  }
-
-  return results;
+  const settled = await Promise.all(
+    companies.map((company) => runMilestoneCheck(company as Company))
+  );
+  return settled.filter((r): r is MilestoneCheckResult => r !== null);
 }

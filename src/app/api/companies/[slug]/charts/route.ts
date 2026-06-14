@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdminOrCron } from '@/lib/auth/guards';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
+  const authError = requireAdminOrCron(req);
+  if (authError) return authError;
   const { slug } = await params;
   const db = createAdminClient();
   if (!db) return NextResponse.json({ error: 'DB not configured' }, { status: 503 });
@@ -39,22 +42,15 @@ export async function GET(
     average_completion: Math.round((total / count) * 10) / 10,
   }));
 
-  // Status distribution from latest learner_status_snapshots
-  const { data: statusData } = await db
-    .from('learner_status_snapshots')
-    .select('status')
-    .eq('company_id', company.id)
-    .order('snapshot_date', { ascending: false });
-
-  // Get unique latest status per learner
-  const learnerStatuses = new Map<string, string>();
-  // We need learner_id too
+  // Status distribution — latest snapshot per learner, today's date preferred
   const { data: statusWithLearner } = await db
     .from('learner_status_snapshots')
     .select('learner_id, status, snapshot_date')
     .eq('company_id', company.id)
-    .order('snapshot_date', { ascending: false });
+    .order('snapshot_date', { ascending: false })
+    .limit(5000);
 
+  const learnerStatuses = new Map<string, string>();
   if (statusWithLearner) {
     for (const s of statusWithLearner) {
       if (!learnerStatuses.has(s.learner_id)) {
@@ -69,9 +65,6 @@ export async function GET(
   for (const status of learnerStatuses.values()) {
     if (status in statusCounts) statusCounts[status]++;
   }
-
-  // Suppress unused variable warning
-  void statusData;
 
   return NextResponse.json({
     completion_trend: completionTrend,

@@ -13,12 +13,18 @@ export default function AlertBanner({ alerts }: { alerts: Alert[] }) {
   async function patch(id: string, action: 'review' | 'action') {
     setLoading(id + action);
     try {
-      await fetch(`/api/alerts/${id}/${action}`, {
+      const res = await fetch(`/api/alerts/${id}/${action}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reviewed_by: 'admin' }),
       });
+      if (!res.ok) {
+        console.error(`[AlertBanner] Failed to ${action} alert ${id}: ${res.status}`);
+        return;
+      }
       setDismissed((prev) => new Set([...prev, id]));
+    } catch (err) {
+      console.error(`[AlertBanner] Network error for alert ${id}:`, err);
     } finally {
       setLoading(null);
     }

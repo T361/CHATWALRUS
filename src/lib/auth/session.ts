@@ -1,3 +1,4 @@
+import 'server-only';
 // =============================================================================
 // Admin Session Helpers (SERVER ONLY)
 // =============================================================================
@@ -35,20 +36,13 @@ function signPayload(payload: string, secret: string): string {
 }
 
 function constantTimeEqual(a: string, b: string): boolean {
-  const aBuffer = Buffer.from(a);
-  const bBuffer = Buffer.from(b);
-
-  if (aBuffer.length !== bBuffer.length) {
-    const length = Math.max(aBuffer.length, bBuffer.length);
-    const paddedA = Buffer.alloc(length);
-    const paddedB = Buffer.alloc(length);
-    aBuffer.copy(paddedA);
-    bBuffer.copy(paddedB);
-    timingSafeEqual(paddedA, paddedB);
-    return false;
-  }
-
-  return timingSafeEqual(aBuffer, bBuffer);
+  // HMAC both inputs so they're always the same length — avoids length oracle.
+  // A fixed dummy secret is fine here because we're only comparing the structure,
+  // not protecting a secret key — the real secret is the HMAC input (a and b).
+  const key = Buffer.from('chatwalrus-compare-key');
+  const aDigest = createHmac('sha256', key).update(a).digest();
+  const bDigest = createHmac('sha256', key).update(b).digest();
+  return timingSafeEqual(aDigest, bDigest);
 }
 
 export function verifySecret(value: string, expected: string): boolean {
