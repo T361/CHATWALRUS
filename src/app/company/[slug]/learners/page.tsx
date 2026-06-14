@@ -23,11 +23,11 @@ interface LearnerRow {
 export default function LearnersPage() {
   const params = useParams();
   const slug = params.slug as string;
-  const [learners, setLearners] = useState<LearnerRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [companyName, setCompanyName] = useState('');
+  const [learners,     setLearners]    = useState<LearnerRow[]>([]);
+  const [loading,      setLoading]     = useState(true);
+  const [search,       setSearch]      = useState('');
+  const [statusFilter, setStatusFilter]= useState<string>('all');
+  const [companyName,  setCompanyName] = useState('');
 
   useEffect(() => {
     async function load() {
@@ -45,42 +45,35 @@ export default function LearnersPage() {
   }, [slug]);
 
   const filtered = learners.filter((l) => {
-    const matchesSearch =
-      !search ||
-      (l.full_name || '').toLowerCase().includes(search.toLowerCase()) ||
-      (l.email || '').toLowerCase().includes(search.toLowerCase());
+    const matchesSearch = !search
+      || (l.full_name || '').toLowerCase().includes(search.toLowerCase())
+      || (l.email || '').toLowerCase().includes(search.toLowerCase());
     const matchesStatus = statusFilter === 'all' || l.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
   return (
     <PageShell>
-      <div style={{ marginBottom: '1rem' }}>
-        <Link href={`/company/${slug}`} style={{ fontSize: '0.8125rem', color: '#6b7280', textDecoration: 'none' }}>
-          ← Back to {companyName || 'Dashboard'}
-        </Link>
-      </div>
+      <Link href={`/company/${slug}`} className="back-link">
+        ← {companyName || 'Dashboard'}
+      </Link>
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-        <h1 style={{ fontSize: '1.5rem', fontWeight: 700 }}>Learners</h1>
-        <a
-          href={`/api/companies/${slug}/export/csv`}
-          className="btn btn-secondary"
-          style={{ textDecoration: 'none' }}
-        >
-          📥 Export CSV
+      <div className="page-header">
+        <h1 className="page-title">Learners</h1>
+        <a href={`/api/companies/${slug}/export/csv`} className="btn btn-secondary btn-sm">
+          ↓ Export CSV
         </a>
       </div>
 
-      <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: '0.625rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
         <input
           type="text"
-          placeholder="Search by name or email..."
+          placeholder="Search name or email..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           style={{ flex: 1, minWidth: '200px' }}
         />
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={{ minWidth: '160px' }}>
           <option value="all">All Statuses</option>
           <option value="not_started">Not Started</option>
           <option value="at_risk">At Risk</option>
@@ -88,11 +81,14 @@ export default function LearnersPage() {
           <option value="on_track">On Track</option>
           <option value="high_engagement">High Engagement</option>
         </select>
+        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', alignSelf: 'center', fontVariantNumeric: 'tabular-nums' }}>
+          {filtered.length} learner{filtered.length !== 1 ? 's' : ''}
+        </span>
       </div>
 
-      <div className="card" style={{ padding: 0, overflow: 'auto' }}>
+      <div className="card card-flush" style={{ overflow: 'auto' }}>
         {loading ? (
-          <div className="empty-state"><div className="spinner" style={{ margin: '0 auto' }} /></div>
+          <div className="empty-state"><span className="spinner" /><p>Loading learners...</p></div>
         ) : filtered.length === 0 ? (
           <div className="empty-state">
             <h3>No Learners Found</h3>
@@ -103,44 +99,51 @@ export default function LearnersPage() {
             <thead>
               <tr>
                 <th>Name</th>
-                <th>Email</th>
                 <th>Department</th>
                 <th>Progress</th>
                 <th>Status</th>
                 <th>Courses</th>
                 <th>Last Active</th>
-                <th>Live Sessions</th>
+                <th style={{ textAlign: 'center' }}>Sessions</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map((l) => (
-                <tr key={l.id}>
-                  <td>
-                    <Link
-                      href={`/company/${slug}/learners/${l.id}`}
-                      style={{ color: '#2563eb', textDecoration: 'none', fontWeight: 500 }}
-                    >
-                      {l.full_name || 'Unknown'}
-                    </Link>
-                  </td>
-                  <td style={{ color: '#6b7280' }}>{l.email || '—'}</td>
-                  <td style={{ color: '#6b7280' }}>{l.department || '—'}</td>
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <div style={{ width: '60px', height: '6px', background: '#e5e7eb', borderRadius: '3px', overflow: 'hidden' }}>
-                        <div style={{ width: `${Math.min(100, l.progress_percent)}%`, height: '100%', background: '#2563eb', borderRadius: '3px' }} />
+              {filtered.map((l) => {
+                const progress = Math.min(100, l.progress_percent);
+                const progressColor = progress >= 70 ? 'var(--on-track)' : progress >= 40 ? 'var(--primary)' : 'var(--at-risk)';
+                return (
+                  <tr key={l.id}>
+                    <td>
+                      <div>
+                        <Link
+                          href={`/company/${slug}/learners/${l.id}`}
+                          style={{ color: 'var(--primary)', fontWeight: 500, fontSize: '0.875rem' }}
+                        >
+                          {l.full_name || 'Unknown'}
+                        </Link>
+                        <p style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', marginTop: '1px' }}>{l.email || '—'}</p>
                       </div>
-                      <span style={{ fontSize: '0.75rem' }}>{l.progress_percent.toFixed(0)}%</span>
-                    </div>
-                  </td>
-                  <td><LearnerStatusBadge status={l.status} /></td>
-                  <td>{l.courses_enrolled}</td>
-                  <td style={{ fontSize: '0.75rem', color: '#6b7280' }}>
-                    {l.last_active_at ? new Date(l.last_active_at).toLocaleDateString() : '—'}
-                  </td>
-                  <td style={{ textAlign: 'center' }}>{l.live_sessions_last_30_days}</td>
-                </tr>
-              ))}
+                    </td>
+                    <td style={{ color: 'var(--text-secondary)', fontSize: '0.8125rem' }}>{l.department || '—'}</td>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <div style={{ width: 56, height: 4, background: 'var(--border)', borderRadius: '9999px', overflow: 'hidden', flexShrink: 0 }}>
+                          <div style={{ width: `${progress}%`, height: '100%', background: progressColor, borderRadius: '9999px' }} />
+                        </div>
+                        <span className="tabular" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{l.progress_percent.toFixed(0)}%</span>
+                      </div>
+                    </td>
+                    <td><LearnerStatusBadge status={l.status} /></td>
+                    <td className="tabular" style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>{l.courses_enrolled}</td>
+                    <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                      {l.last_active_at ? new Date(l.last_active_at).toLocaleDateString() : '—'}
+                    </td>
+                    <td className="tabular" style={{ textAlign: 'center', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+                      {l.live_sessions_last_30_days}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}

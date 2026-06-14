@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminSession, ADMIN_SESSION_COOKIE } from '@/lib/auth/session';
+import { getAdminSessionEdge, ADMIN_SESSION_COOKIE } from '@/lib/auth/session-edge';
 
 // Routes that don't require authentication
 const PUBLIC_PATHS = [
-  '/admin/settings',   // login page (passcode form lives here)
+  '/admin/settings',   // login page
   '/api/auth/login',
   '/api/auth/logout',
   '/api/auth/session',
-  // /api/admin/settings/status is intentionally NOT here — it requires auth
 ];
 
 function isPublicPath(pathname: string): boolean {
@@ -24,14 +23,16 @@ function isStaticAsset(pathname: string): boolean {
   );
 }
 
-export function middleware(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   if (isStaticAsset(pathname) || isPublicPath(pathname)) {
     return NextResponse.next();
   }
 
-  const session = getAdminSession(req);
+  const cookieValue = req.cookies.get(ADMIN_SESSION_COOKIE)?.value;
+  const session = await getAdminSessionEdge(cookieValue);
+
   if (session) return NextResponse.next();
 
   // API routes: return 401 JSON instead of redirect
@@ -43,7 +44,6 @@ export function middleware(req: NextRequest) {
   const loginUrl = new URL('/admin/settings', req.url);
   loginUrl.searchParams.set('redirect', pathname);
   const response = NextResponse.redirect(loginUrl);
-  // Clear any stale session cookie
   response.cookies.delete(ADMIN_SESSION_COOKIE);
   return response;
 }

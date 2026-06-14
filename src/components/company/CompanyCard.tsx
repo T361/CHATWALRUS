@@ -12,20 +12,38 @@ interface CompanyCardProps {
 export default function CompanyCard({
   name, slug, learnerCount, startDate, avgProgress, atRiskCount,
 }: CompanyCardProps) {
+  const progress = avgProgress ?? 0;
+
   return (
-    <Link href={`/company/${slug}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-      <div className="card" style={{ cursor: 'pointer', transition: 'box-shadow 0.15s ease' }}>
-        <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.5rem' }}>{name}</h3>
-        <div style={{ display: 'flex', gap: '1rem', fontSize: '0.8125rem', color: '#6b7280', flexWrap: 'wrap' }}>
-          <span>{learnerCount} learners</span>
-          {startDate && <span>Started {startDate}</span>}
-          {avgProgress !== undefined && (
-            <span>Avg: {avgProgress.toFixed(0)}%</span>
-          )}
+    <Link href={`/company/${slug}`} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
+      <div className="card card-hover company-card">
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.5rem', marginBottom: '0.75rem' }}>
+          <h3 className="company-card-name">{name}</h3>
           {atRiskCount !== undefined && atRiskCount > 0 && (
             <span className="badge badge-at-risk">{atRiskCount} at risk</span>
           )}
         </div>
+
+        <div style={{ marginBottom: '0.875rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '0.375rem' }}>
+            <span className="company-card-meta">{learnerCount} learners</span>
+            {avgProgress !== undefined && (
+              <span className="company-card-progress-label tabular">{progress.toFixed(0)}%</span>
+            )}
+          </div>
+          {avgProgress !== undefined && (
+            <div className="progress-track">
+              <div
+                className={`progress-fill${progress >= 70 ? ' progress-fill-success' : progress >= 40 ? '' : ' progress-fill-danger'}`}
+                style={{ width: `${Math.min(progress, 100)}%` }}
+              />
+            </div>
+          )}
+        </div>
+
+        {startDate && (
+          <div className="company-card-meta">Started {startDate}</div>
+        )}
       </div>
     </Link>
   );

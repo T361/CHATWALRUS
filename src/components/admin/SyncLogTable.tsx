@@ -2,11 +2,7 @@ import type { SyncLog } from '@/types/alert';
 
 export default function SyncLogTable({ logs }: { logs: SyncLog[] }) {
   if (logs.length === 0) {
-    return (
-      <div className="empty-state" style={{ padding: '1rem' }}>
-        <p>No sync logs recorded yet.</p>
-      </div>
-    );
+    return <div className="empty-state"><p>No sync logs recorded yet.</p></div>;
   }
 
   return (
@@ -31,14 +27,10 @@ export default function SyncLogTable({ logs }: { logs: SyncLog[] }) {
                   {log.status}
                 </span>
               </td>
-              <td>{log.records_processed}</td>
-              <td style={{ fontSize: '0.75rem', color: '#6b7280' }}>
-                {new Date(log.started_at).toLocaleString()}
-              </td>
-              <td style={{ fontSize: '0.75rem', color: '#6b7280' }}>
-                {log.completed_at ? new Date(log.completed_at).toLocaleString() : '—'}
-              </td>
-              <td style={{ fontSize: '0.75rem', color: '#dc2626', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <td className="tabular">{log.records_processed}</td>
+              <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{new Date(log.started_at).toLocaleString()}</td>
+              <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{log.completed_at ? new Date(log.completed_at).toLocaleString() : '—'}</td>
+              <td style={{ fontSize: '0.75rem', color: 'var(--danger)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {log.error_message || '—'}
               </td>
             </tr>

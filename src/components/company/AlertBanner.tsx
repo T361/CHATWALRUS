@@ -31,67 +31,48 @@ export default function AlertBanner({ alerts }: { alerts: Alert[] }) {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1rem' }}>
-      {visible.map((alert) => (
-        <div
-          key={alert.id}
-          style={{
-            padding: '0.75rem 1rem',
-            borderRadius: '0.375rem',
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: '0.75rem',
-            background: alert.severity === 'critical' ? '#fef2f2' : '#fffbeb',
-            border: `1px solid ${alert.severity === 'critical' ? '#fecaca' : '#fde68a'}`,
-          }}
-        >
-          <span style={{ fontSize: '1rem', marginTop: '2px' }}>
-            {alert.severity === 'critical' ? '🔴' : '⚠️'}
-          </span>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 600, fontSize: '0.875rem', color: '#111827' }}>
-              {alert.title}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.25rem' }}>
+      {visible.map((alert) => {
+        const isCritical = alert.severity === 'critical';
+        return (
+          <div
+            key={alert.id}
+            className="alert-row"
+            style={{
+              '--alert-accent': isCritical ? 'var(--danger)' : 'var(--warning)',
+              '--alert-bg': isCritical ? 'var(--danger-bg)' : 'var(--warning-bg)',
+              '--alert-border': isCritical ? 'rgba(248,113,113,0.2)' : 'rgba(245,158,11,0.2)',
+            } as React.CSSProperties}
+          >
+            <span className="alert-dot" />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div className="alert-title">{alert.title}</div>
+              <div className="alert-message">{alert.message}</div>
             </div>
-            <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.125rem' }}>
-              {alert.message}
+            <div style={{ display: 'flex', gap: '0.375rem', flexShrink: 0 }}>
+              <button
+                onClick={() => patch(alert.id, 'review')}
+                disabled={loading === alert.id + 'review'}
+                className="btn btn-ghost btn-xs"
+              >
+                {loading === alert.id + 'review' ? <span className="spinner" style={{ width: '0.75rem', height: '0.75rem' }} /> : 'Reviewed'}
+              </button>
+              <button
+                onClick={() => patch(alert.id, 'action')}
+                disabled={loading === alert.id + 'action'}
+                className="btn btn-xs"
+                style={{
+                  background: isCritical ? 'rgba(248,113,113,0.12)' : 'rgba(245,158,11,0.12)',
+                  color: isCritical ? 'var(--danger)' : 'var(--warning)',
+                  border: `1px solid ${isCritical ? 'rgba(248,113,113,0.3)' : 'rgba(245,158,11,0.3)'}`,
+                }}
+              >
+                {loading === alert.id + 'action' ? <span className="spinner" style={{ width: '0.75rem', height: '0.75rem' }} /> : 'Actioned'}
+              </button>
             </div>
           </div>
-          <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
-            <button
-              onClick={() => patch(alert.id, 'review')}
-              disabled={loading === alert.id + 'review'}
-              style={{
-                fontSize: '0.75rem',
-                padding: '0.25rem 0.625rem',
-                borderRadius: '0.25rem',
-                border: '1px solid #d1d5db',
-                background: '#fff',
-                cursor: 'pointer',
-                color: '#374151',
-                opacity: loading === alert.id + 'review' ? 0.5 : 1,
-              }}
-            >
-              {loading === alert.id + 'review' ? '...' : 'Reviewed'}
-            </button>
-            <button
-              onClick={() => patch(alert.id, 'action')}
-              disabled={loading === alert.id + 'action'}
-              style={{
-                fontSize: '0.75rem',
-                padding: '0.25rem 0.625rem',
-                borderRadius: '0.25rem',
-                border: 'none',
-                background: alert.severity === 'critical' ? '#dc2626' : '#d97706',
-                cursor: 'pointer',
-                color: '#fff',
-                opacity: loading === alert.id + 'action' ? 0.5 : 1,
-              }}
-            >
-              {loading === alert.id + 'action' ? '...' : 'Actioned'}
-            </button>
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

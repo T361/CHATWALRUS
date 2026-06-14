@@ -25,8 +25,8 @@ export default async function CompanyDashboardPage(
   if (!db) {
     return (
       <PageShell>
-        <div className="card" style={{ background: '#fffbeb', border: '1px solid #fde68a' }}>
-          <p style={{ color: '#92400e' }}>⚠️ Database not connected.</p>
+        <div className="card" style={{ background: 'var(--warning-bg)', borderColor: 'rgba(245,158,11,0.25)' }}>
+          <p style={{ color: 'var(--warning)' }}>Database not connected.</p>
         </div>
       </PageShell>
     );
@@ -75,7 +75,6 @@ export default async function CompanyDashboardPage(
     { status: 'not_started', count: notStarted },
   ];
 
-  // Aggregate trend: average completion per day across all learners
   const trendByDate = new Map<string, number[]>();
   for (const row of trendData || []) {
     const date = row.snapshot_date;
@@ -99,21 +98,17 @@ export default async function CompanyDashboardPage(
 
   return (
     <PageShell>
-      <div style={{ marginBottom: '1rem' }}>
-        <Link href="/" style={{ fontSize: '0.8125rem', color: '#6b7280', textDecoration: 'none' }}>
-          ← Back to Companies
-        </Link>
-      </div>
+      <Link href="/" className="back-link">← Companies</Link>
 
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+      <div className="page-header">
         <div>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 700 }}>{company.name}</h1>
+          <h1 className="page-title">{company.name}</h1>
           {programLabel && (
-            <p style={{ color: '#6b7280', fontSize: '0.8125rem', marginTop: '0.25rem' }}>
-              Program: {programLabel}
+            <p className="page-subtitle">
+              {programLabel}
               {latestMilestone && (
-                <span style={{ marginLeft: '0.75rem', color: '#9ca3af' }}>
-                  · Milestone Day {latestMilestone.milestone_day} · Benchmark {Number(latestMilestone.benchmark_percent).toFixed(0)}%
+                <span style={{ color: 'var(--text-muted)', marginLeft: '0.75rem' }}>
+                  · Day {latestMilestone.milestone_day} · Benchmark {Number(latestMilestone.benchmark_percent).toFixed(0)}%
                 </span>
               )}
             </p>
@@ -124,73 +119,63 @@ export default async function CompanyDashboardPage(
 
       <AlertBanner alerts={alerts || []} />
 
-      {/* KPI Row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '0.75rem', marginBottom: '1.5rem' }}>
+      <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))' }}>
         <KpiCard title="Total Enrolled" value={totalEnrolled ?? 0} />
-        <KpiCard title="Course Completions" value={courseCompletions} />
+        <KpiCard title="Completions" value={courseCompletions} />
         <KpiCard title="Avg Progress" value={`${avgProgress.toFixed(1)}%`} />
         <KpiCard title="Assignment Rate" value={`${submissionRate}%`} />
-        <KpiCard title="On Pace" value={`${onPace}%`} color="#059669" />
-        <KpiCard title="Slightly Behind" value={slightlyBehind} color="#d97706" />
-        <KpiCard title="At Risk" value={atRisk} color="#dc2626" />
-        <KpiCard title="Not Started" value={notStarted} color="#9ca3af" />
+        <KpiCard title="On Pace" value={`${onPace}%`} color="var(--on-track)" />
+        <KpiCard title="Slightly Behind" value={slightlyBehind} color="var(--slightly-behind)" />
+        <KpiCard title="At Risk" value={atRisk} color="var(--at-risk)" />
+        <KpiCard title="Not Started" value={notStarted} color="var(--not-started)" />
       </div>
 
-      {/* Charts Row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
+      <div className="grid-2" style={{ marginBottom: '1.5rem' }}>
         <LearnerStatusChart data={statusDistribution} />
         <CompletionTrendChart data={trend} />
       </div>
 
-      {/* Milestone summary */}
       {latestMilestone && (
-        <div className="card" style={{ marginBottom: '1rem', display: 'flex', gap: '2rem', alignItems: 'center', background: '#f9fafb' }}>
+        <div className="card" style={{ marginBottom: '1.25rem', display: 'flex', gap: '2.5rem', alignItems: 'center' }}>
           <div>
-            <p style={{ fontSize: '0.75rem', color: '#6b7280' }}>Average Completion</p>
-            <p style={{ fontSize: '1.25rem', fontWeight: 700 }}>{Number(latestMilestone.average_completion_percent).toFixed(1)}%</p>
+            <p className="kpi-label">Avg Completion</p>
+            <p className="kpi-value tabular">{Number(latestMilestone.average_completion_percent).toFixed(1)}%</p>
           </div>
           <div>
-            <p style={{ fontSize: '0.75rem', color: '#6b7280' }}>Benchmark</p>
-            <p style={{ fontSize: '1.25rem', fontWeight: 700 }}>{Number(latestMilestone.benchmark_percent).toFixed(1)}%</p>
+            <p className="kpi-label">Benchmark</p>
+            <p className="kpi-value tabular">{Number(latestMilestone.benchmark_percent).toFixed(1)}%</p>
           </div>
           <div>
-            <p style={{ fontSize: '0.75rem', color: '#6b7280' }}>At Risk %</p>
-            <p style={{ fontSize: '1.25rem', fontWeight: 700, color: Number(latestMilestone.at_risk_percent) > 20 ? '#dc2626' : '#111827' }}>
+            <p className="kpi-label">At Risk %</p>
+            <p className="kpi-value tabular" style={{ color: Number(latestMilestone.at_risk_percent) > 20 ? 'var(--danger)' : 'var(--text)' }}>
               {Number(latestMilestone.at_risk_percent).toFixed(1)}%
             </p>
           </div>
           {latestMilestone.alert_triggered && (
-            <span style={{ marginLeft: 'auto', fontSize: '0.75rem', color: '#dc2626', fontWeight: 600 }}>⚠️ Alert triggered</span>
+            <span style={{ marginLeft: 'auto', fontSize: '0.75rem', color: 'var(--warning)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--warning)', display: 'inline-block', boxShadow: '0 0 6px var(--warning)' }} />
+              Alert triggered
+            </span>
           )}
         </div>
       )}
 
-      {/* Navigation cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1rem' }}>
-        <Link href={`/company/${slug}/learners`} style={{ textDecoration: 'none', color: 'inherit' }}>
-          <div className="card" style={{ cursor: 'pointer' }}>
-            <h3 style={{ fontSize: '0.875rem', fontWeight: 600 }}>👥 Learner Breakdown</h3>
-            <p style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>
-              {totalEnrolled} learners · progress, status, last active
-            </p>
-          </div>
-        </Link>
-        <Link href={`/company/${slug}/assessments`} style={{ textDecoration: 'none', color: 'inherit' }}>
-          <div className="card" style={{ cursor: 'pointer' }}>
-            <h3 style={{ fontSize: '0.875rem', fontWeight: 600 }}>📝 Assessments</h3>
-            <p style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>
-              {courseCompletions} completions · {submissionRate}% assignment rate
-            </p>
-          </div>
-        </Link>
-        <Link href={`/company/${slug}/export`} style={{ textDecoration: 'none', color: 'inherit' }}>
-          <div className="card" style={{ cursor: 'pointer' }}>
-            <h3 style={{ fontSize: '0.875rem', fontWeight: 600 }}>📊 Export Data</h3>
-            <p style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>
-              Download CSV and JSON reports
-            </p>
-          </div>
-        </Link>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '0.875rem' }}>
+        {[
+          { href: `/company/${slug}/learners`, icon: '⌀', label: 'Learner Breakdown', sub: `${totalEnrolled ?? 0} learners · progress & status` },
+          { href: `/company/${slug}/assessments`, icon: '◈', label: 'Assessments', sub: `${courseCompletions} completions · ${submissionRate}% assignment rate` },
+          { href: `/company/${slug}/export`, icon: '↓', label: 'Export Data', sub: 'Download CSV and JSON reports' },
+        ].map(({ href, icon, label, sub }) => (
+          <Link key={href} href={href} style={{ textDecoration: 'none', color: 'inherit' }}>
+            <div className="card card-hover" style={{ minHeight: 80 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.375rem' }}>
+                <span style={{ fontSize: '0.875rem', color: 'var(--primary)', fontFamily: 'monospace' }}>{icon}</span>
+                <h3 className="section-title" style={{ marginBottom: 0 }}>{label}</h3>
+              </div>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{sub}</p>
+            </div>
+          </Link>
+        ))}
       </div>
     </PageShell>
   );

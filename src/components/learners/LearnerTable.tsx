@@ -31,49 +31,53 @@ export default function LearnerTable({ learners, companySlug }: LearnerTableProp
   }
 
   return (
-    <div className="card" style={{ padding: 0, overflow: 'auto' }}>
+    <div className="card card-flush" style={{ overflow: 'auto' }}>
       <table>
         <thead>
           <tr>
             <th>Name</th>
-            <th>Email</th>
             <th>Department</th>
             <th>Progress</th>
             <th>Status</th>
             <th>Courses</th>
             <th>Last Active</th>
-            <th>Live Sessions</th>
+            <th style={{ textAlign: 'center' }}>Sessions</th>
           </tr>
         </thead>
         <tbody>
-          {learners.map((l) => (
-            <tr key={l.id}>
-              <td>
-                <Link
-                  href={`/company/${companySlug}/learners/${l.id}`}
-                  style={{ color: '#2563eb', textDecoration: 'none', fontWeight: 500 }}
-                >
-                  {l.full_name || 'Unknown'}
-                </Link>
-              </td>
-              <td style={{ color: '#6b7280' }}>{l.email || '—'}</td>
-              <td style={{ color: '#6b7280' }}>{l.department || '—'}</td>
-              <td>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <div style={{ width: '60px', height: '6px', background: '#e5e7eb', borderRadius: '3px', overflow: 'hidden' }}>
-                    <div style={{ width: `${Math.min(100, l.progress_percent)}%`, height: '100%', background: '#2563eb', borderRadius: '3px' }} />
+          {learners.map((l) => {
+            const progress = Math.min(100, l.progress_percent);
+            const progressColor = progress >= 70 ? 'var(--on-track)' : progress >= 40 ? 'var(--primary)' : 'var(--at-risk)';
+            return (
+              <tr key={l.id}>
+                <td>
+                  <div>
+                    <Link href={`/company/${companySlug}/learners/${l.id}`} style={{ color: 'var(--primary)', fontWeight: 500, fontSize: '0.875rem' }}>
+                      {l.full_name || 'Unknown'}
+                    </Link>
+                    {l.email && <p style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', marginTop: 1 }}>{l.email}</p>}
                   </div>
-                  <span style={{ fontSize: '0.75rem' }}>{l.progress_percent.toFixed(0)}%</span>
-                </div>
-              </td>
-              <td><LearnerStatusBadge status={l.status} /></td>
-              <td>{l.courses_enrolled}</td>
-              <td style={{ fontSize: '0.75rem', color: '#6b7280' }}>
-                {l.last_active_at ? new Date(l.last_active_at).toLocaleDateString() : '—'}
-              </td>
-              <td style={{ textAlign: 'center' }}>{l.live_sessions_last_30_days}</td>
-            </tr>
-          ))}
+                </td>
+                <td style={{ color: 'var(--text-secondary)', fontSize: '0.8125rem' }}>{l.department || '—'}</td>
+                <td>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <div style={{ width: 56, height: 4, background: 'var(--border)', borderRadius: '9999px', overflow: 'hidden', flexShrink: 0 }}>
+                      <div style={{ width: `${progress}%`, height: '100%', background: progressColor, borderRadius: '9999px' }} />
+                    </div>
+                    <span className="tabular" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{l.progress_percent.toFixed(0)}%</span>
+                  </div>
+                </td>
+                <td><LearnerStatusBadge status={l.status} /></td>
+                <td className="tabular" style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>{l.courses_enrolled}</td>
+                <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                  {l.last_active_at ? new Date(l.last_active_at).toLocaleDateString() : '—'}
+                </td>
+                <td className="tabular" style={{ textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
+                  {l.live_sessions_last_30_days}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

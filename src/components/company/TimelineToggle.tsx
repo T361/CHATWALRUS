@@ -19,27 +19,21 @@ export default function TimelineToggle({
   const isCalendar = current === 'calendar';
 
   return (
-    <button
-      onClick={toggle}
-      title={isCalendar ? 'Switch to days-since-start view' : 'Switch to calendar date view'}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.375rem',
-        padding: '0.375rem 0.75rem',
-        borderRadius: '0.375rem',
-        border: '1px solid #d1d5db',
-        background: '#fff',
-        fontSize: '0.75rem',
-        color: '#374151',
-        cursor: 'pointer',
-        flexShrink: 0,
-      }}
-    >
-      {isCalendar ? '📅 Calendar' : '📊 Day #'}
-      <span style={{ color: '#9ca3af', fontSize: '0.6875rem' }}>
-        → {isCalendar ? 'Day #' : 'Calendar'}
-      </span>
-    </button>
+    <div className="timeline-toggle">
+      <button
+        onClick={toggle}
+        className={`timeline-opt${isCalendar ? ' timeline-opt-active' : ''}`}
+        title="Calendar dates"
+      >
+        Calendar
+      </button>
+      <button
+        onClick={toggle}
+        className={`timeline-opt${!isCalendar ? ' timeline-opt-active' : ''}`}
+        title="Days since program start"
+      >
+        Day #
+      </button>
+    </div>
   );
 }

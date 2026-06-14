@@ -21,11 +21,7 @@ export default function CompanyGrid({ companies }: { companies: CompanyItem[] })
   }
 
   return (
-    <div style={{
-      display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-      gap: '1rem',
-    }}>
+    <div className="company-grid">
       {companies.map((c) => (
         <CompanyCard
           key={c.id}
