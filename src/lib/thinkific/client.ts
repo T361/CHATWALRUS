@@ -30,7 +30,8 @@ export function isThinkificConfigured(): boolean {
  */
 export async function thinkificGet<T>(
   endpoint: string,
-  params?: Record<string, string>
+  params?: Record<string, string>,
+  retries = 3
 ): Promise<T> {
   const config = getConfig();
   if (!config) {
@@ -44,19 +45,37 @@ export async function thinkificGet<T>(
     });
   }
 
-  const response = await fetch(url.toString(), {
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${config.apiKey}`,
-    },
-  });
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const response = await fetch(url.toString(), {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${config.apiKey}`,
+      },
+    });
 
-  if (!response.ok) {
-    const text = await response.text().catch(() => 'Unknown error');
-    throw new Error(`[Thinkific] ${response.status} ${response.statusText}: ${text}`);
+    if (response.status === 429) {
+      if (attempt === retries) {
+        throw new Error(`[Thinkific] 429 Too Many Requests: {"error":"Retry later"}`);
+      }
+      // Respect Retry-After header, default 10s, cap at 60s
+      const retryAfterSec = Math.min(
+        parseInt(response.headers.get('retry-after') || '10', 10),
+        60
+      );
+      console.warn(`[Thinkific] 429 on ${endpoint} — waiting ${retryAfterSec}s (attempt ${attempt + 1}/${retries})`);
+      await new Promise((r) => setTimeout(r, retryAfterSec * 1000));
+      continue;
+    }
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => 'Unknown error');
+      throw new Error(`[Thinkific] ${response.status} ${response.statusText}: ${text}`);
+    }
+
+    return response.json();
   }
 
-  return response.json();
+  throw new Error(`[Thinkific] Exhausted retries for ${endpoint}`);
 }
 
 /**
@@ -100,7 +119,7 @@ export async function thinkificPaginate<T>(
 export async function thinkificPaginateFast<T>(
   endpoint: string,
   params?: Record<string, string>,
-  concurrency = 10
+  concurrency = 5
 ): Promise<T[]> {
   const limit = '100';
 
