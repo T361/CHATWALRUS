@@ -42,13 +42,22 @@ export async function runMilestoneCheck(
   }
   const benchmarkPercent = calculateBenchmark(milestoneDay, company.learning_timeline_days);
 
-  // Fetch active learners — limit(10000) avoids Supabase's 1k default row cap
-  const { data: learners, error: learnersError } = await db
-    .from('learners')
-    .select('id, last_login_at, last_active_at')
-    .eq('company_id', company.id)
-    .eq('is_active', true)
-    .limit(10000);
+  // Fetch active learners — paginate in 1k chunks due to Supabase server max-rows cap
+  const allLearnerRows: Array<{ id: string; last_login_at: string | null; last_active_at: string | null }> = [];
+  for (let offset = 0; ; offset += 1000) {
+    const { data, error: pageError } = await db
+      .from('learners')
+      .select('id, last_login_at, last_active_at')
+      .eq('company_id', company.id)
+      .eq('is_active', true)
+      .range(offset, offset + 999);
+    if (pageError) { console.warn(`[MilestoneCheck] Learner fetch error: ${pageError.message}`); break; }
+    if (!data || data.length === 0) break;
+    allLearnerRows.push(...data);
+    if (data.length < 1000) break;
+  }
+  const learners = allLearnerRows;
+  const learnersError = learners.length === 0 ? new Error('no learners') : null;
 
   if (learnersError || !learners || learners.length === 0) {
     console.warn(`[MilestoneCheck] No learners found for ${company.name}.`);

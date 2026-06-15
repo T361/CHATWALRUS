@@ -17,13 +17,21 @@ export async function createDailySnapshots(): Promise<number> {
   const db = createAdminClient();
   const snapshotDate = todayISO();
 
-  // Fetch all active learners — limit(10000) avoids Supabase's 1k default row cap
-  const { data: learners } = await db
-    .from('learners')
-    .select('id, company_id, last_active_at')
-    .eq('is_active', true)
-    .limit(10000);
-
+  // Paginate learners in chunks of 1,000 — Supabase has a server-side max-rows
+  // cap of 1,000 per request; .limit(N) alone cannot exceed it.
+  type LearnerRow = { id: string; company_id: string | null; last_active_at: string | null };
+  const allLearners: LearnerRow[] = [];
+  for (let offset = 0; ; offset += 1000) {
+    const { data } = await db
+      .from('learners')
+      .select('id, company_id, last_active_at')
+      .eq('is_active', true)
+      .range(offset, offset + 999);
+    if (!data || data.length === 0) break;
+    allLearners.push(...data);
+    if (data.length < 1000) break;
+  }
+  const learners = allLearners;
   if (!learners || learners.length === 0) return 0;
 
   const learnerIds = learners.map((l) => l.id);
