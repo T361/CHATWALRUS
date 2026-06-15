@@ -2,6 +2,7 @@
 
 import PageShell from '@/components/layout/PageShell';
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 interface SettingsStatusResponse {
   auth: {
@@ -70,6 +71,7 @@ function IntegrationRow({ label, configured, connected, detail, message }: {
 }
 
 export default function AdminSettingsPage() {
+  const router = useRouter();
   const [syncStatus,    setSyncStatus]    = useState<Record<string, string>>({});
   const [loading,       setLoading]       = useState<Record<string, boolean>>({});
   const [settingsStatus,setSettingsStatus]= useState<SettingsStatusResponse | null>(null);
@@ -127,7 +129,11 @@ export default function AdminSettingsPage() {
       });
       const data = await res.json();
       if (!res.ok) { setAuthMessage(data.error || 'Login failed'); }
-      else { setAuthMessage('Session active'); setPasscode(''); await loadSettingsStatus(); }
+      else {
+        setPasscode('');
+        const redirect = new URLSearchParams(window.location.search).get('redirect') || '/';
+        router.push(redirect);
+      }
     } catch { setAuthMessage('Login request failed'); }
     setAuthLoading(false);
   }
