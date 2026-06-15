@@ -56,6 +56,8 @@ export async function syncEnrollmentData(): Promise<{ enrollments: SyncResult; a
 
   const enrollmentBatch: Array<Record<string, unknown>> = [];
   const assignmentBatch: Array<Record<string, unknown>> = [];
+  // Track most-recent enrollment activity timestamp per learner
+  const lastActiveByLearner = new Map<string, string>();
 
   async function flushEnrollments() {
     if (!enrollmentBatch.length) return;
@@ -85,6 +87,9 @@ export async function syncEnrollmentData(): Promise<{ enrollments: SyncResult; a
     // Thinkific returns percentage_completed as a 0–1 decimal fraction — multiply by 100
     const progressPercent = clampPercent(safeNumber(e.percentage_completed) * 100);
 
+    // Derive last_active_at from the most recent enrollment timestamp
+    const lastActive = e.completed_at || e.updated_at || e.activated_at || e.started_at || null;
+
     // Enrollment record
     enrollmentBatch.push({
       thinkific_enrollment_id: String(e.id),
@@ -97,6 +102,12 @@ export async function syncEnrollmentData(): Promise<{ enrollments: SyncResult; a
       expires_at: e.expiry_date || null,
       is_active: !e.expired,
     });
+
+    // Track most recent activity per learner for bulk update below
+    const existing = lastActiveByLearner.get(learner.id);
+    if (!existing || (lastActive && lastActive > existing)) {
+      lastActiveByLearner.set(learner.id, lastActive ?? '');
+    }
 
     // Assignment record (every enrollment = an assignment, completed or in-progress)
     assignmentBatch.push({
@@ -117,12 +128,19 @@ export async function syncEnrollmentData(): Promise<{ enrollments: SyncResult; a
   await flushEnrollments();
   await flushAssignments();
 
-  // Update last_active_at in a single SQL call
-  try {
-    await db.rpc('update_learner_last_active');
-  } catch {
-    console.warn('[SyncEnrollmentData] update_learner_last_active RPC not found — skipping');
+  // Bulk-update last_active_at from enrollment timestamps (replaces missing RPC)
+  const activeUpdates = Array.from(lastActiveByLearner.entries())
+    .filter(([, ts]) => ts)
+    .map(([id, ts]) => ({ id, last_active_at: ts }));
+  for (let i = 0; i < activeUpdates.length; i += 100) {
+    const chunk = activeUpdates.slice(i, i + 100);
+    await Promise.all(
+      chunk.map(({ id, last_active_at }) =>
+        db.from('learners').update({ last_active_at }).eq('id', id)
+      )
+    );
   }
+  console.log(`[SyncEnrollmentData] Updated last_active_at for ${activeUpdates.length} learners`);
 
   console.log(`[SyncEnrollmentData] Done: ${enrollmentCount} enrollments, ${assignmentCount} assignments, ${skipped} skipped`);
 

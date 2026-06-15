@@ -39,11 +39,13 @@ export function calculateLearnerStatus(input: StatusInput): {
     liveSessionsLast30Days,
   } = input;
 
-  // Not Started: never logged in or no activity and no progress
-  if (!hasLoggedIn || (!hasActivity && completionPercent === 0)) {
+  // Not Started: no progress AND no login AND no activity.
+  // Do NOT gate on login alone — last_login_at is not reliably populated from Thinkific.
+  // A learner with real progress is by definition not "not started".
+  if (completionPercent === 0 && !hasLoggedIn && !hasActivity) {
     return {
       status: 'not_started',
-      reason: 'Learner has not logged in or has no activity.',
+      reason: 'Learner has no progress, no login, and no recorded activity.',
     };
   }
 

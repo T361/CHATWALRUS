@@ -27,17 +27,24 @@ export async function createDailySnapshots(): Promise<number> {
 
   const learnerIds = learners.map((l) => l.id);
 
-  // Bulk-fetch enrollments WITH progress_percent (this is what Thinkific actually syncs)
-  const { data: allEnrollments } = await db
-    .from('enrollments')
-    .select('learner_id, course_id, progress_percent, completed_at')
-    .in('learner_id', learnerIds)
-    .eq('is_active', true);
+  // Bulk-fetch enrollments in batches of 500 to avoid Supabase URL length limits.
+  // Passing all 4k+ UUIDs at once generates a ~150k-char URL that silently returns empty.
+  type Enrollment = { learner_id: string; course_id: string; progress_percent: number | null; completed_at: string | null };
+  const allEnrollments: Enrollment[] = [];
+  const IN_BATCH = 500;
+  for (let i = 0; i < learnerIds.length; i += IN_BATCH) {
+    const batch = learnerIds.slice(i, i + IN_BATCH);
+    const { data } = await db
+      .from('enrollments')
+      .select('learner_id, course_id, progress_percent, completed_at')
+      .in('learner_id', batch)
+      .eq('is_active', true);
+    if (data) allEnrollments.push(...data);
+  }
 
   // Build lookup: learner_id → enrollments[]
-  type Enrollment = { course_id: string; progress_percent: number | null; completed_at: string | null };
   const enrollmentsByLearner = new Map<string, Enrollment[]>();
-  for (const e of allEnrollments || []) {
+  for (const e of allEnrollments) {
     if (!enrollmentsByLearner.has(e.learner_id)) enrollmentsByLearner.set(e.learner_id, []);
     enrollmentsByLearner.get(e.learner_id)!.push(e);
   }
