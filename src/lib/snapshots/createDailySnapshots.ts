@@ -72,19 +72,11 @@ export async function createDailySnapshots(): Promise<number> {
       : 0;
 
     snapshotBatch.push({
-      company_id:               learner.company_id,
-      learner_id:               learner.id,
-      snapshot_date:            snapshotDate,
-      // lesson-level columns: set to 0 since lesson_progress is not synced
-      total_lessons:            0,
-      completed_lessons:        0,
-      daily_lessons_completed:  0,
-      cumulative_lessons_completed: 0,
-      // progress comes from enrollments.progress_percent
-      completion_percent:       avgCompletion,
-      courses_enrolled:         enrollments.length,
-      courses_completed:        enrollments.filter((e) => e.completed_at).length,
-      last_active_at:           learner.last_active_at,
+      company_id:        learner.company_id,
+      learner_id:        learner.id,
+      snapshot_date:     snapshotDate,
+      completion_percent: avgCompletion,
+      live_sessions_last_30_days: 0,
     });
   }
 

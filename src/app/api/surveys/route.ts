@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdminOrCron } from '@/lib/auth/guards';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 export async function GET(req: NextRequest) {
+  const authError = requireAdminOrCron(req);
+  if (authError) return authError;
   const db = createAdminClient();
   const { searchParams } = new URL(req.url);
 

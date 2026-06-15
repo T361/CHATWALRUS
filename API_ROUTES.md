@@ -10,18 +10,24 @@
 ## Companies
 | Method | Route | Purpose | Auth |
 |--------|-------|---------|------|
-| GET | `/api/companies` | List active companies | None |
-| GET | `/api/companies/[slug]` | Get company details | None |
+| GET | `/api/companies` | List active companies | Admin |
+| GET | `/api/companies/[slug]` | Get company details + PATCH update | Admin |
+| GET | `/api/companies/[slug]/dashboard` | Dashboard KPIs and milestone data | Admin |
+| GET | `/api/companies/[slug]/learners` | Learners with progress/status | Admin |
+| GET | `/api/companies/[slug]/assessments` | Quizzes and assignments | Admin |
+| GET | `/api/companies/[slug]/charts` | Chart data for trends | Admin |
+| GET | `/api/companies/[slug]/alerts` | Active alerts for company | Admin |
 
-## Dashboard Data
+## Learners
 | Method | Route | Purpose | Auth |
 |--------|-------|---------|------|
-| GET | `/api/companies/[slug]/learners` | Learners with progress/status | None |
+| GET | `/api/learners/[id]` | Individual learner detail | Admin |
 
 ## Surveys
 | Method | Route | Purpose | Auth |
 |--------|-------|---------|------|
-| GET | `/api/surveys` | All survey responses with stats | None |
+| GET | `/api/surveys` | All survey responses with stats | Admin |
+| GET | `/api/surveys/export` | Export survey data | Admin |
 
 ## Exports
 | Method | Route | Purpose | Auth |
