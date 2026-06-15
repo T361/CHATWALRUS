@@ -42,12 +42,13 @@ export async function runMilestoneCheck(
   }
   const benchmarkPercent = calculateBenchmark(milestoneDay, company.learning_timeline_days);
 
-  // Fetch active learners
+  // Fetch active learners — limit(10000) avoids Supabase's 1k default row cap
   const { data: learners, error: learnersError } = await db
     .from('learners')
     .select('id, last_login_at, last_active_at')
     .eq('company_id', company.id)
-    .eq('is_active', true);
+    .eq('is_active', true)
+    .limit(10000);
 
   if (learnersError || !learners || learners.length === 0) {
     console.warn(`[MilestoneCheck] No learners found for ${company.name}.`);

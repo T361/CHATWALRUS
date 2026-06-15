@@ -38,10 +38,10 @@ export async function syncEnrollmentData(): Promise<{ enrollments: SyncResult; a
   const db = createAdminClient();
 
   // Pre-load learner and course maps once
-  const { data: allLearners } = await db.from('learners').select('id, thinkific_user_id, company_id');
+  const { data: allLearners } = await db.from('learners').select('id, thinkific_user_id, company_id').limit(10000);
   const learnerMap = new Map((allLearners || []).map((l) => [l.thinkific_user_id, { id: l.id, company_id: l.company_id }]));
 
-  const { data: allCourses } = await db.from('courses').select('id, thinkific_course_id');
+  const { data: allCourses } = await db.from('courses').select('id, thinkific_course_id').limit(1000);
   const courseMap = new Map((allCourses || []).map((c) => [c.thinkific_course_id, c.id]));
 
   console.log(`[SyncEnrollmentData] ${learnerMap.size} learners, ${courseMap.size} courses pre-loaded`);

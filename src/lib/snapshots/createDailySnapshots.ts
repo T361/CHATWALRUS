@@ -17,11 +17,12 @@ export async function createDailySnapshots(): Promise<number> {
   const db = createAdminClient();
   const snapshotDate = todayISO();
 
-  // Fetch all active learners
+  // Fetch all active learners — limit(10000) avoids Supabase's 1k default row cap
   const { data: learners } = await db
     .from('learners')
     .select('id, company_id, last_active_at')
-    .eq('is_active', true);
+    .eq('is_active', true)
+    .limit(10000);
 
   if (!learners || learners.length === 0) return 0;
 
