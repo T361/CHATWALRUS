@@ -20,11 +20,18 @@ export async function GET(
 
   if (!company) return NextResponse.json({ error: 'Company not found' }, { status: 404 });
 
-  const { data: quizzes } = await db
-    .from('quizzes')
-    .select('*, courses(name), learners(full_name)')
-    .eq('company_id', company.id)
-    .order('attempted_at', { ascending: false });
+  const quizzes: Record<string, unknown>[] = [];
+  for (let offset = 0; ; offset += 1000) {
+    const { data } = await db
+      .from('quizzes')
+      .select('*, courses(name), learners(full_name)')
+      .eq('company_id', company.id)
+      .order('attempted_at', { ascending: false })
+      .range(offset, offset + 999);
+    if (!data || data.length === 0) break;
+    quizzes.push(...data);
+    if (data.length < 1000) break;
+  }
 
   // Paginate all assignments to get accurate counts — Supabase caps at 1k rows per
   // request, so a single .limit(N) silently truncates for large companies.
@@ -44,7 +51,7 @@ export async function GET(
   }
 
   return NextResponse.json({
-    quizzes: quizzes || [],
+    quizzes,
     assignments: allAssignments,
   });
 }

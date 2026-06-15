@@ -6,6 +6,35 @@ import { zoomGet, isZoomConfigured } from './client';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { runSync, type SyncResult } from '@/lib/thinkific/syncCore';
 
+type ZoomUser = { id: string; email: string };
+type ZoomMeeting = {
+  id: number; uuid: string; topic: string;
+  start_time: string; end_time: string; duration: number; type: number;
+};
+type ZoomParticipant = {
+  id: string; name: string; user_email: string;
+  join_time: string; leave_time: string; duration: number;
+};
+
+async function zoomGetAllPages<T>(
+  endpoint: string,
+  params: Record<string, string>,
+  key: keyof T,
+): Promise<T[keyof T] extends unknown[] ? T[keyof T] : never> {
+  const items: unknown[] = [];
+  let nextPageToken = '';
+
+  do {
+    const p = nextPageToken ? { ...params, next_page_token: nextPageToken } : params;
+    const page = await zoomGet<T & { next_page_token?: string }>(endpoint, p);
+    const batch = page[key];
+    if (Array.isArray(batch)) items.push(...batch);
+    nextPageToken = page.next_page_token ?? '';
+  } while (nextPageToken);
+
+  return items as T[keyof T] extends unknown[] ? T[keyof T] : never;
+}
+
 export async function syncZoomAttendance(): Promise<SyncResult> {
   if (!isZoomConfigured()) {
     return { syncType: 'zoom_attendance', status: 'skipped', recordsProcessed: 0, errorMessage: 'Zoom not configured' };
@@ -15,27 +44,28 @@ export async function syncZoomAttendance(): Promise<SyncResult> {
     const db = createAdminClient();
     let count = 0;
 
-    // Fetch past meetings from last 30 days
     const fromDate = new Date();
     fromDate.setDate(fromDate.getDate() - 30);
 
-    const users = await zoomGet<{ users: Array<{ id: string; email: string }> }>('/users', { page_size: '300' });
+    const users = await zoomGetAllPages<{ users: ZoomUser[] }>(
+      '/users',
+      { page_size: '300', status: 'active' },
+      'users',
+    );
 
-    for (const user of users.users || []) {
+    for (const user of users) {
       try {
-        const meetings = await zoomGet<{
-          meetings: Array<{
-            id: number; uuid: string; topic: string;
-            start_time: string; end_time: string; duration: number; type: number;
-          }>;
-        }>(`/users/${user.id}/meetings`, {
-          type: 'previous_meetings',
-          from: fromDate.toISOString().split('T')[0],
-          page_size: '300',
-        });
+        const meetings = await zoomGetAllPages<{ meetings: ZoomMeeting[] }>(
+          `/users/${user.id}/meetings`,
+          {
+            type: 'previous_meetings',
+            from: fromDate.toISOString().split('T')[0],
+            page_size: '300',
+          },
+          'meetings',
+        );
 
-        for (const meeting of meetings.meetings || []) {
-          // Upsert zoom session
+        for (const meeting of meetings) {
           const { data: session } = await db.from('zoom_sessions').upsert(
             {
               zoom_meeting_id: String(meeting.id),
@@ -51,16 +81,14 @@ export async function syncZoomAttendance(): Promise<SyncResult> {
 
           if (!session) continue;
 
-          // Fetch participants
           try {
-            const participants = await zoomGet<{
-              participants: Array<{
-                id: string; name: string; user_email: string;
-                join_time: string; leave_time: string; duration: number;
-              }>;
-            }>(`/past_meetings/${meeting.uuid}/participants`, { page_size: '300' });
+            const participants = await zoomGetAllPages<{ participants: ZoomParticipant[] }>(
+              `/past_meetings/${meeting.uuid}/participants`,
+              { page_size: '300' },
+              'participants',
+            );
 
-            for (const p of participants.participants || []) {
+            for (const p of participants) {
               const attendeeEmail = (p.user_email || '').trim().toLowerCase();
               const attendeeIdentity = attendeeEmail || `participant:${(p.id || p.name || '').trim().toLowerCase()}`;
               const dedupeKey = [
@@ -69,7 +97,6 @@ export async function syncZoomAttendance(): Promise<SyncResult> {
                 p.join_time || 'unknown-join-time',
               ].join(':');
 
-              // Match email to learner
               const { data: learner } = attendeeEmail
                 ? await db
                     .from('learners')
@@ -101,12 +128,10 @@ export async function syncZoomAttendance(): Promise<SyncResult> {
               count++;
             }
           } catch (error) {
-            // Non-fatal: log and continue so partial results are preserved
             console.warn(`[ZoomSync] Failed to sync participants for meeting ${meeting.id}:`, error);
           }
         }
       } catch (error) {
-        // Non-fatal: log and continue to next user so partial results are preserved
         console.warn(`[ZoomSync] Failed to sync meetings for user ${user.id}:`, error);
       }
     }

@@ -55,7 +55,7 @@ export default async function LearnerDetailPage(
     db.from('learner_status_snapshots').select('status, completion_percent, benchmark_percent, snapshot_date').eq('learner_id', learnerId).order('snapshot_date', { ascending: false }).limit(1).single(),
     db.from('quizzes').select('*, courses(name)').eq('learner_id', learnerId).order('attempted_at', { ascending: false }),
     db.from('assignments').select('*, courses(name)').eq('learner_id', learnerId).order('submitted_at', { ascending: false }),
-    db.from('zoom_attendance').select('session_date, attended').eq('learner_id', learnerId).order('session_date', { ascending: false }).limit(20),
+    db.from('zoom_attendance').select('join_time, attended').eq('learner_id', learnerId).order('join_time', { ascending: false }).limit(20),
   ]);
 
   const currentStatus     = (statusSnap?.status || 'not_started') as LearnerStatus;

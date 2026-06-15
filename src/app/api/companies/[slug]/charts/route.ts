@@ -42,21 +42,22 @@ export async function GET(
     average_completion: Math.round((total / count) * 10) / 10,
   }));
 
-  // Status distribution — latest snapshot per learner, today's date preferred
-  const { data: statusWithLearner } = await db
-    .from('learner_status_snapshots')
-    .select('learner_id, status, snapshot_date')
-    .eq('company_id', company.id)
-    .order('snapshot_date', { ascending: false })
-    .limit(5000);
-
+  // Status distribution — latest snapshot per learner, fully paginated
   const learnerStatuses = new Map<string, string>();
-  if (statusWithLearner) {
-    for (const s of statusWithLearner) {
+  for (let offset = 0; ; offset += 1000) {
+    const { data: statusPage } = await db
+      .from('learner_status_snapshots')
+      .select('learner_id, status, snapshot_date')
+      .eq('company_id', company.id)
+      .order('snapshot_date', { ascending: false })
+      .range(offset, offset + 999);
+    if (!statusPage || statusPage.length === 0) break;
+    for (const s of statusPage) {
       if (!learnerStatuses.has(s.learner_id)) {
         learnerStatuses.set(s.learner_id, s.status);
       }
     }
+    if (statusPage.length < 1000) break;
   }
 
   const statusCounts: Record<string, number> = {

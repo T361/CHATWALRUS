@@ -232,7 +232,7 @@ export default function AdminSettingsPage() {
         )}
 
         {authMessage && (
-          <p style={{ fontSize: '0.75rem', color: authMessage.includes('active') || authMessage.includes('Session') ? 'var(--success)' : 'var(--text-secondary)', marginTop: '0.75rem' }}>
+          <p style={{ fontSize: '0.75rem', color: authMessage.includes('active') || authMessage.includes('Session') ? 'var(--success)' : authMessage === 'Logged out' ? 'var(--warning)' : 'var(--danger)', marginTop: '0.75rem' }}>
             {authMessage}
           </p>
         )}

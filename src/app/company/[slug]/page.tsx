@@ -122,6 +122,12 @@ export default async function CompanyDashboardPage(
 
       <AlertBanner alerts={alerts || []} />
 
+      {!company.start_date && (
+        <div style={{ marginBottom: '1rem', padding: '0.625rem 0.875rem', background: 'color-mix(in srgb, var(--warning) 12%, transparent)', border: '1px solid color-mix(in srgb, var(--warning) 35%, transparent)', borderRadius: 'var(--radius-sm)', fontSize: '0.8125rem', color: 'var(--warning)' }}>
+          No start date set — benchmark calculations default to Day 30. Set a start date in Company Settings.
+        </div>
+      )}
+
       <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))' }}>
         <KpiCard title="Total Enrolled" value={totalEnrolled ?? 0} />
         <KpiCard title="Completions" value={courseCompletions ?? 0} />

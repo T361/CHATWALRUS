@@ -47,12 +47,18 @@ export async function syncEnrollments(): Promise<SyncResult> {
     );
     console.log(`[SyncEnrollments] Pre-loaded ${learnerMap.size} learners`);
 
-    const { data: allCourses } = await db
-      .from('courses')
-      .select('id, thinkific_course_id')
-      .limit(1000);
+    const allCourses: Array<{ id: string; thinkific_course_id: string }> = [];
+    for (let offset = 0; ; offset += 1000) {
+      const { data: page } = await db
+        .from('courses')
+        .select('id, thinkific_course_id')
+        .range(offset, offset + 999);
+      if (!page || page.length === 0) break;
+      allCourses.push(...page);
+      if (page.length < 1000) break;
+    }
     const courseMap = new Map(
-      (allCourses || []).map((c) => [c.thinkific_course_id, c.id])
+      allCourses.map((c) => [c.thinkific_course_id, c.id])
     );
     console.log(`[SyncEnrollments] Pre-loaded ${courseMap.size} courses`);
 

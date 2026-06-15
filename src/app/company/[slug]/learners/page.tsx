@@ -4,7 +4,7 @@ import PageShell from '@/components/layout/PageShell';
 import LearnerStatusBadge from '@/components/learners/LearnerStatusBadge';
 import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import type { LearnerStatus } from '@/types/learner';
 
 interface LearnerRow {
@@ -20,7 +20,7 @@ interface LearnerRow {
   live_sessions_last_30_days: number;
 }
 
-export default function LearnersPage() {
+function LearnersContent() {
   const params = useParams();
   const searchParams = useSearchParams();
   const slug = params.slug as string;
@@ -150,5 +150,13 @@ export default function LearnersPage() {
         )}
       </div>
     </PageShell>
+  );
+}
+
+export default function LearnersPage() {
+  return (
+    <Suspense fallback={<PageShell><div className="empty-state"><span className="spinner" /><p>Loading...</p></div></PageShell>}>
+      <LearnersContent />
+    </Suspense>
   );
 }
