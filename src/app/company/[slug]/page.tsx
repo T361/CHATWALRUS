@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import PageShell from '@/components/layout/PageShell';
 import KpiCard from '@/components/company/KpiCard';
 import AlertBanner from '@/components/company/AlertBanner';
