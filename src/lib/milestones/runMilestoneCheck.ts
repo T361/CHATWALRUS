@@ -57,13 +57,14 @@ export async function runMilestoneCheck(
 
   const learnerIds = learners.map((l) => l.id);
 
-  // Bulk-fetch all enrollments for this company
+  // Bulk-fetch all enrollments for this company — filter by company_id, not learner_id IN (...),
+  // to avoid URL length limits on companies with hundreds of learners.
   const { data: allEnrollments } = await db
     .from('enrollments')
     .select('learner_id, progress_percent')
     .eq('company_id', company.id)
     .eq('is_active', true)
-    .in('learner_id', learnerIds);
+    .limit(50000);
 
   // Group enrollments by learner
   const enrollmentsByLearner = new Map<string, number[]>();
@@ -82,7 +83,7 @@ export async function runMilestoneCheck(
     .eq('company_id', company.id)
     .eq('attended', true)
     .gte('join_time', thirtyDaysAgo.toISOString())
-    .in('learner_id', learnerIds);
+    .limit(50000);
 
   const zoomCountByLearner = new Map<string, number>();
   for (const row of zoomRows || []) {
