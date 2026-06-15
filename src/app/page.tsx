@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import PageShell from '@/components/layout/PageShell';
 import CompanyCard from '@/components/company/CompanyCard';
 import Link from 'next/link';
@@ -24,29 +26,40 @@ export default async function HomePage() {
     if (error) throw error;
 
     if (data) {
-      const companyIds = data.map((c) => c.id);
-
-      const [{ data: learnerRows }, { data: enrollmentRows }, { data: milestoneRows }] = await Promise.all([
-        db.from('learners').select('company_id').in('company_id', companyIds).eq('is_active', true),
-        db.from('enrollments').select('company_id, progress_percent').in('company_id', companyIds).eq('is_active', true),
-        db.from('milestone_checks').select('company_id, at_risk_count').in('company_id', companyIds).order('checked_at', { ascending: false }),
-      ]);
-
-      const countMap = new Map<string, number>();
-      for (const row of learnerRows || []) {
-        countMap.set(row.company_id, (countMap.get(row.company_id) ?? 0) + 1);
+      // Use learner_status_snapshots (one row per learner, ~2k rows) instead of
+      // raw learners (4k rows) or enrollments (64k rows) — avoids the 1,000-row
+      // server cap that silently truncated counts on the old .in(companyIds) queries.
+      // Pull the most-recent snapshot per learner by fetching all and deduplicating.
+      const allSnapshots: Array<{ company_id: string; learner_id: string; completion_percent: number; status: string; snapshot_date: string }> = [];
+      for (let offset = 0; ; offset += 1000) {
+        const { data: page } = await db
+          .from('learner_status_snapshots')
+          .select('company_id, learner_id, completion_percent, status, snapshot_date')
+          .order('snapshot_date', { ascending: false })
+          .range(offset, offset + 999);
+        if (!page || page.length === 0) break;
+        allSnapshots.push(...page);
+        if (page.length < 1000) break;
       }
 
+      // Keep only the latest snapshot per learner
+      const latestByLearner = new Map<string, typeof allSnapshots[0]>();
+      for (const snap of allSnapshots) {
+        if (!latestByLearner.has(snap.learner_id)) latestByLearner.set(snap.learner_id, snap);
+      }
+
+      // Aggregate per company
+      const countMap    = new Map<string, number>();
       const progressMap = new Map<string, number[]>();
-      for (const row of enrollmentRows || []) {
-        if (!progressMap.has(row.company_id)) progressMap.set(row.company_id, []);
-        progressMap.get(row.company_id)!.push(Number(row.progress_percent ?? 0));
-      }
+      const atRiskMap   = new Map<string, number>();
 
-      const atRiskMap = new Map<string, number>();
-      for (const row of milestoneRows || []) {
-        if (!atRiskMap.has(row.company_id)) {
-          atRiskMap.set(row.company_id, row.at_risk_count ?? 0);
+      for (const snap of latestByLearner.values()) {
+        const co = snap.company_id;
+        countMap.set(co, (countMap.get(co) ?? 0) + 1);
+        if (!progressMap.has(co)) progressMap.set(co, []);
+        progressMap.get(co)!.push(Number(snap.completion_percent ?? 0));
+        if (snap.status === 'at_risk' || snap.status === 'behind') {
+          atRiskMap.set(co, (atRiskMap.get(co) ?? 0) + 1);
         }
       }
 
