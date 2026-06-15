@@ -33,7 +33,7 @@ async function verifyHmacSha256(
       ['verify']
     );
     const sigBytes = base64urlToBytes(signatureB64url);
-    return crypto.subtle.verify('HMAC', key, sigBytes.buffer as ArrayBuffer, enc.encode(message));
+    return crypto.subtle.verify('HMAC', key, sigBytes, enc.encode(message));
   } catch {
     return false;
   }

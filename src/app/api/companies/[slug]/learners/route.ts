@@ -35,23 +35,33 @@ export async function GET(
 
   const learnerIds = learners.map((l) => l.id);
 
-  // Bulk-fetch all enrollments for this company in one query
+  // Use company_id filter instead of .in(learnerIds) — avoids URL length limits
+  // that silently return empty results for companies with 200+ learners.
   const { data: allEnrollments } = await db
     .from('enrollments')
     .select('learner_id, progress_percent, course_id')
     .eq('company_id', company.id)
     .eq('is_active', true)
-    .in('learner_id', learnerIds);
+    .limit(50000);
 
-  // Fetch most recent snapshots per learner — NOT filtered to today, so status
-  // shows even if milestones haven't run today. Ordered desc so first hit per
-  // learner is the latest; deduplication happens in-memory below.
-  const { data: allSnapshots } = await db
-    .from('learner_status_snapshots')
-    .select('learner_id, status, live_sessions_last_30_days, snapshot_date')
-    .in('learner_id', learnerIds)
-    .order('snapshot_date', { ascending: false })
-    .limit(learnerIds.length * 3);
+  // Paginate snapshots by company_id to avoid both URL limits and the Supabase
+  // 1000-row server cap. We only need the latest snapshot per learner so we
+  // paginate until we have at least one row per learner or exhaust the table.
+  const allSnapshots: Array<{ learner_id: string; status: string; live_sessions_last_30_days: number; snapshot_date: string }> = [];
+  for (let offset = 0; ; offset += 1000) {
+    const { data: page } = await db
+      .from('learner_status_snapshots')
+      .select('learner_id, status, live_sessions_last_30_days, snapshot_date')
+      .eq('company_id', company.id)
+      .order('snapshot_date', { ascending: false })
+      .range(offset, offset + 999);
+    if (!page || page.length === 0) break;
+    allSnapshots.push(...page);
+    // Stop once we have a snapshot for every learner (they're sorted desc so
+    // we'll hit the latest for all learners before going further back in time).
+    const covered = new Set(allSnapshots.map(s => s.learner_id));
+    if (covered.size >= learnerIds.length || page.length < 1000) break;
+  }
 
   // Build Maps for O(1) lookups
   const enrollmentsByLearner = new Map<string, Array<{ progress_percent: number; course_id: string }>>();
