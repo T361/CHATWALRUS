@@ -33,7 +33,12 @@ async function verifyHmacSha256(
       ['verify']
     );
     const sigBytes = base64urlToBytes(signatureB64url);
-    return crypto.subtle.verify('HMAC', key, sigBytes, enc.encode(message));
+    // Allocate a fresh ArrayBuffer — in Node 20 Edge runtime Uint8Array.buffer can
+    // be a SharedArrayBuffer which SubtleCrypto.verify() rejects at runtime and
+    // TypeScript rejects at compile time (SharedArrayBuffer ≠ ArrayBuffer/BufferSource).
+    const sigBuffer = new ArrayBuffer(sigBytes.byteLength);
+    new Uint8Array(sigBuffer).set(sigBytes);
+    return crypto.subtle.verify('HMAC', key, sigBuffer, enc.encode(message));
   } catch {
     return false;
   }
