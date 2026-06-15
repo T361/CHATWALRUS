@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import ThemeToggle from './ThemeToggle';
 
 // Icons as inline SVG snippets
 function IconBuilding() {
@@ -149,7 +150,8 @@ export default function Sidebar() {
         )}
       </nav>
 
-      <div style={{ marginTop: 'auto', padding: '0.75rem', borderTop: '1px solid var(--border-muted)' }}>
+      <div style={{ marginTop: 'auto', padding: '0.75rem', borderTop: '1px solid var(--border-muted)', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+        <ThemeToggle />
         <button
           onClick={handleSignOut}
           style={{
