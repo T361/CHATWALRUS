@@ -36,18 +36,19 @@ export async function createDailySnapshots(): Promise<number> {
 
   const learnerIds = learners.map((l) => l.id);
 
-  // Bulk-fetch enrollments in batches of 500 to avoid Supabase URL length limits.
-  // Passing all 4k+ UUIDs at once generates a ~150k-char URL that silently returns empty.
+  // Fetch enrollments by company to avoid .in(learnerIds) URL length limits entirely.
+  // Even batching 500 UUIDs generates ~18k-char URLs that exceed Supabase limits.
+  // Querying per-company with eq('company_id') has no URL size issue.
   type Enrollment = { learner_id: string; course_id: string; progress_percent: number | null; completed_at: string | null };
   const allEnrollments: Enrollment[] = [];
-  const IN_BATCH = 500;
-  for (let i = 0; i < learnerIds.length; i += IN_BATCH) {
-    const batch = learnerIds.slice(i, i + IN_BATCH);
+  const companyIds = [...new Set(learners.filter(l => l.company_id).map(l => l.company_id as string))];
+  for (const companyId of companyIds) {
     const { data } = await db
       .from('enrollments')
       .select('learner_id, course_id, progress_percent, completed_at')
-      .in('learner_id', batch)
-      .eq('is_active', true);
+      .eq('company_id', companyId)
+      .eq('is_active', true)
+      .limit(50000);
     if (data) allEnrollments.push(...data);
   }
 
