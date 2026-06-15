@@ -82,8 +82,8 @@ export async function syncEnrollmentData(): Promise<{ enrollments: SyncResult; a
       continue;
     }
 
-    // Thinkific returns percentage_completed as 0–100 already (not 0–1)
-    const progressPercent = clampPercent(safeNumber(e.percentage_completed));
+    // Thinkific returns percentage_completed as a 0–1 decimal fraction — multiply by 100
+    const progressPercent = clampPercent(safeNumber(e.percentage_completed) * 100);
 
     // Enrollment record
     enrollmentBatch.push({
