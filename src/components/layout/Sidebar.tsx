@@ -79,6 +79,7 @@ const companySubLinks = (slug: string) => [
   { href: `/company/${slug}/learners`,    label: 'Learners',    icon: <IconUsers /> },
   { href: `/company/${slug}/assessments`, label: 'Assessments', icon: <IconClipboard /> },
   { href: `/company/${slug}/export`,      label: 'Export',      icon: <IconDownload /> },
+  { href: `/company/${slug}/settings`,    label: 'Settings',    icon: <IconSettings /> },
 ];
 
 export default function Sidebar() {

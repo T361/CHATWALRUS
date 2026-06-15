@@ -21,12 +21,18 @@ export function calculateBenchmark(
 
 /**
  * Get the current milestone day for a company based on its start date.
- * Returns null if the program hasn't started yet (prevents false Day-0 alerts).
+ * Returns null only when the program is explicitly in the future (start_date > today).
+ * When start_date is null (not set), defaults to day 30 so milestone checks still run.
  */
 export function getMilestoneDay(startDate: string | null): number | null {
+  if (!startDate) {
+    // No start date configured — run checks at day 30 as a safe default
+    // so status charts aren't permanently empty. Admin should set start_date.
+    return 30;
+  }
   const days = daysSince(startDate);
-  if (days <= 0) return null; // program not started yet
-  // Round down to nearest 30-day interval
+  if (days < 0) return null; // program hasn't started yet
+  // Round down to nearest 30-day interval, minimum day 30
   return Math.floor(days / 30) * 30 || 30;
 }
 

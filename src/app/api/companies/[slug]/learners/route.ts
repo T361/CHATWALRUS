@@ -43,13 +43,15 @@ export async function GET(
     .eq('is_active', true)
     .in('learner_id', learnerIds);
 
-  // Fetch today's snapshots only — avoids loading full history
-  const today = new Date().toISOString().split('T')[0];
+  // Fetch most recent snapshots per learner — NOT filtered to today, so status
+  // shows even if milestones haven't run today. Ordered desc so first hit per
+  // learner is the latest; deduplication happens in-memory below.
   const { data: allSnapshots } = await db
     .from('learner_status_snapshots')
     .select('learner_id, status, live_sessions_last_30_days, snapshot_date')
     .in('learner_id', learnerIds)
-    .eq('snapshot_date', today);
+    .order('snapshot_date', { ascending: false })
+    .limit(learnerIds.length * 3);
 
   // Build Maps for O(1) lookups
   const enrollmentsByLearner = new Map<string, Array<{ progress_percent: number; course_id: string }>>();
@@ -58,7 +60,7 @@ export async function GET(
     enrollmentsByLearner.get(e.learner_id)!.push(e);
   }
 
-  // Keep only the most recent snapshot per learner
+  // Keep only the most recent snapshot per learner (rows already sorted desc)
   const latestSnapshotByLearner = new Map<string, { status: LearnerStatus; live_sessions_last_30_days: number }>();
   for (const snap of allSnapshots || []) {
     if (!latestSnapshotByLearner.has(snap.learner_id)) {
