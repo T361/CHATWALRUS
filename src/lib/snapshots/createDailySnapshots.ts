@@ -43,13 +43,17 @@ export async function createDailySnapshots(): Promise<number> {
   const allEnrollments: Enrollment[] = [];
   const companyIds = [...new Set(learners.filter(l => l.company_id).map(l => l.company_id as string))];
   for (const companyId of companyIds) {
-    const { data } = await db
-      .from('enrollments')
-      .select('learner_id, course_id, progress_percent, completed_at')
-      .eq('company_id', companyId)
-      .eq('is_active', true)
-      .limit(50000);
-    if (data) allEnrollments.push(...data);
+    for (let offset = 0; ; offset += 1000) {
+      const { data } = await db
+        .from('enrollments')
+        .select('learner_id, course_id, progress_percent, completed_at')
+        .eq('company_id', companyId)
+        .eq('is_active', true)
+        .range(offset, offset + 999);
+      if (!data || data.length === 0) break;
+      allEnrollments.push(...data);
+      if (data.length < 1000) break;
+    }
   }
 
   // Build lookup: learner_id → enrollments[]
@@ -76,7 +80,6 @@ export async function createDailySnapshots(): Promise<number> {
       learner_id:        learner.id,
       snapshot_date:     snapshotDate,
       completion_percent: avgCompletion,
-      live_sessions_last_30_days: 0,
     });
   }
 

@@ -3,7 +3,7 @@
 import PageShell from '@/components/layout/PageShell';
 import LearnerStatusBadge from '@/components/learners/LearnerStatusBadge';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import type { LearnerStatus } from '@/types/learner';
 
@@ -22,11 +22,12 @@ interface LearnerRow {
 
 export default function LearnersPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const slug = params.slug as string;
   const [learners,     setLearners]    = useState<LearnerRow[]>([]);
   const [loading,      setLoading]     = useState(true);
   const [search,       setSearch]      = useState('');
-  const [statusFilter, setStatusFilter]= useState<string>('all');
+  const [statusFilter, setStatusFilter]= useState<string>(searchParams.get('status') || 'all');
   const [companyName,  setCompanyName] = useState('');
 
   useEffect(() => {
@@ -61,7 +62,7 @@ export default function LearnersPage() {
       <div className="page-header">
         <h1 className="page-title">Learners</h1>
         <a href={`/api/companies/${slug}/export/csv`} className="btn btn-secondary btn-sm">
-          ↓ Export CSV
+          ↓ Export CSV {learners.length > 0 && `(${learners.length})`}
         </a>
       </div>
 
@@ -99,7 +100,7 @@ export default function LearnersPage() {
             <thead>
               <tr>
                 <th>Name</th>
-                <th>Department</th>
+                <th>Role</th>
                 <th>Progress</th>
                 <th>Status</th>
                 <th>Courses</th>
@@ -124,7 +125,7 @@ export default function LearnersPage() {
                         <p style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', marginTop: '1px' }}>{l.email || '—'}</p>
                       </div>
                     </td>
-                    <td style={{ color: 'var(--text-secondary)', fontSize: '0.8125rem' }}>{l.department || '—'}</td>
+                    <td style={{ color: 'var(--text-secondary)', fontSize: '0.8125rem' }}>{l.title || l.department || '—'}</td>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <div style={{ width: 56, height: 4, background: 'var(--border)', borderRadius: '9999px', overflow: 'hidden', flexShrink: 0 }}>

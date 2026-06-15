@@ -58,7 +58,7 @@ export default async function HomePage() {
         countMap.set(co, (countMap.get(co) ?? 0) + 1);
         if (!progressMap.has(co)) progressMap.set(co, []);
         progressMap.get(co)!.push(Number(snap.completion_percent ?? 0));
-        if (snap.status === 'at_risk' || snap.status === 'behind') {
+        if (snap.status === 'at_risk' || snap.status === 'slightly_behind' || snap.status === 'behind') {
           atRiskMap.set(co, (atRiskMap.get(co) ?? 0) + 1);
         }
       }

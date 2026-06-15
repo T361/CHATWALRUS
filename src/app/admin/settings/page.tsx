@@ -1,8 +1,10 @@
 'use client';
 
 import PageShell from '@/components/layout/PageShell';
+import PasscodeTable from '@/components/admin/PasscodeTable';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import type { Passcode } from '@/types/alert';
 
 interface SettingsStatusResponse {
   auth: {
@@ -76,23 +78,52 @@ export default function AdminSettingsPage() {
   const [loading,       setLoading]       = useState<Record<string, boolean>>({});
   const [settingsStatus,setSettingsStatus]= useState<SettingsStatusResponse | null>(null);
   const [statusError,   setStatusError]   = useState<string | null>(null);
+  const [statusLoaded,  setStatusLoaded]  = useState(false);
   const [passcode,      setPasscode]      = useState('');
   const [authMessage,   setAuthMessage]   = useState<string | null>(null);
   const [authLoading,   setAuthLoading]   = useState(false);
+  const [passcodes,     setPasscodes]     = useState<Passcode[]>([]);
+  const [companiesMap,  setCompaniesMap]  = useState<Record<string, string>>({});
+  const [passcodesLoading, setPasscodesLoading] = useState(false);
 
   async function loadSettingsStatus() {
     try {
       const res = await fetch('/api/admin/settings/status', { credentials: 'same-origin', cache: 'no-store' });
-      if (res.status === 401) { setSettingsStatus(null); return; }
+      if (res.status === 401) { setSettingsStatus(null); setStatusLoaded(true); return; }
       const data = (await res.json()) as SettingsStatusResponse;
       setSettingsStatus(data);
       setStatusError(null);
     } catch {
       setStatusError('Could not load integration status.');
     }
+    setStatusLoaded(true);
   }
 
-  useEffect(() => { loadSettingsStatus(); }, []);
+  async function loadPasscodes() {
+    setPasscodesLoading(true);
+    try {
+      const [pcRes, coRes] = await Promise.all([
+        fetch('/api/admin/passcodes', { credentials: 'same-origin' }),
+        fetch('/api/companies', { credentials: 'same-origin' }),
+      ]);
+      if (pcRes.ok) {
+        const d = await pcRes.json();
+        setPasscodes(d.passcodes || []);
+      }
+      if (coRes.ok) {
+        const d = await coRes.json();
+        const map: Record<string, string> = {};
+        for (const c of (d.companies || [])) map[c.id] = c.name;
+        setCompaniesMap(map);
+      }
+    } catch { /* swallow */ }
+    setPasscodesLoading(false);
+  }
+
+  useEffect(() => {
+    loadSettingsStatus();
+    loadPasscodes();
+  }, []);
 
   async function runSync(type: string, endpoint: string) {
     if (!settingsStatus?.auth.authenticated) {
@@ -143,6 +174,7 @@ export default function AdminSettingsPage() {
     try {
       await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
       setAuthMessage('Logged out');
+      setPasscodes([]);
       await loadSettingsStatus();
     } catch { setAuthMessage('Logout request failed'); }
     setAuthLoading(false);
@@ -248,10 +280,12 @@ export default function AdminSettingsPage() {
         <h2 style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text)', marginBottom: '0.75rem' }}>Integration Status</h2>
         {statusError ? (
           <p style={{ fontSize: '0.875rem', color: 'var(--danger)' }}>{statusError}</p>
-        ) : !settingsStatus ? (
+        ) : !settingsStatus && !statusLoaded ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
             <span className="spinner" />Loading...
           </div>
+        ) : !settingsStatus ? (
+          <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>Log in above to view integration status.</p>
         ) : (
           <div>
             <IntegrationRow
@@ -287,6 +321,19 @@ export default function AdminSettingsPage() {
           </div>
         )}
       </div>
+
+      {/* Passcode Management */}
+      {isAuthenticated && (
+        <div className="card" style={{ marginTop: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+            <h2 style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text)' }}>Passcode Management</h2>
+            <button className="btn btn-secondary btn-sm" onClick={loadPasscodes} disabled={passcodesLoading}>
+              {passcodesLoading ? <><span className="spinner" />Loading</> : 'Refresh'}
+            </button>
+          </div>
+          <PasscodeTable passcodes={passcodes} companies={companiesMap} />
+        </div>
+      )}
     </PageShell>
   );
 }

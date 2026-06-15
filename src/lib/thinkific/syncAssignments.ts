@@ -18,14 +18,23 @@ export async function syncAssignments(): Promise<SyncResult> {
   return runSync('assignments', async () => {
     const db = createAdminClient();
 
-    // Read from Supabase enrollments — no Thinkific API call needed
-    const { data: enrollments, error } = await db
-      .from('enrollments')
-      .select('id, thinkific_enrollment_id, learner_id, company_id, course_id, progress_percent, completed_at, is_active')
-      .eq('is_active', true);
+    // Read from Supabase enrollments — no Thinkific API call needed.
+    // Paginate to avoid the 1,000-row server cap (64k+ enrollments in DB).
+    type EnrollmentRow = { id: string; thinkific_enrollment_id: number; learner_id: string; company_id: string; course_id: string; progress_percent: number; completed_at: string | null; is_active: boolean };
+    const enrollments: EnrollmentRow[] = [];
+    for (let offset = 0; ; offset += 1000) {
+      const { data, error } = await db
+        .from('enrollments')
+        .select('id, thinkific_enrollment_id, learner_id, company_id, course_id, progress_percent, completed_at, is_active')
+        .eq('is_active', true)
+        .range(offset, offset + 999);
+      if (error) throw new Error(`Failed to fetch enrollments at offset ${offset}: ${error.message}`);
+      if (!data || data.length === 0) break;
+      enrollments.push(...(data as EnrollmentRow[]));
+      if (data.length < 1000) break;
+    }
 
-    if (error) throw new Error(`Failed to fetch enrollments: ${error.message}`);
-    if (!enrollments || enrollments.length === 0) return 0;
+    if (enrollments.length === 0) return 0;
 
     console.log(`[SyncAssignments] Deriving assignments from ${enrollments.length} local enrollments`);
 

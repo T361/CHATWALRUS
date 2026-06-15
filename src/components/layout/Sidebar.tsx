@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 
 // Icons as inline SVG snippets
 function IconBuilding() {
@@ -84,6 +84,12 @@ const companySubLinks = (slug: string) => [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router   = useRouter();
+
+  async function handleSignOut() {
+    await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
+    router.push('/admin/settings');
+  }
 
   const companyMatch = pathname.match(/^\/company\/([^/]+)/);
   const companySlug  = companyMatch?.[1] ?? null;
@@ -142,6 +148,27 @@ export default function Sidebar() {
           </>
         )}
       </nav>
+
+      <div style={{ marginTop: 'auto', padding: '0.75rem', borderTop: '1px solid var(--border-muted)' }}>
+        <button
+          onClick={handleSignOut}
+          style={{
+            width: '100%', display: 'flex', alignItems: 'center', gap: '0.5rem',
+            padding: '0.5rem 0.625rem', borderRadius: 'var(--radius-sm)',
+            background: 'none', border: 'none', cursor: 'pointer',
+            color: 'var(--text-muted)', fontSize: '0.8125rem',
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text)')}
+          onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
+        >
+          <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ flexShrink: 0 }}>
+            <path d="M13 3h4a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-4" />
+            <path d="M8 15l5-5-5-5" />
+            <path d="M2 10h11" />
+          </svg>
+          Sign Out
+        </button>
+      </div>
     </aside>
   );
 }

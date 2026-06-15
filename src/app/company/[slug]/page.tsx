@@ -40,26 +40,26 @@ export default async function CompanyDashboardPage(
 
   const [
     { count: totalEnrolled },
-    { data: enrollments },
+    { count: courseCompletions },
+    { count: totalAssignments },
+    { count: submittedAssignments },
     { data: latestMilestone },
     { data: alerts },
     { data: trendData },
-    { data: assignments },
   ] = await Promise.all([
     db.from('learners').select('*', { count: 'exact', head: true }).eq('company_id', company.id).eq('is_active', true),
-    db.from('enrollments').select('progress_percent, completed_at').eq('company_id', company.id).eq('is_active', true),
+    db.from('enrollments').select('*', { count: 'exact', head: true }).eq('company_id', company.id).eq('is_active', true).not('completed_at', 'is', null),
+    db.from('assignments').select('*', { count: 'exact', head: true }).eq('company_id', company.id),
+    db.from('assignments').select('*', { count: 'exact', head: true }).eq('company_id', company.id).eq('submitted', true),
     db.from('milestone_checks').select('*').eq('company_id', company.id).order('checked_at', { ascending: false }).limit(1).single(),
     db.from('alerts').select('*').eq('company_id', company.id).eq('status', 'open').order('created_at', { ascending: false }).limit(5),
-    db.from('daily_snapshots').select('snapshot_date, completion_percent').eq('company_id', company.id).order('snapshot_date', { ascending: true }).limit(30),
-    db.from('assignments').select('submitted').eq('company_id', company.id),
+    db.from('daily_snapshots').select('snapshot_date, completion_percent').eq('company_id', company.id).order('snapshot_date', { ascending: false }).limit(30),
   ]);
 
-  const avgProgress = enrollments?.length
-    ? enrollments.reduce((s, e) => s + safeNumber(e.progress_percent), 0) / enrollments.length
-    : 0;
-  const courseCompletions = enrollments?.filter((e) => e.completed_at).length ?? 0;
-  const submissionRate = assignments?.length
-    ? Math.round((assignments.filter((a) => a.submitted).length / assignments.length) * 100)
+  // Use milestone average_completion_percent which is calculated with full pagination
+  const avgProgress = Number(latestMilestone?.average_completion_percent ?? 0);
+  const submissionRate = totalAssignments
+    ? Math.round(((submittedAssignments ?? 0) / totalAssignments) * 100)
     : 0;
 
   const onTrack = latestMilestone?.on_track_count ?? 0;
@@ -84,10 +84,10 @@ export default async function CompanyDashboardPage(
     if (!trendByDate.has(date)) trendByDate.set(date, []);
     trendByDate.get(date)!.push(safeNumber(row.completion_percent));
   }
-  const trend = Array.from(trendByDate.entries()).map(([date, vals]) => ({
-    date,
-    average_completion: vals.reduce((a, b) => a + b, 0) / vals.length,
-  }));
+  // trendData is DESC (newest first); reverse to chronological order for the chart
+  const trend = Array.from(trendByDate.entries())
+    .map(([date, vals]) => ({ date, average_completion: vals.reduce((a, b) => a + b, 0) / vals.length }))
+    .reverse();
 
   const programDayNumber = daysSince(company.start_date);
   const totalDays = company.learning_timeline_days ?? null;
@@ -124,13 +124,13 @@ export default async function CompanyDashboardPage(
 
       <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))' }}>
         <KpiCard title="Total Enrolled" value={totalEnrolled ?? 0} />
-        <KpiCard title="Completions" value={courseCompletions} />
+        <KpiCard title="Completions" value={courseCompletions ?? 0} />
         <KpiCard title="Avg Progress" value={`${avgProgress.toFixed(1)}%`} />
         <KpiCard title="Assignment Rate" value={`${submissionRate}%`} />
         <KpiCard title="On Pace" value={`${onPace}%`} color="var(--on-track)" />
-        <KpiCard title="Slightly Behind" value={slightlyBehind} color="var(--slightly-behind)" />
-        <KpiCard title="At Risk" value={atRisk} color="var(--at-risk)" />
-        <KpiCard title="Not Started" value={notStarted} color="var(--not-started)" />
+        <KpiCard title="Slightly Behind" value={slightlyBehind} color="var(--slightly-behind)" href={`/company/${slug}/learners?status=slightly_behind`} />
+        <KpiCard title="At Risk" value={atRisk} color="var(--at-risk)" href={`/company/${slug}/learners?status=at_risk`} />
+        <KpiCard title="Not Started" value={notStarted} color="var(--not-started)" href={`/company/${slug}/learners?status=not_started`} />
       </div>
 
       <LearnerStatusBar
