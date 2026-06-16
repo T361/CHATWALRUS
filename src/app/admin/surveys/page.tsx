@@ -68,6 +68,7 @@ export default function SurveysPage() {
     setLoading(false);
   }, []);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { load(companyFilter, profFilter); }, [load, companyFilter, profFilter]);
 
   function handleCompanyChange(val: string) { setCompanyFilter(val); setFeedbackPage(0); }

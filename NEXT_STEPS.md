@@ -1,6 +1,56 @@
-# Next Steps
+# Next Steps — Prioritized
 
-Ordered checklist based on the 2026-06-14 live verification pass. No new architecture required — the current blockers are credential validity and external API access, not missing app routes.
+> Updated: 2026-06-17 after full production readiness audit.
+> Previous content below this header (from 2026-06-14) is superseded by NEXT_STEPS priority list; see below.
+
+---
+
+## P0 — Blockers (Must fix before real data flows)
+
+### 1. Apply Migration 004 — Fix assignments UNIQUE constraint
+**File:** `supabase/migrations/004_assignment_unique_constraint.sql`
+**Why:** Every `syncAssignments` and `syncEnrollmentData` upserts `onConflict: 'thinkific_assignment_id'`. Without a UNIQUE constraint Supabase rejects the upsert. Run this in the Supabase SQL editor.
+
+### 2. Resolve Supabase live connection (admin key 401)
+**Steps:** Dashboard → Settings → API → copy service_role key → update in Vercel env + .env.local → verify via `GET /api/admin/settings/status`.
+
+### 3. Resolve Thinkific credentials (401 on all endpoints)
+**Steps:** Confirm THINKIFIC_SUBDOMAIN matches the subdomain in your Thinkific URL. Test with curl: `curl -H "Authorization: Bearer <KEY>" "https://api.thinkific.com/api/public/v1/courses?limit=1"`.
+
+---
+
+## P1 — High
+
+### 4. Wire Slack alerts into milestone flow
+**File:** `src/lib/milestones/runMilestoneCheck.ts` — `sendSlackAlert()` exists but is never called.
+
+### 5. Add pagination to `/api/surveys` route
+**File:** `src/app/api/surveys/route.ts` — fetches all surveys without `.limit()`. Will hit Supabase 1000-row cap silently.
+
+### 6. Verify Zoom credentials and run first attendance sync
+
+### 7. Create `vercel.json` with cron job configuration
+Schedule `/api/jobs/daily-thinkific-sync` and `/api/jobs/sync-zoom-attendance`.
+
+---
+
+## P2 — Medium
+
+### 8. Add login rate limiting on `/api/auth/login`
+### 9. Validate Thinkific lesson progress response shape against live data
+### 10. Add `.env.example` with all key names for onboarding
+
+---
+
+## P3 — Low / Quality
+
+### 11. Add unit tests (install vitest) — status calculation + auth guard behavior
+### 12. Fix App Router ESLint font warning in layout.tsx
+### 13. Confirm PasscodeTable Add/Deactivate buttons are wired to API
+
+---
+
+## Original 2026-06-14 Notes (superseded)
 
 ---
 

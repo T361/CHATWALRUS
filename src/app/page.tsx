@@ -1,7 +1,6 @@
 export const dynamic = 'force-dynamic';
 
 import PageShell from '@/components/layout/PageShell';
-import CompanyCard from '@/components/company/CompanyCard';
 import CompanySearch from '@/components/company/CompanySearch';
 import Link from 'next/link';
 import { createAdminClient } from '@/lib/supabase/admin';

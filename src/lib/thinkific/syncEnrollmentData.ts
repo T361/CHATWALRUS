@@ -10,7 +10,7 @@
 
 import { thinkificPaginateFast, isThinkificConfigured } from './client';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { runSync, type SyncResult } from './syncCore';
+import type { SyncResult } from './syncCore';
 import { safeNumber, clampPercent } from '@/lib/utils/normalize';
 
 interface ThinkificEnrollment {

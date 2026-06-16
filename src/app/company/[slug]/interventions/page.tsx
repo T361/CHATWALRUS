@@ -63,6 +63,7 @@ export default function InterventionsPage() {
       .then((r) => r.json())
       .then((d) => setCompanyName(d.company?.name ?? slug))
       .catch(() => {});
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);

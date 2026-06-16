@@ -9,6 +9,7 @@ export default function ThemeToggle() {
     try {
       const saved = localStorage.getItem('cw-theme') as 'dark' | 'light' | null;
       if (saved) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setTheme(saved);
         document.documentElement.setAttribute('data-theme', saved);
       }
