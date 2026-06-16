@@ -5,6 +5,18 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 
+const POINT_LEGEND = [
+  { icon: '🎯', label: 'Zoom Session',    pts: 50  },
+  { icon: '📚', label: 'Lesson',          pts: 10  },
+  { icon: '✅', label: 'Quiz',            pts: 25  },
+  { icon: '🏆', label: 'Course',          pts: 100 },
+  { icon: '📝', label: 'Assignment',      pts: 20  },
+  { icon: '📊', label: 'Survey',          pts: 15  },
+  { icon: '🔥', label: '7d Streak',       pts: 50  },
+  { icon: '⚡', label: '30d Streak',      pts: 200 },
+  { icon: '⏰', label: 'On Pace',         pts: 30  },
+];
+
 interface LeaderboardRow {
   rank: number;
   learner_id: string;
@@ -96,7 +108,7 @@ export default function CompanyLeaderboardPage() {
         </div>
       ) : filtered.length === 0 ? (
         <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem', padding: '2rem 0', textAlign: 'center' }}>
-          {rows.length === 0 ? 'No points data yet — run "Recalculate Points" from Admin Settings.' : 'No results.'}
+          {rows.length === 0 ? 'No points data yet. Activity (lessons, sessions, quizzes) must be synced first.' : 'No results.'}
         </div>
       ) : (
         <>
@@ -135,6 +147,19 @@ export default function CompanyLeaderboardPage() {
           )}
 
           <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            {/* Points key strip */}
+            <div style={{
+              padding: '0.5rem 1rem', borderBottom: '1px solid var(--border)',
+              background: 'var(--surface-raised)',
+              display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap',
+            }}>
+              <span style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Points:</span>
+              {POINT_LEGEND.map(({ icon, label, pts }) => (
+                <span key={label} style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                  {icon} {label} <span style={{ fontWeight: 700, color: 'var(--primary)' }}>+{pts}</span>
+                </span>
+              ))}
+            </div>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface-raised)' }}>

@@ -225,6 +225,36 @@ export async function seedPointsFromActivity(): Promise<PointsResult[]> {
     }
   }
 
+  // ── Lesson completions → lesson_complete ──────────────────────────────────
+  {
+    const batch: Array<Record<string, unknown>> = [];
+    for (let offset = 0; ; offset += 1000) {
+      const { data } = await db
+        .from('lesson_progress')
+        .select('learner_id, company_id, id')
+        .eq('completed', true)
+        .not('learner_id', 'is', null)
+        .range(offset, offset + 999);
+      if (!data || data.length === 0) break;
+      for (const r of data) {
+        batch.push({
+          learner_id: r.learner_id,
+          company_id: r.company_id ?? learnerMap.get(r.learner_id),
+          event_type: 'lesson_complete',
+          points_earned: POINTS.lesson_complete,
+          reference_id: r.id,
+          earned_at: new Date().toISOString(),
+        });
+      }
+      if (data.length < 1000) break;
+    }
+    for (let i = 0; i < batch.length; i += 100) {
+      await db.from('points_events').upsert(batch.slice(i, i + 100), {
+        onConflict: 'learner_id,event_type,reference_id', ignoreDuplicates: true,
+      });
+    }
+  }
+
   // ── Surveys → survey ───────────────────────────────────────────────────────
   {
     const batch: Array<Record<string, unknown>> = [];

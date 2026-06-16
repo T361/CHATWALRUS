@@ -18,11 +18,24 @@ interface LeaderboardRow {
 
 const MEDAL = ['🥇', '🥈', '🥉'];
 
+const POINT_LEGEND = [
+  { icon: '🎯', label: 'Zoom Session',    pts: 50  },
+  { icon: '📚', label: 'Lesson Complete', pts: 10  },
+  { icon: '✅', label: 'Quiz Pass',       pts: 25  },
+  { icon: '🏆', label: 'Course Complete', pts: 100 },
+  { icon: '📝', label: 'Assignment',      pts: 20  },
+  { icon: '📊', label: 'Survey',          pts: 15  },
+  { icon: '🔥', label: '7-Day Streak',    pts: 50  },
+  { icon: '⚡', label: '30-Day Streak',   pts: 200 },
+  { icon: '⏰', label: 'On Pace',         pts: 30  },
+];
+
 export default function GlobalLeaderboardPage() {
   const [rows,    setRows]    = useState<LeaderboardRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [seeding, setSeeding] = useState(false);
   const [search,  setSearch]  = useState('');
+  const [showLegend, setShowLegend] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -31,7 +44,6 @@ export default function GlobalLeaderboardPage() {
     const lb  = d.leaderboard ?? [];
 
     if (lb.length === 0 && !d.error) {
-      // Auto-seed on first visit — no manual step required
       setSeeding(true);
       await fetch('/api/admin/sync/gamification', { method: 'POST' });
       setSeeding(false);
@@ -52,14 +64,24 @@ export default function GlobalLeaderboardPage() {
     return !q || r.full_name.toLowerCase().includes(q) || (r.company_name ?? '').toLowerCase().includes(q);
   });
 
+  const top3 = rows.slice(0, 3);
+
   return (
     <PageShell>
+      {/* Header */}
       <div className="page-header">
         <div>
           <h1 className="page-title">Global Leaderboard</h1>
           <p className="page-subtitle">Top learners across all companies ranked by engagement points</p>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+          <button
+            onClick={() => setShowLegend(v => !v)}
+            className="btn btn-secondary btn-sm"
+            title="Points legend"
+          >
+            📊 Points Legend
+          </button>
           {!loading && (
             <button className="btn btn-secondary btn-sm" onClick={load}>
               <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75">
@@ -72,6 +94,33 @@ export default function GlobalLeaderboardPage() {
           <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{rows.length} ranked</span>
         </div>
       </div>
+
+      {/* Points legend panel */}
+      {showLegend && (
+        <div className="card" style={{ marginBottom: '1.25rem', padding: '1rem 1.25rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+            <h3 style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text)' }}>How Points are Earned</h3>
+            <button onClick={() => setShowLegend(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1rem', lineHeight: 1 }}>×</button>
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+            {POINT_LEGEND.map(({ icon, label, pts }) => (
+              <div key={label} style={{
+                display: 'flex', alignItems: 'center', gap: '0.375rem',
+                padding: '0.3125rem 0.625rem',
+                background: 'var(--surface-raised)', border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-sm)', fontSize: '0.8125rem',
+              }}>
+                <span>{icon}</span>
+                <span style={{ color: 'var(--text-secondary)' }}>{label}</span>
+                <span style={{ fontWeight: 700, color: 'var(--primary)', fontVariantNumeric: 'tabular-nums' }}>+{pts}</span>
+              </div>
+            ))}
+          </div>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.625rem' }}>
+            Points are idempotent — each unique activity is counted once. Streaks and on-pace bonuses are calculated daily.
+          </p>
+        </div>
+      )}
 
       {/* Search */}
       <div style={{ position: 'relative', maxWidth: 380, marginBottom: '1.25rem' }}>
@@ -87,51 +136,110 @@ export default function GlobalLeaderboardPage() {
         <div className="card" style={{ padding: '3rem', textAlign: 'center' }}>
           <div className="spinner" style={{ margin: '0 auto 1rem', width: '1.5rem', height: '1.5rem' }} />
           <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', fontWeight: 500 }}>
-            {seeding ? 'Calculating points from all activity — this takes ~10 seconds on first run…' : 'Loading leaderboard…'}
+            {seeding ? 'Calculating points from all activity — first run takes ~10 seconds…' : 'Loading leaderboard…'}
           </p>
         </div>
       ) : filtered.length === 0 ? (
         <div className="empty-state card">
           <h3>{rows.length === 0 ? 'No data yet' : 'No results'}</h3>
-          <p>{rows.length === 0 ? 'Could not calculate points. Check that activity data has been synced.' : `No matches for "${search}"`}</p>
+          <p>{rows.length === 0 ? 'Could not calculate points. Ensure activity has been synced first.' : `No matches for "${search}"`}</p>
         </div>
       ) : (
-        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-          <table>
-            <thead>
-              <tr>
-                {['Rank', 'Learner', 'Company', 'Points', 'Sessions', 'Streak'].map((h) => (
-                  <th key={h}>{h}</th>
+        <>
+          {/* Top 3 podium (only when not searching) */}
+          {!search && top3.length >= 3 && (
+            <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.75rem', justifyContent: 'center', alignItems: 'flex-end' }}>
+              {[top3[1], top3[0], top3[2]].map((r, podiumI) => {
+                const rank = podiumI === 0 ? 2 : podiumI === 1 ? 1 : 3;
+                const barH = rank === 1 ? 130 : rank === 2 ? 100 : 80;
+                const accent = rank === 1 ? 'var(--primary)' : rank === 2 ? 'rgba(148,163,184,0.4)' : 'rgba(180,120,70,0.35)';
+                return (
+                  <div key={r.learner_id} style={{ textAlign: 'center', flex: '0 0 160px' }}>
+                    <div style={{ fontSize: rank === 1 ? '2.25rem' : '1.75rem', marginBottom: '0.25rem' }}>{MEDAL[rank - 1]}</div>
+                    <div style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--text)', marginBottom: '0.125rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', padding: '0 0.25rem' }}>
+                      {r.full_name.split(' ')[0]}
+                    </div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '0.5rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', padding: '0 0.25rem' }}>
+                      {r.company_name ?? ''}
+                    </div>
+                    <div style={{
+                      height: barH,
+                      background: accent,
+                      border: '1px solid var(--border)',
+                      borderRadius: '0.5rem 0.5rem 0 0',
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.125rem',
+                    }}>
+                      <span style={{ fontWeight: 800, fontSize: rank === 1 ? '1.25rem' : '1rem', color: rank === 1 ? '#fff' : 'var(--text)' }}>
+                        {r.total_points.toLocaleString()}
+                      </span>
+                      <span style={{ fontSize: '0.6875rem', color: rank === 1 ? 'rgba(255,255,255,0.7)' : 'var(--text-muted)' }}>pts</span>
+                      {r.sessions_attended > 0 && (
+                        <span style={{ fontSize: '0.625rem', color: rank === 1 ? 'rgba(255,255,255,0.6)' : 'var(--text-muted)', marginTop: '0.25rem' }}>
+                          🎯 {r.sessions_attended} sessions
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            {/* Mini legend strip above table */}
+            {!showLegend && (
+              <div style={{
+                padding: '0.5rem 1rem', borderBottom: '1px solid var(--border)',
+                background: 'var(--surface-raised)',
+                display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap',
+              }}>
+                <span style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Points key:</span>
+                {POINT_LEGEND.map(({ icon, pts }) => (
+                  <span key={icon} style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                    {icon} <span style={{ fontWeight: 600, color: 'var(--primary)' }}>+{pts}</span>
+                  </span>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((r) => (
-                <tr key={r.learner_id}>
-                  <td style={{ width: 64, fontWeight: 700, color: r.rank <= 3 ? 'var(--primary)' : 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
-                    {r.rank <= 3 ? MEDAL[r.rank - 1] : `#${r.rank}`}
-                  </td>
-                  <td>
-                    <div style={{ fontWeight: 500 }}>{r.full_name}</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{r.email}</div>
-                  </td>
-                  <td>
-                    {r.company_slug ? (
-                      <Link href={`/company/${r.company_slug}`} style={{ color: 'var(--primary)', fontSize: '0.8125rem' }}>
-                        {r.company_name}
-                      </Link>
-                    ) : <span style={{ color: 'var(--text-muted)' }}>—</span>}
-                  </td>
-                  <td style={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{r.total_points.toLocaleString()}</td>
-                  <td style={{ color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums' }}>{r.sessions_attended}</td>
-                  <td style={{ color: r.current_streak_days >= 7 ? 'var(--success)' : 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
-                    {r.current_streak_days > 0 ? `${r.current_streak_days}d 🔥` : '—'}
-                  </td>
+                <button onClick={() => setShowLegend(true)} style={{ marginLeft: 'auto', background: 'none', border: 'none', fontSize: '0.7rem', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                  Details →
+                </button>
+              </div>
+            )}
+            <table>
+              <thead>
+                <tr>
+                  {['Rank', 'Learner', 'Company', 'Points', 'Sessions', 'Streak'].map((h) => (
+                    <th key={h}>{h}</th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {filtered.map((r) => (
+                  <tr key={r.learner_id} style={{ background: r.rank <= 3 ? 'var(--surface-raised)' : 'transparent' }}>
+                    <td style={{ width: 64, fontWeight: 700, color: r.rank <= 3 ? 'var(--primary)' : 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
+                      {r.rank <= 3 ? MEDAL[r.rank - 1] : `#${r.rank}`}
+                    </td>
+                    <td>
+                      <div style={{ fontWeight: 500 }}>{r.full_name}</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{r.email}</div>
+                    </td>
+                    <td>
+                      {r.company_slug ? (
+                        <Link href={`/company/${r.company_slug}`} style={{ color: 'var(--primary)', fontSize: '0.8125rem' }}>
+                          {r.company_name}
+                        </Link>
+                      ) : <span style={{ color: 'var(--text-muted)' }}>—</span>}
+                    </td>
+                    <td style={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{r.total_points.toLocaleString()}</td>
+                    <td style={{ color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums' }}>{r.sessions_attended}</td>
+                    <td style={{ color: r.current_streak_days >= 7 ? 'var(--success)' : 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
+                      {r.current_streak_days > 0 ? `${r.current_streak_days}d 🔥` : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </PageShell>
   );
