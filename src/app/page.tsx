@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import PageShell from '@/components/layout/PageShell';
 import CompanyCard from '@/components/company/CompanyCard';
+import CompanySearch from '@/components/company/CompanySearch';
 import Link from 'next/link';
 import { createAdminClient } from '@/lib/supabase/admin';
 
@@ -20,7 +21,6 @@ export default async function HomePage() {
     const { data, error } = await db
       .from('companies')
       .select('id, name, slug, start_date, is_active')
-      .eq('is_active', true)
       .order('name');
 
     if (error) throw error;
@@ -86,7 +86,7 @@ export default async function HomePage() {
           <p className="page-subtitle">Select a company to view engagement details</p>
         </div>
         <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums', paddingTop: '0.375rem' }}>
-          {companies.length} active
+          {companies.length} companies
         </span>
       </div>
 
@@ -107,19 +107,7 @@ export default async function HomePage() {
           </Link>
         </div>
       ) : (
-        <div className="company-grid">
-          {companies.map((company) => (
-            <CompanyCard
-              key={company.id}
-              name={company.name}
-              slug={company.slug}
-              learnerCount={company.learner_count ?? 0}
-              startDate={company.start_date}
-              avgProgress={company.avg_progress}
-              atRiskCount={company.at_risk_count}
-            />
-          ))}
-        </div>
+        <CompanySearch companies={companies} />
       )}
     </PageShell>
   );

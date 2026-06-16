@@ -180,7 +180,9 @@ export default async function CompanyDashboardPage(
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '0.875rem' }}>
         {[
           { href: `/company/${slug}/learners`, icon: '⌀', label: 'Learner Breakdown', sub: `${totalEnrolled ?? 0} learners · progress & status` },
+          { href: `/company/${slug}/leaderboard`, icon: '🏆', label: 'Leaderboard', sub: 'Top learners by engagement points' },
           { href: `/company/${slug}/assessments`, icon: '◈', label: 'Assessments', sub: `${courseCompletions} completions · ${submissionRate}% assignment rate` },
+          { href: `/company/${slug}/interventions`, icon: '📋', label: 'Interventions', sub: 'CSM notes, calls and follow-ups' },
           { href: `/company/${slug}/export`, icon: '↓', label: 'Export Data', sub: 'Download CSV and JSON reports' },
         ].map(({ href, icon, label, sub }) => (
           <Link key={href} href={href} style={{ textDecoration: 'none', color: 'inherit' }}>

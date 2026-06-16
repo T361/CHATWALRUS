@@ -117,16 +117,22 @@ export async function runMilestoneCheck(
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-  const { data: zoomRows } = await db
-    .from('zoom_attendance')
-    .select('learner_id')
-    .eq('company_id', company.id)
-    .eq('attended', true)
-    .gte('join_time', thirtyDaysAgo.toISOString())
-    .limit(50000);
+  const zoomAttendanceRows: Array<{ learner_id: string }> = [];
+  for (let offset = 0; ; offset += 1000) {
+    const { data: page } = await db
+      .from('zoom_attendance')
+      .select('learner_id')
+      .eq('company_id', company.id)
+      .eq('attended', true)
+      .gte('join_time', thirtyDaysAgo.toISOString())
+      .range(offset, offset + 999);
+    if (!page || page.length === 0) break;
+    zoomAttendanceRows.push(...page);
+    if (page.length < 1000) break;
+  }
 
   const zoomCountByLearner = new Map<string, number>();
-  for (const row of zoomRows || []) {
+  for (const row of zoomAttendanceRows) {
     zoomCountByLearner.set(row.learner_id, (zoomCountByLearner.get(row.learner_id) ?? 0) + 1);
   }
 

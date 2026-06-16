@@ -1,14 +1,12 @@
-import Sidebar from './Sidebar';
+import TopNav from './TopNav';
 
 export default function PageShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="app-shell">
-      <Sidebar />
-      <div className="shell-main">
-        <main className="shell-content">
-          {children}
-        </main>
-      </div>
+    <div className="app-shell-top">
+      <TopNav />
+      <main className="shell-content">
+        {children}
+      </main>
     </div>
   );
 }

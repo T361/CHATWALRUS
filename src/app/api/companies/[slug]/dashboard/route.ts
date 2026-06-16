@@ -28,17 +28,24 @@ export async function GET(
     .eq('company_id', company.id)
     .eq('is_active', true);
 
-  // Enrollment stats
-  const { data: enrollments } = await db
-    .from('enrollments')
-    .select('progress_percent, completed_at')
-    .eq('company_id', company.id)
-    .eq('is_active', true);
+  // Enrollment stats — paginate to avoid 1k row cap
+  const enrollments: Array<{ progress_percent: number | null; completed_at: string | null }> = [];
+  for (let offset = 0; ; offset += 1000) {
+    const { data: page } = await db
+      .from('enrollments')
+      .select('progress_percent, completed_at')
+      .eq('company_id', company.id)
+      .eq('is_active', true)
+      .range(offset, offset + 999);
+    if (!page || page.length === 0) break;
+    enrollments.push(...page);
+    if (page.length < 1000) break;
+  }
 
-  const avgProgress = enrollments && enrollments.length > 0
+  const avgProgress = enrollments.length > 0
     ? enrollments.reduce((s, e) => s + safeNumber(e.progress_percent), 0) / enrollments.length
     : 0;
-  const courseCompletions = enrollments?.filter((e) => e.completed_at).length ?? 0;
+  const courseCompletions = enrollments.filter((e) => e.completed_at).length;
 
   // Latest milestone check
   const { data: latestMilestone } = await db
@@ -57,27 +64,41 @@ export async function GET(
   const total = Math.max(safeNumber(totalEnrolled), 1);
   const onPace = Math.round(((onTrack + highEngagement) / total) * 100);
 
-  // Quiz median
-  const { data: quizzes } = await db
-    .from('quizzes')
-    .select('score')
-    .eq('company_id', company.id)
-    .not('score', 'is', null);
+  // Quiz median — paginate to avoid 1k row cap
+  const quizScoreRows: Array<{ score: number | null }> = [];
+  for (let offset = 0; ; offset += 1000) {
+    const { data: page } = await db
+      .from('quizzes')
+      .select('score')
+      .eq('company_id', company.id)
+      .not('score', 'is', null)
+      .range(offset, offset + 999);
+    if (!page || page.length === 0) break;
+    quizScoreRows.push(...page);
+    if (page.length < 1000) break;
+  }
 
-  const quizScores = (quizzes || []).map((q) => safeNumber(q.score)).sort((a, b) => a - b);
+  const quizScores = quizScoreRows.map((q) => safeNumber(q.score)).sort((a, b) => a - b);
   const medianQuiz = quizScores.length > 0
     ? quizScores.length % 2 === 0
       ? (quizScores[quizScores.length / 2 - 1] + quizScores[quizScores.length / 2]) / 2
       : quizScores[Math.floor(quizScores.length / 2)]
     : null;
 
-  // Assignment submission rate
-  const { data: assignments } = await db
-    .from('assignments')
-    .select('submitted')
-    .eq('company_id', company.id);
+  // Assignment submission rate — paginate to avoid 1k row cap
+  const assignments: Array<{ submitted: boolean }> = [];
+  for (let offset = 0; ; offset += 1000) {
+    const { data: page } = await db
+      .from('assignments')
+      .select('submitted')
+      .eq('company_id', company.id)
+      .range(offset, offset + 999);
+    if (!page || page.length === 0) break;
+    assignments.push(...page);
+    if (page.length < 1000) break;
+  }
 
-  const submissionRate = assignments && assignments.length > 0
+  const submissionRate = assignments.length > 0
     ? Math.round((assignments.filter((a) => a.submitted).length / assignments.length) * 100)
     : null;
 

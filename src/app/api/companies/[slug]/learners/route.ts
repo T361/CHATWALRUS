@@ -35,14 +35,19 @@ export async function GET(
 
   const learnerIds = learners.map((l) => l.id);
 
-  // Use company_id filter instead of .in(learnerIds) — avoids URL length limits
-  // that silently return empty results for companies with 200+ learners.
-  const { data: allEnrollments } = await db
-    .from('enrollments')
-    .select('learner_id, progress_percent, course_id')
-    .eq('company_id', company.id)
-    .eq('is_active', true)
-    .limit(50000);
+  // Paginate enrollments — Supabase caps at 1k rows per request
+  const allEnrollments: Array<{ learner_id: string; progress_percent: number; course_id: string }> = [];
+  for (let offset = 0; ; offset += 1000) {
+    const { data: page } = await db
+      .from('enrollments')
+      .select('learner_id, progress_percent, course_id')
+      .eq('company_id', company.id)
+      .eq('is_active', true)
+      .range(offset, offset + 999);
+    if (!page || page.length === 0) break;
+    allEnrollments.push(...page);
+    if (page.length < 1000) break;
+  }
 
   // Paginate snapshots by company_id to avoid both URL limits and the Supabase
   // 1000-row server cap. We only need the latest snapshot per learner so we

@@ -30,15 +30,19 @@ interface SettingsStatusResponse {
 }
 
 const syncButtons = [
-  { type: 'core',        label: 'Import Core Data',          sub: 'Courses + Users from Thinkific',    endpoint: '/api/admin/sync/core' },
-  { type: 'progress',   label: 'Import Progress',            sub: 'Enrollment + completion data',      endpoint: '/api/admin/sync/progress' },
-  { type: 'assignments',label: 'Import Assignments',         sub: 'Submissions from Thinkific',        endpoint: '/api/admin/sync/assignments' },
-  { type: 'surveys',    label: 'Import Surveys',             sub: 'Ratings + feedback from Thinkific', endpoint: '/api/admin/sync/surveys' },
-  { type: 'zoom',           label: 'Sync Zoom Attendance',    sub: 'Session attendance records',                    endpoint: '/api/admin/sync/zoom' },
-  { type: 'lesson-progress', label: 'Sync Lesson Progress', sub: 'Lesson-level completion from Thinkific (slow — runs incrementally)', endpoint: '/api/admin/sync/lesson-progress' },
-  { type: 'snapshots',  label: 'Create Daily Snapshots',     sub: 'Progress snapshots for trend charts',           endpoint: '/api/admin/sync/snapshots' },
-  { type: 'milestones', label: 'Run Milestone Checks',       sub: 'Learner statuses + risk alerts',    endpoint: '/api/jobs/run-milestones' },
-  { type: 'full',       label: 'Full Sync',                  sub: 'Import all data from Thinkific',    endpoint: '/api/admin/sync/full' },
+  { type: 'core',           label: 'Import Core Data',         sub: 'Courses + Users + Enrollments — auto-creates all companies',                    endpoint: '/api/admin/sync/core' },
+  { type: 'groups',         label: 'Sync Thinkific Groups',    sub: 'Canonical company list from Thinkific Groups + learner→company assignments',    endpoint: '/api/admin/sync/groups' },
+  { type: 'orders',         label: 'Sync Orders',              sub: 'Enrollment purchase history from Thinkific',                                    endpoint: '/api/admin/sync/orders' },
+  { type: 'start-dates',    label: 'Auto-detect Start Dates',  sub: 'Infers program start date from earliest enrollment per company',                endpoint: '/api/admin/sync/start-dates' },
+  { type: 'progress',       label: 'Import Progress',          sub: 'Enrollment + completion data',                                                  endpoint: '/api/admin/sync/progress' },
+  { type: 'assignments',    label: 'Import Assignments',        sub: 'Submissions from Thinkific',                                                   endpoint: '/api/admin/sync/assignments' },
+  { type: 'surveys',        label: 'Import Surveys',           sub: 'Ratings + feedback from Thinkific',                                             endpoint: '/api/admin/sync/surveys' },
+  { type: 'zoom',           label: 'Sync Zoom Attendance',     sub: 'Meetings + webinars attendance — requires Zoom credentials',                    endpoint: '/api/admin/sync/zoom' },
+  { type: 'lesson-progress',label: 'Sync Lesson Progress',     sub: 'Lesson-level completion from Thinkific (slow — runs incrementally)',             endpoint: '/api/admin/sync/lesson-progress' },
+  { type: 'snapshots',      label: 'Create Daily Snapshots',   sub: 'Progress snapshots for trend charts',                                           endpoint: '/api/admin/sync/snapshots' },
+  { type: 'gamification',   label: 'Recalculate Points',       sub: 'Recalculate all learner points + badges from recorded activity',                endpoint: '/api/admin/sync/gamification' },
+  { type: 'milestones',     label: 'Run Milestone Checks',     sub: 'Learner statuses + risk alerts',                                                endpoint: '/api/jobs/run-milestones' },
+  { type: 'full',           label: 'Full Sync',                sub: 'Import all data from Thinkific',                                                endpoint: '/api/admin/sync/full' },
 ];
 
 function StatusDot({ ok, dim }: { ok: boolean; dim?: boolean }) {

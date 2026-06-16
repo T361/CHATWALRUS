@@ -16,14 +16,19 @@ export async function GET(
     return NextResponse.json({ error: 'company_id is required' }, { status: 400 });
   }
 
-  const { data, error } = await db
-    .from('surveys')
-    .select('id, rating, feedback_text, proficiency_level, submitted_at, company_id, learner_id, course_id')
-    .eq('company_id', companyId)
-    .order('submitted_at', { ascending: false })
-    .limit(10000);
+  const allSurveys: Record<string, unknown>[] = [];
+  for (let offset = 0; ; offset += 1000) {
+    const { data: page, error } = await db
+      .from('surveys')
+      .select('id, rating, feedback_text, proficiency_level, submitted_at, company_id, learner_id, course_id')
+      .eq('company_id', companyId)
+      .order('submitted_at', { ascending: false })
+      .range(offset, offset + 999);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (!page || page.length === 0) break;
+    allSurveys.push(...page);
+    if (page.length < 1000) break;
+  }
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  return csvResponse(toCSV(data || []), 'surveys-export.csv');
+  return csvResponse(toCSV(allSurveys), 'surveys-export.csv');
 }

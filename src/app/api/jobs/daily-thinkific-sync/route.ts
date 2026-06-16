@@ -2,6 +2,8 @@ export const maxDuration = 300;
 import { NextRequest, NextResponse } from 'next/server';
 import { syncCourses } from '@/lib/thinkific/syncCourses';
 import { syncUsers } from '@/lib/thinkific/syncUsers';
+import { syncGroups } from '@/lib/thinkific/syncGroups';
+import { syncOrders } from '@/lib/thinkific/syncOrders';
 import { syncEnrollmentData } from '@/lib/thinkific/syncEnrollmentData';
 import { createDailySnapshots } from '@/lib/snapshots/createDailySnapshots';
 import { createSyncLog, summarizeSyncResults, updateSyncLog, type SyncResult } from '@/lib/thinkific/syncCore';
@@ -9,7 +11,11 @@ import { requireCronSecret } from '@/lib/auth/guards';
 import { isAdminConfigured, createAdminClient } from '@/lib/supabase/admin';
 import { runAllMilestoneChecks } from '@/lib/milestones/runMilestoneCheck';
 import { syncSurveys } from '@/lib/thinkific/syncSurveys';
+import { syncStartDates } from '@/lib/thinkific/syncStartDates';
 import { createAlert } from '@/lib/alerts/createAlert';
+import { seedPointsFromActivity, recalculateAllPoints } from '@/lib/gamification/calculatePoints';
+import { awardAchievements } from '@/lib/gamification/awardAchievements';
+import { snapshotLeaderboard } from '@/lib/gamification/snapshotLeaderboard';
 
 export async function POST(req: NextRequest) {
   const authError = requireCronSecret(req);
@@ -20,11 +26,17 @@ export async function POST(req: NextRequest) {
   try {
     const courses = await syncCourses();
     const users = await syncUsers();
+    const groups = await syncGroups();
+    const orders = await syncOrders();
     const { enrollments, assignments } = await syncEnrollmentData();
-    const results: Record<string, SyncResult> = { courses, users, enrollments, assignments };
+    const results: Record<string, SyncResult> = { courses, users, groups, orders, enrollments, assignments };
 
     const surveys = await syncSurveys();
     results.surveys = surveys;
+
+    // Auto-detect start dates for companies that don't have one yet
+    const startDates = await syncStartDates();
+    results.start_dates = startDates;
 
     // Daily snapshots — runs after enrollment sync so progress_percent is current
     const snapshotCount = await createDailySnapshots();
@@ -49,6 +61,17 @@ export async function POST(req: NextRequest) {
       syncType: 'milestones',
       status: 'success',
       recordsProcessed: milestoneResults.length,
+    };
+
+    // Gamification — seed events from activity, recalculate totals, award badges, snapshot ranks
+    await seedPointsFromActivity();
+    const gamificationLearners = await recalculateAllPoints();
+    const achievementsAwarded = await awardAchievements();
+    const leaderboardRows = await snapshotLeaderboard();
+    results.gamification = {
+      syncType: 'gamification',
+      status: 'success',
+      recordsProcessed: gamificationLearners + achievementsAwarded + leaderboardRows,
     };
 
     const summary = summarizeSyncResults(results);

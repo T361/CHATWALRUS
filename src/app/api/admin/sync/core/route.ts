@@ -3,6 +3,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminOrCron } from '@/lib/auth/guards';
 import { syncCourses } from '@/lib/thinkific/syncCourses';
 import { syncUsers } from '@/lib/thinkific/syncUsers';
+import { syncGroups } from '@/lib/thinkific/syncGroups';
+import { syncOrders } from '@/lib/thinkific/syncOrders';
+import { syncEnrollmentData } from '@/lib/thinkific/syncEnrollmentData';
+import { syncStartDates } from '@/lib/thinkific/syncStartDates';
 import { summarizeSyncResults } from '@/lib/thinkific/syncCore';
 
 export async function POST(req: NextRequest) {
@@ -11,7 +15,14 @@ export async function POST(req: NextRequest) {
   try {
     const courseResult = await syncCourses();
     const userResult = await syncUsers();
-    const results = { courses: courseResult, users: userResult };
+    // Groups: canonical company list + learner→company assignments (more authoritative than email-domain)
+    const groupResult = await syncGroups();
+    const orderResult = await syncOrders();
+    // Enrollments needed so start-date inference has data to work from
+    const { enrollments: enrollmentResult } = await syncEnrollmentData();
+    // Auto-detect start dates for any company that doesn't have one yet
+    const startDateResult = await syncStartDates();
+    const results = { courses: courseResult, users: userResult, groups: groupResult, orders: orderResult, enrollments: enrollmentResult, start_dates: startDateResult };
     const summary = summarizeSyncResults(results);
 
     return NextResponse.json({

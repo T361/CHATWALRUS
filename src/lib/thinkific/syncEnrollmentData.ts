@@ -48,8 +48,14 @@ export async function syncEnrollmentData(): Promise<{ enrollments: SyncResult; a
   }
   const learnerMap = new Map(allLearners.map((l) => [l.thinkific_user_id, { id: l.id, company_id: l.company_id }]));
 
-  const { data: allCourses } = await db.from('courses').select('id, thinkific_course_id').limit(1000);
-  const courseMap = new Map((allCourses || []).map((c) => [c.thinkific_course_id, c.id]));
+  const allCourseRows: Array<{ id: string; thinkific_course_id: string }> = [];
+  for (let offset = 0; ; offset += 1000) {
+    const { data: page } = await db.from('courses').select('id, thinkific_course_id').range(offset, offset + 999);
+    if (!page || page.length === 0) break;
+    allCourseRows.push(...page);
+    if (page.length < 1000) break;
+  }
+  const courseMap = new Map(allCourseRows.map((c) => [c.thinkific_course_id, c.id]));
 
   console.log(`[SyncEnrollmentData] ${learnerMap.size} learners, ${courseMap.size} courses pre-loaded`);
 
