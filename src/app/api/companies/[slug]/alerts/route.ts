@@ -20,12 +20,28 @@ export async function GET(
 
   if (!company) return NextResponse.json({ error: 'Company not found' }, { status: 404 });
 
-  const { data: alerts } = await db
+  const statusFilter = req.nextUrl.searchParams.get('status') || 'open';
+  const limit = Math.min(Number(req.nextUrl.searchParams.get('limit') || '50'), 200);
+
+  let query = db
     .from('alerts')
     .select('*')
     .eq('company_id', company.id)
     .order('created_at', { ascending: false })
-    .limit(20);
+    .limit(limit);
 
-  return NextResponse.json({ alerts: alerts || [] });
+  if (statusFilter !== 'all') {
+    query = query.eq('status', statusFilter);
+  }
+
+  const { data: alerts, error } = await query;
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  const openCount   = (alerts || []).filter(a => a.status === 'open').length;
+  const reviewedCount = (alerts || []).filter(a => a.status === 'reviewed').length;
+
+  return NextResponse.json({
+    alerts: alerts || [],
+    meta: { open: openCount, reviewed: reviewedCount, total: alerts?.length ?? 0 },
+  });
 }

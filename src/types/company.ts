@@ -14,6 +14,8 @@ export interface Company {
   risk_threshold_percent: number;
   slack_channel_id: string | null;
   csm_owner_id: string | null;
+  csm_owner_email: string | null;
+  slack_routing: 'channel_only' | 'dm_only' | 'both' | null;
   is_active: boolean;
   last_synced_at: string | null;
   created_at: string;

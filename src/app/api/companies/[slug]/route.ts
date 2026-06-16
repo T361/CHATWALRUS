@@ -49,7 +49,8 @@ export async function PATCH(
   // Only allow safe fields to be updated
   const allowedFields = [
     'name', 'start_date', 'end_date', 'learning_timeline_days',
-    'risk_threshold_percent', 'slack_channel_id', 'is_active',
+    'risk_threshold_percent', 'slack_channel_id', 'csm_owner_email',
+    'slack_routing', 'is_active',
   ];
 
   const safeUpdates: Record<string, unknown> = {};

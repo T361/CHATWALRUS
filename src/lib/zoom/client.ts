@@ -52,20 +52,45 @@ export async function getZoomToken(): Promise<string> {
   return cachedToken.token;
 }
 
-export async function zoomGet<T>(endpoint: string, params?: Record<string, string>): Promise<T> {
-  const token = await getZoomToken();
+export async function zoomGet<T>(
+  endpoint: string,
+  params?: Record<string, string>,
+  retries = 3
+): Promise<T> {
   const url = new URL(`https://api.zoom.us/v2${endpoint}`);
   if (params) {
     Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
   }
 
-  const response = await fetch(url.toString(), {
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-  });
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const token = await getZoomToken();
+    const response = await fetch(url.toString(), {
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    });
 
-  if (!response.ok) {
-    throw new Error(`[Zoom] ${response.status}`);
+    if (response.status === 429) {
+      if (attempt === retries) throw new Error(`[Zoom] 429 Too Many Requests on ${endpoint}`);
+      const retryAfterSec = Math.min(
+        parseInt(response.headers.get('Retry-After') || '5', 10),
+        60
+      );
+      console.warn(`[Zoom] 429 on ${endpoint} — waiting ${retryAfterSec}s (attempt ${attempt + 1}/${retries})`);
+      await new Promise(r => setTimeout(r, retryAfterSec * 1000));
+      continue;
+    }
+
+    if (response.status === 401) {
+      // Token may have expired mid-flight — clear cache and retry once
+      cachedToken = null;
+      if (attempt < retries) continue;
+    }
+
+    if (!response.ok) {
+      throw new Error(`[Zoom] ${response.status} on ${endpoint}`);
+    }
+
+    return response.json();
   }
 
-  return response.json();
+  throw new Error(`[Zoom] Exhausted retries for ${endpoint}`);
 }

@@ -66,21 +66,52 @@ export async function runMilestoneCheck(
 
   const learnerIds = learners.map((l) => l.id);
 
-  // Bulk-fetch all enrollments for this company — filter by company_id, not learner_id IN (...),
-  // to avoid URL length limits on companies with hundreds of learners.
-  const { data: allEnrollments } = await db
-    .from('enrollments')
-    .select('learner_id, progress_percent')
-    .eq('company_id', company.id)
-    .eq('is_active', true)
-    .limit(50000);
+  // Bulk-fetch all enrollments for this company — paginated to avoid 1k cap
+  type EnrollRow = { learner_id: string; course_id: string; progress_percent: number | null; courses: { total_lessons: number } | null };
+  const allEnrollments: EnrollRow[] = [];
+  for (let offset = 0; ; offset += 1000) {
+    const { data } = await db
+      .from('enrollments')
+      .select('learner_id, course_id, progress_percent, courses(total_lessons)')
+      .eq('company_id', company.id)
+      .eq('is_active', true)
+      .range(offset, offset + 999);
+    if (!data || data.length === 0) break;
+    allEnrollments.push(...(data as unknown as EnrollRow[]));
+    if (data.length < 1000) break;
+  }
 
-  // Group enrollments by learner
+  // Build enrollment-level progress map (fallback)
   const enrollmentsByLearner = new Map<string, number[]>();
-  for (const e of allEnrollments || []) {
+  const courseTotalLessons = new Map<string, number>();
+  for (const e of allEnrollments) {
     if (!enrollmentsByLearner.has(e.learner_id)) enrollmentsByLearner.set(e.learner_id, []);
     enrollmentsByLearner.get(e.learner_id)!.push(safeNumber(e.progress_percent));
+    if (e.courses?.total_lessons && !courseTotalLessons.has(e.course_id)) {
+      courseTotalLessons.set(e.course_id, e.courses.total_lessons);
+    }
   }
+
+  // Check for lesson_progress data (source of truth when available)
+  // Batch by learner IDs in chunks of 100 to stay within URL length limits
+  const completedLessonsByLearner = new Map<string, number>();
+  for (let i = 0; i < learnerIds.length; i += 100) {
+    const chunk = learnerIds.slice(i, i + 100);
+    const { data } = await db
+      .from('lesson_progress')
+      .select('learner_id')
+      .in('learner_id', chunk)
+      .eq('completed', true);
+    if (data) {
+      for (const row of data) {
+        completedLessonsByLearner.set(
+          row.learner_id,
+          (completedLessonsByLearner.get(row.learner_id) ?? 0) + 1
+        );
+      }
+    }
+  }
+  const hasLessonData = completedLessonsByLearner.size > 0;
 
   // Bulk-fetch Zoom attendance counts for last 30 days
   const thirtyDaysAgo = new Date();
@@ -112,10 +143,21 @@ export async function runMilestoneCheck(
   const snapshotBatch: Array<Record<string, unknown>> = [];
 
   for (const learner of learners) {
-    const progressValues = enrollmentsByLearner.get(learner.id) || [];
-    const avgProgress = progressValues.length > 0
-      ? progressValues.reduce((sum, v) => sum + v, 0) / progressValues.length
-      : 0;
+    // Source priority: lesson_progress counts > enrollment percentage
+    let avgProgress: number;
+    if (hasLessonData && completedLessonsByLearner.has(learner.id)) {
+      const completedLessons = completedLessonsByLearner.get(learner.id) ?? 0;
+      const learnerEnrollments = allEnrollments.filter(e => e.learner_id === learner.id);
+      const totalLessons = learnerEnrollments.reduce(
+        (sum, e) => sum + (courseTotalLessons.get(e.course_id) ?? 0), 0
+      );
+      avgProgress = totalLessons > 0 ? (completedLessons / totalLessons) * 100 : 0;
+    } else {
+      const progressValues = enrollmentsByLearner.get(learner.id) || [];
+      avgProgress = progressValues.length > 0
+        ? progressValues.reduce((sum, v) => sum + v, 0) / progressValues.length
+        : 0;
+    }
 
     const liveSessionCount = zoomCountByLearner.get(learner.id) ?? 0;
 
@@ -175,6 +217,7 @@ export async function runMilestoneCheck(
       milestoneDay,
     });
     // Wire Slack notification
+    const co = company as Company & { slack_channel_id?: string; csm_owner_email?: string; slack_routing?: string };
     await sendSlackAlert({
       companyName: company.name,
       milestoneDay,
@@ -183,7 +226,9 @@ export async function runMilestoneCheck(
       atRiskCount: statusCounts.at_risk,
       notStartedCount: statusCounts.not_started,
       dashboardUrl,
-      slackChannelId: (company as Company & { slack_channel_id?: string }).slack_channel_id,
+      slackChannelId: co.slack_channel_id ?? null,
+      csmOwnerEmail: co.csm_owner_email ?? null,
+      slackRouting: (co.slack_routing as 'channel_only' | 'dm_only' | 'both') ?? 'channel_only',
     });
   }
 
@@ -197,8 +242,9 @@ export async function runMilestoneCheck(
       message: `${atRiskPercent.toFixed(1)}% of learners are at risk or not started (threshold: ${company.risk_threshold_percent}%).`,
       milestoneDay,
     });
-    // Only send Slack once per milestone run if not already sent above
+    // Send Slack only if not already sent for avg_below_benchmark
     if (averageCompletion >= benchmarkPercent) {
+      const co = company as Company & { slack_channel_id?: string; csm_owner_email?: string; slack_routing?: string };
       await sendSlackAlert({
         companyName: company.name,
         milestoneDay,
@@ -207,6 +253,9 @@ export async function runMilestoneCheck(
         atRiskCount: statusCounts.at_risk,
         notStartedCount: statusCounts.not_started,
         dashboardUrl,
+        slackChannelId: co.slack_channel_id ?? null,
+        csmOwnerEmail: co.csm_owner_email ?? null,
+        slackRouting: (co.slack_routing as 'channel_only' | 'dm_only' | 'both') ?? 'channel_only',
       });
     }
   }

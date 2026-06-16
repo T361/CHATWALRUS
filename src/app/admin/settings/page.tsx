@@ -34,8 +34,9 @@ const syncButtons = [
   { type: 'progress',   label: 'Import Progress',            sub: 'Enrollment + completion data',      endpoint: '/api/admin/sync/progress' },
   { type: 'assignments',label: 'Import Assignments',         sub: 'Submissions from Thinkific',        endpoint: '/api/admin/sync/assignments' },
   { type: 'surveys',    label: 'Import Surveys',             sub: 'Ratings + feedback from Thinkific', endpoint: '/api/admin/sync/surveys' },
-  { type: 'zoom',       label: 'Sync Zoom Attendance',       sub: 'Session attendance records',        endpoint: '/api/admin/sync/zoom' },
-  { type: 'snapshots',  label: 'Create Daily Snapshots',     sub: 'Progress snapshots for trend charts', endpoint: '/api/admin/sync/snapshots' },
+  { type: 'zoom',           label: 'Sync Zoom Attendance',    sub: 'Session attendance records',                    endpoint: '/api/admin/sync/zoom' },
+  { type: 'lesson-progress', label: 'Sync Lesson Progress', sub: 'Lesson-level completion from Thinkific (slow — runs incrementally)', endpoint: '/api/admin/sync/lesson-progress' },
+  { type: 'snapshots',  label: 'Create Daily Snapshots',     sub: 'Progress snapshots for trend charts',           endpoint: '/api/admin/sync/snapshots' },
   { type: 'milestones', label: 'Run Milestone Checks',       sub: 'Learner statuses + risk alerts',    endpoint: '/api/jobs/run-milestones' },
   { type: 'full',       label: 'Full Sync',                  sub: 'Import all data from Thinkific',    endpoint: '/api/admin/sync/full' },
 ];
