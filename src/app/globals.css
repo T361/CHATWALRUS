@@ -786,6 +786,11 @@ a { color: inherit; text-decoration: none; }
   margin: 0 auto;
 }
 
+/* Show sign-out text label on wider screens */
+@media (min-width: 768px) {
+  .nav-sign-out-label { display: inline !important; }
+}
+
 @media (max-width: 640px) {
   .shell-content { padding: 1.25rem 1rem; }
 }

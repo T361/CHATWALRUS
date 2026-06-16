@@ -25,15 +25,27 @@ export default function CompanyLeaderboardPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch]   = useState('');
 
+  const [seeding, setSeeding] = useState(false);
+
   useEffect(() => {
-    fetch(`/api/companies/${slug}/leaderboard`)
-      .then((r) => r.json())
-      .then((d) => {
-        setRows(d.leaderboard ?? []);
-        setCompanyName(d.company_name ?? slug);
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    async function load() {
+      const res = await fetch(`/api/companies/${slug}/leaderboard`);
+      const d   = await res.json();
+      setCompanyName(d.company_name ?? slug);
+      const lb = d.leaderboard ?? [];
+      if (lb.length === 0 && !d.error) {
+        setSeeding(true);
+        await fetch('/api/admin/sync/gamification', { method: 'POST' });
+        setSeeding(false);
+        const res2 = await fetch(`/api/companies/${slug}/leaderboard`);
+        const d2   = await res2.json();
+        setRows(d2.leaderboard ?? []);
+      } else {
+        setRows(lb);
+      }
+      setLoading(false);
+    }
+    load();
   }, [slug]);
 
   const filtered = rows.filter((r) => {
@@ -75,8 +87,13 @@ export default function CompanyLeaderboardPage() {
         />
       </div>
 
-      {loading ? (
-        <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem', padding: '2rem 0' }}>Loading…</div>
+      {loading || seeding ? (
+        <div className="card" style={{ padding: '3rem', textAlign: 'center' }}>
+          <div className="spinner" style={{ margin: '0 auto 1rem', width: '1.5rem', height: '1.5rem' }} />
+          <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', fontWeight: 500 }}>
+            {seeding ? 'Calculating points — first run takes ~10 seconds…' : 'Loading…'}
+          </p>
+        </div>
       ) : filtered.length === 0 ? (
         <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem', padding: '2rem 0', textAlign: 'center' }}>
           {rows.length === 0 ? 'No points data yet — run "Recalculate Points" from Admin Settings.' : 'No results.'}
