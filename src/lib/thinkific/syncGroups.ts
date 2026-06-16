@@ -15,13 +15,6 @@ interface ThinkificGroup {
   updated_at: string;
 }
 
-interface ThinkificGroupMembership {
-  id: number;
-  user_id: number;
-  group_id: number;
-  created_at: string;
-}
-
 function toSlug(name: string): string {
   return name
     .toLowerCase()
@@ -94,73 +87,12 @@ export async function syncGroups(): Promise<SyncResult> {
       count++;
     }
 
-    // ─── 3. Sync group memberships → update learner.company_id ───────────────
-    // Reload company map after potential inserts
-    const companyByGroupId = new Map<number, string>();
-    for (let offset = 0; ; offset += 1000) {
-      const { data } = await db
-        .from('companies')
-        .select('id, thinkific_group_id')
-        .not('thinkific_group_id', 'is', null)
-        .range(offset, offset + 999);
-      if (!data || data.length === 0) break;
-      for (const c of data) {
-        if (c.thinkific_group_id) companyByGroupId.set(c.thinkific_group_id, c.id);
-      }
-      if (data.length < 1000) break;
-    }
-
-    // Load all learners by thinkific_user_id for fast lookup
-    const learnerByThinkificId = new Map<string, { id: string; company_id: string | null }>();
-    for (let offset = 0; ; offset += 1000) {
-      const { data } = await db
-        .from('learners')
-        .select('id, thinkific_user_id, company_id')
-        .range(offset, offset + 999);
-      if (!data || data.length === 0) break;
-      for (const l of data) {
-        if (l.thinkific_user_id) learnerByThinkificId.set(l.thinkific_user_id, { id: l.id, company_id: l.company_id });
-      }
-      if (data.length < 1000) break;
-    }
-
-    // Fetch memberships for each group and update learner company assignments
-    let membershipCount = 0;
-    for (const group of groups) {
-      const companyId = companyByGroupId.get(group.id);
-      if (!companyId) continue;
-
-      try {
-        const memberships = await thinkificPaginate<ThinkificGroupMembership>(
-          `/group_users`,
-          { group_id: String(group.id) }
-        );
-
-        const updates: Array<{ id: string; company_id: string }> = [];
-        for (const m of memberships) {
-          const learner = learnerByThinkificId.get(String(m.user_id));
-          if (learner && learner.company_id !== companyId) {
-            updates.push({ id: learner.id, company_id: companyId });
-          }
-        }
-
-        // Batch update in groups of 50
-        for (let i = 0; i < updates.length; i += 50) {
-          const batch = updates.slice(i, i + 50);
-          for (const u of batch) {
-            await db
-              .from('learners')
-              .update({ company_id: u.company_id })
-              .eq('id', u.id);
-          }
-          membershipCount += batch.length;
-        }
-      } catch (err) {
-        console.warn(`[SyncGroups] Failed to fetch memberships for group ${group.id} (${group.name}):`, err);
-      }
-    }
-
-    console.log(`[SyncGroups] Synced ${count} companies, updated ${membershipCount} learner→company assignments`);
+    // NOTE: Thinkific's /group_users endpoint is not available on all plans.
+    // Learner→company assignment is handled by syncUsers() via custom_profile_fields
+    // (the "Company Name" field on each user). Groups are used for canonical company
+    // names/slugs only — membership assignment is skipped here.
+    const membershipCount = 0;
+    console.log(`[SyncGroups] Synced ${count} companies (membership assignment via syncUsers custom fields)`);
     return count + membershipCount;
   });
 }

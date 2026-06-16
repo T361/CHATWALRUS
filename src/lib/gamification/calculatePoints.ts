@@ -201,8 +201,8 @@ export async function seedPointsFromActivity(): Promise<PointsResult[]> {
     for (let offset = 0; ; offset += 1000) {
       const { data } = await db
         .from('enrollments')
-        .select('learner_id, company_id, id, thinkific_enrollment_id')
-        .eq('is_completed', true)
+        .select('learner_id, company_id, id')
+        .not('completed_at', 'is', null)
         .not('learner_id', 'is', null)
         .range(offset, offset + 999);
       if (!data || data.length === 0) break;
@@ -212,7 +212,7 @@ export async function seedPointsFromActivity(): Promise<PointsResult[]> {
           company_id: r.company_id,
           event_type: 'course_complete',
           points_earned: POINTS.course_complete,
-          reference_id: String(r.thinkific_enrollment_id ?? r.id),
+          reference_id: String(r.id),
           earned_at: new Date().toISOString(),
         });
       }
