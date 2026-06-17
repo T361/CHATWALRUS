@@ -1,7 +1,6 @@
 export const dynamic = 'force-dynamic';
 
 import CompanyShell from '@/components/layout/CompanyShell';
-import Link from 'next/link';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { notFound } from 'next/navigation';
 

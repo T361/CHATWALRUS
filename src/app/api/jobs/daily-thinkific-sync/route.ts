@@ -16,6 +16,7 @@ import { createAlert } from '@/lib/alerts/createAlert';
 import { seedPointsFromActivity, recalculateAllPoints } from '@/lib/gamification/calculatePoints';
 import { awardAchievements } from '@/lib/gamification/awardAchievements';
 import { snapshotLeaderboard } from '@/lib/gamification/snapshotLeaderboard';
+import { invalidateDashboardCaches } from '@/lib/cache/invalidation';
 
 export async function POST(req: NextRequest) {
   const authError = requireCronSecret(req);
@@ -75,6 +76,7 @@ export async function POST(req: NextRequest) {
     };
 
     const summary = summarizeSyncResults(results);
+    invalidateDashboardCaches();
 
     if (logId) {
       await updateSyncLog(logId, {

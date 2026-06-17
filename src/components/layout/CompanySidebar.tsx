@@ -11,6 +11,7 @@ function IconNote()     { return <svg width="15" height="15" viewBox="0 0 20 20"
 function IconCalendar() { return <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="16" height="14" rx="1.5"/><path d="M6 2v4M14 2v4M2 9h16"/></svg>; }
 function IconCog()      { return <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><circle cx="10" cy="10" r="2.5"/><path d="M10 3v1.5M10 15.5V17M3 10h1.5M15.5 10H17M4.93 4.93l1.06 1.06M14.01 14.01l1.06 1.06M4.93 15.07l1.06-1.06M14.01 5.99l1.06-1.06"/></svg>; }
 function IconDownload() { return <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M10 3v10M6 9l4 4 4-4"/><path d="M3 15h14"/></svg>; }
+function IconVideo()    { return <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="2.5" y="4" width="10" height="12" rx="1.5"/><path d="M12.5 8l5-3v10l-5-3z"/></svg>; }
 function IconArrow()    { return <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M13 3H3v14h14v-10"/><path d="M8 12L17 3"/><path d="M13 3h4v4"/></svg>; }
 
 export default function CompanySidebar({ slug, companyName }: { slug: string; companyName?: string }) {
@@ -21,6 +22,7 @@ export default function CompanySidebar({ slug, companyName }: { slug: string; co
     { href: `/company/${slug}/learners`,      label: 'Learners',      icon: <IconUsers /> },
     { href: `/company/${slug}/leaderboard`,   label: 'Leaderboard',   icon: <IconTrophy /> },
     { href: `/company/${slug}/assessments`,   label: 'Assessments',   icon: <IconChart /> },
+    { href: `/company/${slug}/sessions`,      label: 'Sessions',      icon: <IconVideo /> },
     { href: `/company/${slug}/interventions`, label: 'Interventions', icon: <IconNote /> },
     { href: `/company/${slug}/weekly`,        label: 'Weekly Report', icon: <IconCalendar /> },
     { href: `/company/${slug}/settings`,      label: 'Settings',      icon: <IconCog /> },

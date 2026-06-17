@@ -3,6 +3,8 @@ import { getAdminSession, isAdminAuthConfigured } from '@/lib/auth/session';
 import { isThinkificConfigured } from '@/lib/thinkific/client';
 import { isZoomConfigured } from '@/lib/zoom/client';
 import { isAdminConfigured as isSupabaseAdminConfigured } from '@/lib/supabase/admin';
+import { readThroughTtlCache } from '@/lib/cache/serverCache';
+import { withServerTiming } from '@/lib/perf';
 
 interface ProbeResult {
   connected: boolean;
@@ -102,44 +104,71 @@ async function probeThinkific(): Promise<ProbeResult> {
 }
 
 export async function GET(req: NextRequest) {
-  const session = getAdminSession(req);
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  return withServerTiming('admin.settings.status', async () => {
+    const session = getAdminSession(req);
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
-  const [supabasePublic, supabaseAdmin, thinkific] = await Promise.all([
-    probeSupabase(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, 'companies'),
-    probeSupabase(process.env.SUPABASE_SERVICE_ROLE_KEY, 'companies'),
-    probeThinkific(),
-  ]);
+    const includeProbes = req.nextUrl.searchParams.get('include_probes') === '1';
 
-  return NextResponse.json({
-    auth: {
-      authenticated: !!session,
-      configured: isAdminAuthConfigured(),
-      role: session?.role ?? null,
-      expires_at: session ? new Date(session.expiresAt * 1000).toISOString() : null,
-    },
-    integrations: {
-      supabase: {
-        configured: !!(
-          process.env.NEXT_PUBLIC_SUPABASE_URL &&
-          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-        ),
-        admin_configured: isSupabaseAdminConfigured(),
-        public_probe: supabasePublic,
-        admin_probe: supabaseAdmin,
+    const baseResponse = {
+      auth: {
+        authenticated: !!session,
+        configured: isAdminAuthConfigured(),
+        role: session?.role ?? null,
+        expires_at: session ? new Date(session.expiresAt * 1000).toISOString() : null,
       },
-      thinkific: {
-        configured: isThinkificConfigured(),
-        probe: thinkific,
+      integrations: {
+        supabase: {
+          configured: !!(
+            process.env.NEXT_PUBLIC_SUPABASE_URL &&
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+          ),
+          admin_configured: isSupabaseAdminConfigured(),
+          public_probe: null as ProbeResult | null,
+          admin_probe: null as ProbeResult | null,
+        },
+        thinkific: {
+          configured: isThinkificConfigured(),
+          probe: null as ProbeResult | null,
+        },
+        zoom: {
+          configured: isZoomConfigured(),
+        },
+        slack: {
+          configured: !!process.env.SLACK_BOT_TOKEN,
+        },
       },
-      zoom: {
-        configured: isZoomConfigured(),
+    };
+
+    if (!includeProbes) {
+      return NextResponse.json(baseResponse);
+    }
+
+    const probes = await readThroughTtlCache('settings-status:probes', 15_000, async () => {
+      const [supabasePublic, supabaseAdmin, thinkific] = await Promise.all([
+        probeSupabase(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, 'companies'),
+        probeSupabase(process.env.SUPABASE_SERVICE_ROLE_KEY, 'companies'),
+        probeThinkific(),
+      ]);
+      return { supabasePublic, supabaseAdmin, thinkific };
+    });
+
+    return NextResponse.json({
+      ...baseResponse,
+      integrations: {
+        ...baseResponse.integrations,
+        supabase: {
+          ...baseResponse.integrations.supabase,
+          public_probe: probes.supabasePublic,
+          admin_probe: probes.supabaseAdmin,
+        },
+        thinkific: {
+          ...baseResponse.integrations.thinkific,
+          probe: probes.thinkific,
+        },
       },
-      slack: {
-        configured: !!process.env.SLACK_BOT_TOKEN,
-      },
-    },
+    });
   });
 }

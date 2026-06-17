@@ -3,7 +3,6 @@
 import CompanyShell from '@/components/layout/CompanyShell';
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import Link from 'next/link';
 
 interface Intervention {
   id: string;

@@ -10,7 +10,7 @@ interface Company {
   start_date: string | null;
   is_active: boolean;
   learner_count?: number;
-  avg_progress?: number;
+  avg_progress?: number | null;
   at_risk_count?: number;
 }
 

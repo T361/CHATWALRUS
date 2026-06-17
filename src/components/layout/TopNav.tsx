@@ -31,6 +31,16 @@ function IconSurvey({ size = 15 }: { size?: number }) {
     </svg>
   );
 }
+function IconUsers({ size = 15 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+      <circle cx="7" cy="7" r="3" />
+      <path d="M1.5 16c0-3 2.5-4.75 5.5-4.75S12.5 13 12.5 16" />
+      <circle cx="14.25" cy="7.75" r="2.25" />
+      <path d="M12.5 16c0-2.3 1.8-3.75 4-3.75.6 0 1.16.1 1.65.28" />
+    </svg>
+  );
+}
 function IconSettings({ size = 15 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
@@ -51,6 +61,7 @@ function IconSignOut({ size = 14 }: { size?: number }) {
 // ── Nav config ─────────────────────────────────────────────────────────────
 const mainLinks = [
   { href: '/',               label: 'Companies',   icon: <IconBuilding />, exact: true },
+  { href: '/learners',       label: 'Learners',    icon: <IconUsers /> },
   { href: '/leaderboard',    label: 'Leaderboard', icon: <IconTrophy /> },
   { href: '/admin/surveys',  label: 'Surveys',     icon: <IconSurvey /> },
   { href: '/admin/settings', label: 'Settings',    icon: <IconSettings /> },

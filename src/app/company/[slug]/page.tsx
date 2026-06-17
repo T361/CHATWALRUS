@@ -11,6 +11,7 @@ import Link from 'next/link';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { notFound } from 'next/navigation';
 import { safeNumber } from '@/lib/utils/normalize';
+import { getCompanySessionLists, getCompanyZoomAnalytics } from '@/lib/zoom/analytics';
 
 function daysSince(dateStr: string | null): number | null {
   if (!dateStr) return null;
@@ -47,6 +48,8 @@ export default async function CompanyDashboardPage(
     { data: alerts },
     { data: trendData },
     { data: top3 },
+    zoomAnalytics,
+    recentSessions,
   ] = await Promise.all([
     db.from('learners').select('*', { count: 'exact', head: true }).eq('company_id', company.id).eq('is_active', true),
     db.from('enrollments').select('*', { count: 'exact', head: true }).eq('company_id', company.id).not('completed_at', 'is', null),
@@ -56,6 +59,8 @@ export default async function CompanyDashboardPage(
     db.from('alerts').select('*').eq('company_id', company.id).eq('status', 'open').order('created_at', { ascending: false }).limit(5),
     db.from('daily_snapshots').select('snapshot_date, completion_percent').eq('company_id', company.id).order('snapshot_date', { ascending: false }).limit(30),
     db.from('learner_points').select('learner_id, total_points, learners(full_name)').eq('company_id', company.id).order('total_points', { ascending: false }).limit(3),
+    getCompanyZoomAnalytics(company.id, 84),
+    getCompanySessionLists(company.id, 3),
   ]);
 
   // Use milestone average_completion_percent which is calculated with full pagination
@@ -134,6 +139,7 @@ export default async function CompanyDashboardPage(
         <KpiCard title="Avg Progress" value={`${avgProgress.toFixed(1)}%`} />
         <KpiCard title="Assignment Rate" value={`${submissionRate}%`} />
         <KpiCard title="On Pace" value={`${onPace}%`} color="var(--on-track)" />
+        <KpiCard title="Session Reach" value={`${zoomAnalytics.attendance_rate.toFixed(1)}%`} color="var(--primary)" href={`/company/${slug}/sessions`} />
         <KpiCard title="Slightly Behind" value={slightlyBehind} color="var(--slightly-behind)" href={`/company/${slug}/learners?status=slightly_behind`} />
         <KpiCard title="At Risk" value={atRisk} color="var(--at-risk)" href={`/company/${slug}/learners?status=at_risk`} />
         <KpiCard title="Not Started" value={notStarted} color="var(--not-started)" href={`/company/${slug}/learners?status=not_started`} />
@@ -208,11 +214,37 @@ export default async function CompanyDashboardPage(
         </div>
       )}
 
+      <div className="card" style={{ marginBottom: '1.25rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.875rem' }}>
+          <p className="section-title" style={{ marginBottom: 0 }}>Live Session Activity</p>
+          <Link href={`/company/${slug}/sessions`} style={{ fontSize: '0.75rem', color: 'var(--primary)', textDecoration: 'none' }}>View all sessions →</Link>
+        </div>
+        {recentSessions.length === 0 ? (
+          <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>No learner-linked Zoom attendance is currently available for this company.</p>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.75rem' }}>
+            {recentSessions.map((session) => (
+              <div key={session.session_id} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '0.75rem 0.875rem' }}>
+                <p style={{ fontSize: '0.8125rem', fontWeight: 600, marginBottom: '0.25rem' }}>{session.topic || 'Untitled session'}</p>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
+                  {session.start_time ? new Date(session.start_time).toLocaleString() : 'Unknown start'}
+                </p>
+                <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.75rem', color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
+                  <span>{session.attendee_count} attendees</span>
+                  <span>{session.session_type || 'session'}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '0.875rem' }}>
         {[
           { href: `/company/${slug}/learners`, icon: '⌀', label: 'Learner Breakdown', sub: `${totalEnrolled ?? 0} learners · progress & status` },
           { href: `/company/${slug}/leaderboard`, icon: '🏆', label: 'Leaderboard', sub: 'Top learners by engagement points' },
           { href: `/company/${slug}/assessments`, icon: '◈', label: 'Assessments', sub: `${courseCompletions} completions · ${submissionRate}% assignment rate` },
+          { href: `/company/${slug}/sessions`, icon: '▣', label: 'Sessions', sub: `${zoomAnalytics.attendance_rate.toFixed(1)}% reach · ${recentSessions.length} recent sessions` },
           { href: `/company/${slug}/interventions`, icon: '📋', label: 'Interventions', sub: 'CSM notes, calls and follow-ups' },
           { href: `/company/${slug}/export`, icon: '↓', label: 'Export Data', sub: 'Download CSV and JSON reports' },
         ].map(({ href, icon, label, sub }) => (

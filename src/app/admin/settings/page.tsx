@@ -5,6 +5,7 @@ import PasscodeTable from '@/components/admin/PasscodeTable';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Passcode } from '@/types/alert';
+import { logClientTiming } from '@/lib/perf-client';
 
 interface SettingsStatusResponse {
   auth: {
@@ -17,12 +18,12 @@ interface SettingsStatusResponse {
     supabase: {
       configured: boolean;
       admin_configured: boolean;
-      public_probe: { connected: boolean; status: number | null; message: string | null };
-      admin_probe:  { connected: boolean; status: number | null; message: string | null };
+      public_probe: { connected: boolean; status: number | null; message: string | null } | null;
+      admin_probe:  { connected: boolean; status: number | null; message: string | null } | null;
     };
     thinkific: {
       configured: boolean;
-      probe: { connected: boolean; status: number | null; message: string | null };
+      probe: { connected: boolean; status: number | null; message: string | null } | null;
     };
     zoom:  { configured: boolean };
     slack: { configured: boolean };
@@ -91,18 +92,27 @@ export default function AdminSettingsPage() {
   const [passcodes,     setPasscodes]     = useState<Passcode[]>([]);
   const [companiesMap,  setCompaniesMap]  = useState<Record<string, string>>({});
   const [passcodesLoading, setPasscodesLoading] = useState(false);
+  const [probesLoading, setProbesLoading] = useState(false);
 
-  async function loadSettingsStatus() {
+  async function loadSettingsStatus(includeProbes = false) {
+    const startedAt = performance.now();
     try {
-      const res = await fetch('/api/admin/settings/status', { credentials: 'same-origin', cache: 'no-store' });
+      const res = await fetch(`/api/admin/settings/status${includeProbes ? '?include_probes=1' : ''}`, { credentials: 'same-origin', cache: 'no-store' });
       if (res.status === 401) { setSettingsStatus(null); setStatusLoaded(true); return; }
       const data = (await res.json()) as SettingsStatusResponse;
       setSettingsStatus(data);
       setStatusError(null);
+      logClientTiming('settings.status.load', performance.now() - startedAt, { include_probes: includeProbes });
     } catch {
       setStatusError('Could not load integration status.');
     }
     setStatusLoaded(true);
+  }
+
+  async function loadIntegrationProbes() {
+    setProbesLoading(true);
+    await loadSettingsStatus(true);
+    setProbesLoading(false);
   }
 
   async function loadPasscodes() {
@@ -131,6 +141,14 @@ export default function AdminSettingsPage() {
     loadPasscodes();
   }, []);
 
+  useEffect(() => {
+    if (settingsStatus?.auth.authenticated) {
+      void loadIntegrationProbes();
+    }
+    // intentionally only when auth flips to true
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settingsStatus?.auth.authenticated]);
+
   async function runSync(type: string, endpoint: string) {
     if (!settingsStatus?.auth.authenticated) {
       setSyncStatus((prev) => ({ ...prev, [type]: 'Login required' }));
@@ -158,6 +176,7 @@ export default function AdminSettingsPage() {
 
   async function login() {
     setAuthLoading(true); setAuthMessage(null);
+    const startedAt = performance.now();
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST', credentials: 'same-origin',
@@ -168,7 +187,8 @@ export default function AdminSettingsPage() {
       if (!res.ok) { setAuthMessage(data.error || 'Login failed'); }
       else {
         setPasscode('');
-        const redirect = new URLSearchParams(window.location.search).get('redirect') || '/';
+        logClientTiming('settings.login.submit', performance.now() - startedAt);
+        const redirect = new URLSearchParams(window.location.search).get('redirect') || '/learners';
         router.push(redirect);
       }
     } catch { setAuthMessage('Login request failed'); }
@@ -306,20 +326,24 @@ export default function AdminSettingsPage() {
             <IntegrationRow
               label="Supabase"
               configured={settingsStatus.integrations.supabase.configured}
-              connected={settingsStatus.integrations.supabase.public_probe.connected && settingsStatus.integrations.supabase.admin_probe.connected}
+              connected={!!settingsStatus.integrations.supabase.public_probe?.connected && !!settingsStatus.integrations.supabase.admin_probe?.connected}
               detail={settingsStatus.integrations.supabase.configured
-                ? `Public: ${settingsStatus.integrations.supabase.public_probe.connected ? '✓' : '✗'}  Admin: ${settingsStatus.integrations.supabase.admin_probe.connected ? '✓' : '✗'}`
+                ? settingsStatus.integrations.supabase.public_probe && settingsStatus.integrations.supabase.admin_probe
+                  ? `Public: ${settingsStatus.integrations.supabase.public_probe.connected ? '✓' : '✗'}  Admin: ${settingsStatus.integrations.supabase.admin_probe.connected ? '✓' : '✗'}`
+                  : 'Probe pending'
                 : 'Missing NEXT_PUBLIC_SUPABASE_URL or ANON_KEY'}
-              message={settingsStatus.integrations.supabase.admin_probe.message || settingsStatus.integrations.supabase.public_probe.message}
+              message={settingsStatus.integrations.supabase.admin_probe?.message || settingsStatus.integrations.supabase.public_probe?.message}
             />
             <IntegrationRow
               label="Thinkific"
               configured={settingsStatus.integrations.thinkific.configured}
-              connected={settingsStatus.integrations.thinkific.probe.connected}
+              connected={!!settingsStatus.integrations.thinkific.probe?.connected}
               detail={settingsStatus.integrations.thinkific.configured
-                ? settingsStatus.integrations.thinkific.probe.connected ? 'Live API' : `API failed (${settingsStatus.integrations.thinkific.probe.status ?? 'no response'})`
+                ? settingsStatus.integrations.thinkific.probe
+                  ? settingsStatus.integrations.thinkific.probe.connected ? 'Live API' : `API failed (${settingsStatus.integrations.thinkific.probe.status ?? 'no response'})`
+                  : 'Probe pending'
                 : 'Missing THINKIFIC_API_KEY or THINKIFIC_SUBDOMAIN'}
-              message={settingsStatus.integrations.thinkific.probe.message}
+              message={settingsStatus.integrations.thinkific.probe?.message}
             />
             <IntegrationRow
               label="Zoom"
@@ -333,6 +357,11 @@ export default function AdminSettingsPage() {
               connected={settingsStatus.integrations.slack.configured}
               detail={settingsStatus.integrations.slack.configured ? 'Bot token set' : 'Missing SLACK_BOT_TOKEN'}
             />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.75rem' }}>
+              <button className="btn btn-secondary btn-sm" onClick={loadIntegrationProbes} disabled={probesLoading}>
+                {probesLoading ? <><span className="spinner" />Checking</> : 'Refresh connection checks'}
+              </button>
+            </div>
           </div>
         )}
       </div>

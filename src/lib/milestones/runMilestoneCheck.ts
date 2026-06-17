@@ -9,6 +9,8 @@ import { todayISO } from '@/lib/utils/dates';
 import { safeNumber } from '@/lib/utils/normalize';
 import { createAlert } from '@/lib/alerts/createAlert';
 import { sendSlackAlert } from '@/lib/alerts/sendSlackAlert';
+import { refreshCompanySummaryRollups } from '@/lib/companies/rollups';
+import { invalidateDashboardCaches } from '@/lib/cache/invalidation';
 import type { Company } from '@/types/company';
 import type { LearnerStatus } from '@/types/learner';
 
@@ -327,5 +329,10 @@ export async function runAllMilestoneChecks(): Promise<MilestoneCheckResult[]> {
   const settled = await Promise.all(
     companies.map((company) => runMilestoneCheck(company as Company))
   );
-  return settled.filter((r): r is MilestoneCheckResult => r !== null);
+  const results = settled.filter((r): r is MilestoneCheckResult => r !== null);
+  if (results.length > 0) {
+    await refreshCompanySummaryRollups(results.map((result) => result.companyId));
+    invalidateDashboardCaches();
+  }
+  return results;
 }

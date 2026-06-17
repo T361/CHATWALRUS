@@ -8,6 +8,7 @@ import { syncSurveys } from '@/lib/thinkific/syncSurveys';
 import { summarizeSyncResults } from '@/lib/thinkific/syncCore';
 import { createDailySnapshots } from '@/lib/snapshots/createDailySnapshots';
 import { runAllMilestoneChecks } from '@/lib/milestones/runMilestoneCheck';
+import { invalidateDashboardCaches } from '@/lib/cache/invalidation';
 
 // Full sync: import all Thinkific data, then create snapshots + run milestones.
 // Order matters: courses + users must exist before enrollment data can be mapped.
@@ -34,6 +35,7 @@ export async function POST(req: NextRequest) {
     };
 
     const summary = summarizeSyncResults(results);
+    invalidateDashboardCaches();
 
     return NextResponse.json({
       status:           summary.status,

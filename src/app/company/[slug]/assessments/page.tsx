@@ -1,7 +1,6 @@
 'use client';
 
 import CompanyShell from '@/components/layout/CompanyShell';
-import Link from 'next/link';
 import { useEffect, useState, use } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,

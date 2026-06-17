@@ -5,7 +5,7 @@ interface CompanyCardProps {
   slug: string;
   learnerCount: number;
   startDate: string | null;
-  avgProgress?: number;
+  avgProgress?: number | null;
   atRiskCount?: number;
 }
 

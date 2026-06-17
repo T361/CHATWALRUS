@@ -59,6 +59,7 @@ async function timingSafeEqual(a: string, b: string): Promise<boolean> {
 }
 
 export async function middleware(req: NextRequest) {
+  const startedAt = performance.now();
   const { pathname } = req.nextUrl;
 
   if (isStaticAsset(pathname) || isPublicPath(pathname)) {
@@ -78,6 +79,14 @@ export async function middleware(req: NextRequest) {
 
   const cookieValue = req.cookies.get(ADMIN_SESSION_COOKIE)?.value;
   const session = await getAdminSessionEdge(cookieValue);
+  if (process.env.NODE_ENV !== 'production' || process.env.ENABLE_PERF_LOGS === '1') {
+    console.info('[Perf]', JSON.stringify({
+      label: 'middleware.session_check',
+      duration_ms: Math.round((performance.now() - startedAt) * 10) / 10,
+      path: pathname,
+      authenticated: !!session,
+    }));
+  }
 
   if (session) return NextResponse.next();
 

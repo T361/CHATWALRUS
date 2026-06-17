@@ -3,76 +3,21 @@ export const dynamic = 'force-dynamic';
 import PageShell from '@/components/layout/PageShell';
 import CompanySearch from '@/components/company/CompanySearch';
 import Link from 'next/link';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { getCompanyCardRows } from '@/lib/companies/query';
+import { withServerTiming } from '@/lib/perf';
 
 export default async function HomePage() {
   let companies: Array<{
     id: string; name: string; slug: string;
     start_date: string | null; is_active: boolean;
     learner_count?: number;
-    avg_progress?: number;
+    avg_progress?: number | null;
     at_risk_count?: number;
   }> = [];
   let dbError = false;
 
   try {
-    const db = createAdminClient();
-    const { data, error } = await db
-      .from('companies')
-      .select('id, name, slug, start_date, is_active')
-      .order('name');
-
-    if (error) throw error;
-
-    if (data) {
-      // Use learner_status_snapshots (one row per learner, ~2k rows) instead of
-      // raw learners (4k rows) or enrollments (64k rows) — avoids the 1,000-row
-      // server cap that silently truncated counts on the old .in(companyIds) queries.
-      // Pull the most-recent snapshot per learner by fetching all and deduplicating.
-      const allSnapshots: Array<{ company_id: string; learner_id: string; completion_percent: number; status: string; snapshot_date: string }> = [];
-      for (let offset = 0; ; offset += 1000) {
-        const { data: page } = await db
-          .from('learner_status_snapshots')
-          .select('company_id, learner_id, completion_percent, status, snapshot_date')
-          .order('snapshot_date', { ascending: false })
-          .range(offset, offset + 999);
-        if (!page || page.length === 0) break;
-        allSnapshots.push(...page);
-        if (page.length < 1000) break;
-      }
-
-      // Keep only the latest snapshot per learner
-      const latestByLearner = new Map<string, typeof allSnapshots[0]>();
-      for (const snap of allSnapshots) {
-        if (!latestByLearner.has(snap.learner_id)) latestByLearner.set(snap.learner_id, snap);
-      }
-
-      // Aggregate per company
-      const countMap    = new Map<string, number>();
-      const progressMap = new Map<string, number[]>();
-      const atRiskMap   = new Map<string, number>();
-
-      for (const snap of latestByLearner.values()) {
-        const co = snap.company_id;
-        countMap.set(co, (countMap.get(co) ?? 0) + 1);
-        if (!progressMap.has(co)) progressMap.set(co, []);
-        progressMap.get(co)!.push(Number(snap.completion_percent ?? 0));
-        if (snap.status === 'at_risk' || snap.status === 'slightly_behind' || snap.status === 'behind') {
-          atRiskMap.set(co, (atRiskMap.get(co) ?? 0) + 1);
-        }
-      }
-
-      companies = data.map((c) => {
-        const prog = progressMap.get(c.id) ?? [];
-        const avg = prog.length ? prog.reduce((a, b) => a + b, 0) / prog.length : undefined;
-        return {
-          ...c,
-          learner_count: countMap.get(c.id) ?? 0,
-          avg_progress: avg,
-          at_risk_count: atRiskMap.get(c.id),
-        };
-      });
-    }
+    companies = await withServerTiming('home.company_list.load', async () => getCompanyCardRows());
   } catch {
     dbError = true;
   }
