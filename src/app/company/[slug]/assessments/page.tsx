@@ -1,6 +1,6 @@
 'use client';
 
-import PageShell from '@/components/layout/PageShell';
+import CompanyShell from '@/components/layout/CompanyShell';
 import Link from 'next/link';
 import { useEffect, useState, use } from 'react';
 import {
@@ -149,9 +149,7 @@ export default function AssessmentsPage(props: { params: Promise<{ slug: string 
   } as React.CSSProperties);
 
   return (
-    <PageShell>
-      <Link href={`/company/${slug}`} className="back-link">← {companyName || 'Company'}</Link>
-
+    <CompanyShell slug={slug} companyName={companyName}>
       <div className="page-header" style={{ marginBottom: '1.25rem' }}>
         <h1 className="page-title">Assessments</h1>
         <div style={{ display: 'flex', gap: '0.25rem', background: 'var(--surface)', padding: '0.25rem', borderRadius: 8, border: '1px solid var(--border)' }}>
@@ -312,6 +310,6 @@ export default function AssessmentsPage(props: { params: Promise<{ slug: string 
           )}
         </>
       )}
-    </PageShell>
+    </CompanyShell>
   );
 }

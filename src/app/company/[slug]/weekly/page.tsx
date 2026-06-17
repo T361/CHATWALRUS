@@ -1,6 +1,6 @@
 'use client';
 
-import PageShell from '@/components/layout/PageShell';
+import CompanyShell from '@/components/layout/CompanyShell';
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
@@ -63,15 +63,15 @@ export default function WeeklyPage() {
   }, [slug]);
 
   if (loading) return (
-    <PageShell>
+    <CompanyShell slug={slug}>
       <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem', padding: '3rem 0' }}>Loading weekly report…</div>
-    </PageShell>
+    </CompanyShell>
   );
 
   if (!data) return (
-    <PageShell>
+    <CompanyShell slug={slug}>
       <div className="empty-state card"><h3>Could not load report</h3></div>
-    </PageShell>
+    </CompanyShell>
   );
 
   const { totals, status_distribution, top_learners, open_alerts } = data;
@@ -79,9 +79,7 @@ export default function WeeklyPage() {
   const totalStatus = Object.values(status_distribution).reduce((a, b) => a + b, 0) || 1;
 
   return (
-    <PageShell>
-      <Link href={`/company/${slug}`} className="back-link">← {data.company.name}</Link>
-
+    <CompanyShell slug={slug} companyName={data.company.name}>
       <div className="page-header" style={{ marginTop: '0.75rem' }}>
         <div>
           <h1 className="page-title">Weekly Summary</h1>
@@ -144,7 +142,7 @@ export default function WeeklyPage() {
         <div className="card animate-fade-in-up stagger-2">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.875rem' }}>
             <h3 className="section-title" style={{ marginBottom: 0 }}>Top 5 Learners</h3>
-            <Link href={`/company/${slug}/leaderboard`} style={{ fontSize: '0.75rem', color: 'var(--accent)' }}>
+            <Link href={`/company/${slug}/leaderboard`} style={{ fontSize: '0.75rem', color: 'var(--primary)' }}>
               Full leaderboard →
             </Link>
           </div>
@@ -154,7 +152,7 @@ export default function WeeklyPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               {top_learners.map((l, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  <span style={{ fontWeight: 700, fontSize: '0.75rem', color: i < 3 ? 'var(--accent)' : 'var(--text-muted)', width: 20, textAlign: 'center' }}>
+                  <span style={{ fontWeight: 700, fontSize: '0.75rem', color: i < 3 ? 'var(--primary)' : 'var(--text-muted)', width: 20, textAlign: 'center' }}>
                     #{i + 1}
                   </span>
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -193,6 +191,6 @@ export default function WeeklyPage() {
           </div>
         </div>
       )}
-    </PageShell>
+    </CompanyShell>
   );
 }

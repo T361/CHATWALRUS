@@ -156,9 +156,15 @@ export default function GlobalLeaderboardPage() {
                 return (
                   <div key={r.learner_id} style={{ textAlign: 'center', flex: '0 0 160px' }}>
                     <div style={{ fontSize: rank === 1 ? '2.25rem' : '1.75rem', marginBottom: '0.25rem' }}>{MEDAL[rank - 1]}</div>
-                    <div style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--text)', marginBottom: '0.125rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', padding: '0 0.25rem' }}>
-                      {r.full_name.split(' ')[0]}
-                    </div>
+                    {r.company_slug ? (
+                      <Link href={`/company/${r.company_slug}/learners/${r.learner_id}`} style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--primary)', textDecoration: 'none', display: 'block', marginBottom: '0.125rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', padding: '0 0.25rem' }}>
+                        {r.full_name.split(' ')[0]}
+                      </Link>
+                    ) : (
+                      <div style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--text)', marginBottom: '0.125rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', padding: '0 0.25rem' }}>
+                        {r.full_name.split(' ')[0]}
+                      </div>
+                    )}
                     <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '0.5rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', padding: '0 0.25rem' }}>
                       {r.company_name ?? ''}
                     </div>
@@ -219,7 +225,13 @@ export default function GlobalLeaderboardPage() {
                       {r.rank <= 3 ? MEDAL[r.rank - 1] : `#${r.rank}`}
                     </td>
                     <td>
-                      <div style={{ fontWeight: 500 }}>{r.full_name}</div>
+                      {r.company_slug ? (
+                        <Link href={`/company/${r.company_slug}/learners/${r.learner_id}`} style={{ fontWeight: 500, color: 'var(--primary)', textDecoration: 'none' }}>
+                          {r.full_name}
+                        </Link>
+                      ) : (
+                        <div style={{ fontWeight: 500 }}>{r.full_name}</div>
+                      )}
                       <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{r.email}</div>
                     </td>
                     <td>

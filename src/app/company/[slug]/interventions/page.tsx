@@ -1,6 +1,6 @@
 'use client';
 
-import PageShell from '@/components/layout/PageShell';
+import CompanyShell from '@/components/layout/CompanyShell';
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
@@ -94,9 +94,7 @@ export default function InterventionsPage() {
   }
 
   return (
-    <PageShell>
-      <Link href={`/company/${slug}`} className="back-link">← {companyName || 'Dashboard'}</Link>
-
+    <CompanyShell slug={slug} companyName={companyName}>
       <div className="page-header" style={{ marginTop: '0.75rem' }}>
         <div>
           <h1 className="page-title">Intervention Log</h1>
@@ -239,6 +237,6 @@ export default function InterventionsPage() {
           ))}
         </div>
       )}
-    </PageShell>
+    </CompanyShell>
   );
 }

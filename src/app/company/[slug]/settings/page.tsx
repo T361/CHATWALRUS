@@ -1,6 +1,6 @@
 'use client';
 
-import PageShell from '@/components/layout/PageShell';
+import CompanyShell from '@/components/layout/CompanyShell';
 import Link from 'next/link';
 import { useEffect, useState, use } from 'react';
 
@@ -93,9 +93,7 @@ export default function CompanySettingsPage(props: { params: Promise<{ slug: str
   }
 
   return (
-    <PageShell>
-      <Link href={`/company/${slug}`} className="back-link">← {settings?.name || 'Company'}</Link>
-
+    <CompanyShell slug={slug} companyName={settings?.name}>
       <div className="page-header" style={{ marginBottom: '1.5rem' }}>
         <h1 className="page-title">Company Settings</h1>
         <p className="page-subtitle" style={{ marginTop: '0.25rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
@@ -187,6 +185,6 @@ export default function CompanySettingsPage(props: { params: Promise<{ slug: str
           )}
         </div>
       )}
-    </PageShell>
+    </CompanyShell>
   );
 }

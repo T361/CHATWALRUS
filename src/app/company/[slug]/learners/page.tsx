@@ -1,6 +1,6 @@
 'use client';
 
-import PageShell from '@/components/layout/PageShell';
+import CompanyShell from '@/components/layout/CompanyShell';
 import LearnerStatusBadge from '@/components/learners/LearnerStatusBadge';
 import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
@@ -54,11 +54,7 @@ function LearnersContent() {
   });
 
   return (
-    <PageShell>
-      <Link href={`/company/${slug}`} className="back-link">
-        ← {companyName || 'Dashboard'}
-      </Link>
-
+    <CompanyShell slug={slug} companyName={companyName}>
       <div className="page-header">
         <h1 className="page-title">Learners</h1>
         <a href={`/api/companies/${slug}/export/csv`} className="btn btn-secondary btn-sm">
@@ -149,13 +145,13 @@ function LearnersContent() {
           </table>
         )}
       </div>
-    </PageShell>
+    </CompanyShell>
   );
 }
 
 export default function LearnersPage() {
   return (
-    <Suspense fallback={<PageShell><div className="empty-state"><span className="spinner" /><p>Loading...</p></div></PageShell>}>
+    <Suspense fallback={<div className="shell-content"><div className="empty-state"><span className="spinner" /><p>Loading...</p></div></div>}>
       <LearnersContent />
     </Suspense>
   );

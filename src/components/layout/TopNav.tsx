@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import ThemeToggle from './ThemeToggle';
@@ -47,16 +48,6 @@ function IconSignOut({ size = 14 }: { size?: number }) {
   );
 }
 
-// Subnav icons
-function IconGrid()      { return <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="7" height="7" rx="1"/><rect x="11" y="2" width="7" height="7" rx="1"/><rect x="2" y="11" width="7" height="7" rx="1"/><rect x="11" y="11" width="7" height="7" rx="1"/></svg>; }
-function IconUsers()     { return <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><circle cx="7" cy="7" r="3"/><path d="M1 17c0-3.314 2.686-5 6-5"/><circle cx="14" cy="8" r="2.5"/><path d="M12 17c0-2.761 2.015-4 4.5-4S21 14.239 21 17"/></svg>; }
-function IconChart()     { return <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="3" height="6" rx="1"/><rect x="8.5" y="7" width="3" height="10" rx="1"/><rect x="14" y="4" width="3" height="13" rx="1"/></svg>; }
-function IconNote()      { return <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h12v9l-4 4H4V4z"/><path d="M12 4v9h4"/></svg>; }
-function IconCalendar()  { return <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="16" height="14" rx="1.5"/><path d="M6 2v4M14 2v4M2 9h16"/></svg>; }
-function IconCog()       { return <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><circle cx="10" cy="10" r="2.5"/><path d="M10 3v1.5M10 15.5V17M3 10h1.5M15.5 10H17M4.93 4.93l1.06 1.06M14.01 14.01l1.06 1.06M4.93 15.07l1.06-1.06M14.01 5.99l1.06-1.06"/></svg>; }
-function IconDownload()  { return <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M10 3v10M6 9l4 4 4-4"/><path d="M3 15h14"/></svg>; }
-function IconTrophySm()  { return <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M10 12v3M7 15h6"/><path d="M4 3h12v4a6 6 0 0 1-12 0V3z"/><path d="M4 5H2.5a1.5 1.5 0 0 0 1.5 1.5M16 5h1.5a1.5 1.5 0 0 1-1.5 1.5"/></svg>; }
-
 // ── Nav config ─────────────────────────────────────────────────────────────
 const mainLinks = [
   { href: '/',               label: 'Companies',   icon: <IconBuilding />, exact: true },
@@ -65,25 +56,11 @@ const mainLinks = [
   { href: '/admin/settings', label: 'Settings',    icon: <IconSettings /> },
 ];
 
-const companySubLinks = (slug: string) => [
-  { href: `/company/${slug}`,               label: 'Overview',      icon: <IconGrid />,      exact: true },
-  { href: `/company/${slug}/learners`,      label: 'Learners',      icon: <IconUsers /> },
-  { href: `/company/${slug}/leaderboard`,   label: 'Leaderboard',   icon: <IconTrophySm /> },
-  { href: `/company/${slug}/assessments`,   label: 'Assessments',   icon: <IconChart /> },
-  { href: `/company/${slug}/interventions`, label: 'Interventions', icon: <IconNote /> },
-  { href: `/company/${slug}/weekly`,        label: 'Weekly Report', icon: <IconCalendar /> },
-  { href: `/company/${slug}/settings`,      label: 'Settings',      icon: <IconCog /> },
-  { href: `/company/${slug}/export`,        label: 'Export',        icon: <IconDownload /> },
-];
-
 // ── Component ─────────────────────────────────────────────────────────────
 export default function TopNav() {
   const pathname = usePathname();
   const router   = useRouter();
   const [signingOut, setSigningOut] = useState(false);
-
-  const companyMatch = pathname.match(/^\/company\/([^/]+)/);
-  const companySlug  = companyMatch?.[1] ?? null;
 
   function isActive(href: string, exact?: boolean) {
     if (exact) return pathname === href;
@@ -135,16 +112,16 @@ export default function TopNav() {
         <div style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 0.25rem', flexShrink: 0 }} />
 
         {/* Main links */}
-        <div style={{ display: 'flex', gap: '2px', flex: 1 }}>
+        <div style={{ display: 'flex', gap: '4px', flex: 1 }}>
           {mainLinks.map(({ href, label, icon, exact }) => {
             const active = isActive(href, exact);
             return (
               <Link key={href} href={href} style={{
-                display: 'flex', alignItems: 'center', gap: '0.4rem',
-                padding: '0.375rem 0.625rem',
+                display: 'flex', alignItems: 'center', gap: '0.5rem',
+                padding: '0.5rem 0.875rem',
                 borderRadius: 'var(--radius)',
-                fontSize: '0.8125rem',
-                fontWeight: active ? 600 : 450,
+                fontSize: '0.9375rem',
+                fontWeight: active ? 650 : 500,
                 color: active ? 'var(--text)' : 'var(--text-secondary)',
                 background: active ? 'var(--surface)' : 'transparent',
                 textDecoration: 'none',
@@ -155,7 +132,7 @@ export default function TopNav() {
               onMouseEnter={(e) => { if (!active) { e.currentTarget.style.background = 'var(--surface-raised)'; e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.opacity = '1'; }}}
               onMouseLeave={(e) => { if (!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-secondary)'; e.currentTarget.style.opacity = '0.85'; }}}
               >
-                <span style={{ opacity: active ? 1 : 0.7 }}>{icon}</span>
+                <span style={{ opacity: active ? 1 : 0.7 }}>{React.cloneElement(icon as React.ReactElement<{ size?: number }>, { size: 17 })}</span>
                 {label}
               </Link>
             );
@@ -191,45 +168,6 @@ export default function TopNav() {
         </div>
       </nav>
 
-      {/* ── Company context subnav ─────────────────────────────────────── */}
-      {companySlug && (
-        <nav style={{
-          height: 38,
-          background: 'var(--bg)',
-          borderBottom: '1px solid var(--border-muted)',
-          display: 'flex',
-          alignItems: 'center',
-          padding: '0 1.25rem',
-          gap: '2px',
-          overflowX: 'auto',
-          scrollbarWidth: 'none',
-        }}>
-          {companySubLinks(companySlug).map(({ href, label, icon, exact }) => {
-            const active = isActive(href, exact);
-            return (
-              <Link key={href} href={href} style={{
-                display: 'flex', alignItems: 'center', gap: '0.3rem',
-                padding: '0.1875rem 0.5rem',
-                borderRadius: 'var(--radius-sm)',
-                fontSize: '0.75rem',
-                fontWeight: active ? 600 : 400,
-                color: active ? 'var(--text)' : 'var(--text-muted)',
-                background: active ? 'var(--surface)' : 'transparent',
-                textDecoration: 'none',
-                transition: 'all 120ms',
-                whiteSpace: 'nowrap',
-                borderBottom: active ? '2px solid var(--primary)' : '2px solid transparent',
-              }}
-              onMouseEnter={(e) => { if (!active) { e.currentTarget.style.color = 'var(--text-secondary)'; e.currentTarget.style.background = 'var(--surface-raised)'; }}}
-              onMouseLeave={(e) => { if (!active) { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.background = 'transparent'; }}}
-              >
-                <span style={{ opacity: active ? 1 : 0.6 }}>{icon}</span>
-                {label}
-              </Link>
-            );
-          })}
-        </nav>
-      )}
     </header>
   );
 }

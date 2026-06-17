@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic';
 
-import PageShell from '@/components/layout/PageShell';
+import CompanyShell from '@/components/layout/CompanyShell';
 import Link from 'next/link';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { notFound } from 'next/navigation';
@@ -20,16 +20,14 @@ export default async function ExportPage(
   const db = createAdminClient();
 
   if (!db) {
-    return <PageShell><div className="card"><p style={{ color: 'var(--warning)' }}>Database not connected.</p></div></PageShell>;
+    return <CompanyShell slug={slug}><div className="card"><p style={{ color: 'var(--warning)' }}>Database not connected.</p></div></CompanyShell>;
   }
 
   const { data: company } = await db.from('companies').select('id, name').eq('slug', slug).single();
   if (!company) notFound();
 
   return (
-    <PageShell>
-      <Link href={`/company/${slug}`} className="back-link">← {company.name}</Link>
-
+    <CompanyShell slug={slug} companyName={company.name}>
       <div className="page-header">
         <h1 className="page-title">Export Data</h1>
         <span className="badge badge-not-started">{company.name}</span>
@@ -65,6 +63,6 @@ export default async function ExportPage(
           </a>
         ))}
       </div>
-    </PageShell>
+    </CompanyShell>
   );
 }

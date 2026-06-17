@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic';
 
-import PageShell from '@/components/layout/PageShell';
+import CompanyShell from '@/components/layout/CompanyShell';
 import Link from 'next/link';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { notFound } from 'next/navigation';
@@ -34,7 +34,7 @@ export default async function LearnerDetailPage(
   const db = createAdminClient();
 
   if (!db) {
-    return <PageShell><div className="card"><p style={{ color: 'var(--warning)' }}>Database not connected.</p></div></PageShell>;
+    return <CompanyShell slug={slug}><div className="card"><p style={{ color: 'var(--warning)' }}>Database not connected.</p></div></CompanyShell>;
   }
 
   const { data: company } = await db.from('companies').select('id, name').eq('slug', slug).single();
@@ -50,17 +50,25 @@ export default async function LearnerDetailPage(
     { data: quizzes },
     { data: assignments },
     { data: zoomSessions },
+    { data: pointsRow },
+    { data: companyRank },
   ] = await Promise.all([
-    db.from('enrollments').select('*, courses(name, id)').eq('learner_id', learnerId).eq('is_active', true).order('started_at', { ascending: true }),
+    db.from('enrollments').select('*, courses(name, id)').eq('learner_id', learnerId).order('started_at', { ascending: true }),
     db.from('learner_status_snapshots').select('status, completion_percent, benchmark_percent, snapshot_date').eq('learner_id', learnerId).order('snapshot_date', { ascending: false }).limit(1).single(),
     db.from('quizzes').select('*, courses(name)').eq('learner_id', learnerId).order('attempted_at', { ascending: false }),
     db.from('assignments').select('*, courses(name)').eq('learner_id', learnerId).order('submitted_at', { ascending: false }),
     db.from('zoom_attendance').select('join_time, attended').eq('learner_id', learnerId).order('join_time', { ascending: false }).limit(20),
+    db.from('learner_points').select('total_points, zoom_attendance_points, lesson_completion_points, quiz_points, course_completion_points, assignment_points, survey_points, streak_bonus_points, sessions_attended').eq('learner_id', learnerId).single(),
+    db.from('learner_points').select('learner_id').eq('company_id', company.id).gte('total_points', 0).order('total_points', { ascending: false }),
   ]);
 
   const currentStatus     = (statusSnap?.status || 'not_started') as LearnerStatus;
   const overallCompletion = Number(statusSnap?.completion_percent ?? 0);
   const benchmark         = Number(statusSnap?.benchmark_percent ?? 0);
+
+  const totalPoints = Number(pointsRow?.total_points ?? 0);
+  const companyRankIdx = companyRank?.findIndex((r) => r.learner_id === learnerId) ?? -1;
+  const rank = companyRankIdx >= 0 ? companyRankIdx + 1 : null;
 
   // Compute per-course quiz stats
   const quizByCourse = new Map<string, { scores: number[]; passed: number; total: number }>();
@@ -79,9 +87,7 @@ export default async function LearnerDetailPage(
   const zoomAttended = zoomSessions?.filter((z) => z.attended).length ?? 0;
 
   return (
-    <PageShell>
-      <Link href={`/company/${slug}/learners`} className="back-link">← Learners</Link>
-
+    <CompanyShell slug={slug} companyName={company.name}>
       {/* Header */}
       <div className="page-header" style={{ marginBottom: '1.5rem' }}>
         <div>
@@ -125,6 +131,18 @@ export default async function LearnerDetailPage(
             {learner.last_active_at ? new Date(learner.last_active_at).toLocaleDateString() : '—'}
           </span>
         </div>
+        <div className="card card-sm kpi-card">
+          <span className="kpi-label">Total Points</span>
+          <span className="kpi-value tabular" style={{ color: 'var(--primary)' }}>
+            {totalPoints.toLocaleString()}
+          </span>
+        </div>
+        <div className="card card-sm kpi-card">
+          <span className="kpi-label">Company Rank</span>
+          <span className="kpi-value tabular">
+            {rank ? `#${rank}` : '—'}
+          </span>
+        </div>
       </div>
 
       {/* vs benchmark */}
@@ -150,6 +168,43 @@ export default async function LearnerDetailPage(
                 {(benchmark - overallCompletion).toFixed(1)}% behind benchmark
               </p>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Points Breakdown */}
+      {pointsRow && totalPoints > 0 && (
+        <div className="card" style={{ marginBottom: '1.25rem' }}>
+          <p className="section-title" style={{ marginBottom: '0.875rem' }}>Points Breakdown</p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.625rem' }}>
+            {[
+              { label: '🎯 Zoom Sessions',    pts: pointsRow.zoom_attendance_points,    suffix: `(${pointsRow.sessions_attended} sessions)` },
+              { label: '📚 Lessons',          pts: pointsRow.lesson_completion_points,   suffix: '' },
+              { label: '✅ Quizzes',          pts: pointsRow.quiz_points,               suffix: '' },
+              { label: '🏆 Course Complete',  pts: pointsRow.course_completion_points,  suffix: '' },
+              { label: '📝 Assignments',      pts: pointsRow.assignment_points,         suffix: '' },
+              { label: '📊 Surveys',          pts: pointsRow.survey_points,             suffix: '' },
+              { label: '🔥 Streaks & Pace',   pts: pointsRow.streak_bonus_points,       suffix: '' },
+            ]
+              .filter((item) => Number(item.pts) > 0)
+              .map((item) => (
+                <div key={item.label} style={{
+                  background: 'var(--surface-2)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 8,
+                  padding: '0.5rem 0.875rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.125rem',
+                  minWidth: 120,
+                }}>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{item.label}</span>
+                  <span style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--primary)', fontVariantNumeric: 'tabular-nums' }}>
+                    {Number(item.pts).toLocaleString()} pts
+                  </span>
+                  {item.suffix && <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{item.suffix}</span>}
+                </div>
+              ))}
           </div>
         </div>
       )}
@@ -274,6 +329,6 @@ export default async function LearnerDetailPage(
           )}
         </div>
       </div>
-    </PageShell>
+    </CompanyShell>
   );
 }

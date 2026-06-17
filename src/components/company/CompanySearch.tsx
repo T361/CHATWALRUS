@@ -67,7 +67,7 @@ export default function CompanySearch({ companies }: { companies: Company[] }) {
                 style={{
                   padding: '0.25rem 0.625rem', borderRadius: '0.375rem', border: 'none',
                   fontSize: '0.75rem', fontWeight: filter === f ? 600 : 400, cursor: 'pointer',
-                  background: filter === f ? 'var(--accent)' : 'transparent',
+                  background: filter === f ? 'var(--primary)' : 'transparent',
                   color: filter === f ? '#fff' : 'var(--text-secondary)',
                   transition: 'all 0.15s',
                 }}

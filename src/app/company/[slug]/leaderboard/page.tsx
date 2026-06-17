@@ -1,6 +1,6 @@
 'use client';
 
-import PageShell from '@/components/layout/PageShell';
+import CompanyShell from '@/components/layout/CompanyShell';
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
@@ -66,16 +66,14 @@ export default function CompanyLeaderboardPage() {
   });
 
   return (
-    <PageShell>
-      <Link href={`/company/${slug}`} className="back-link">← {companyName || 'Dashboard'}</Link>
-
+    <CompanyShell slug={slug} companyName={companyName}>
       <div className="page-header" style={{ marginTop: '0.75rem' }}>
         <div>
           <h1 className="page-title">{companyName} — Leaderboard</h1>
           <p className="page-subtitle">Top learners by total engagement points</p>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-          <Link href="/leaderboard" style={{ fontSize: '0.8125rem', color: 'var(--accent)', textDecoration: 'none' }}>
+          <Link href="/leaderboard" style={{ fontSize: '0.8125rem', color: 'var(--primary)', textDecoration: 'none' }}>
             Global Leaderboard →
           </Link>
           <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
@@ -123,14 +121,14 @@ export default function CompanyLeaderboardPage() {
                     <div style={{ fontSize: podiumRank === 1 ? '2rem' : '1.5rem', marginBottom: '0.25rem' }}>
                       {MEDAL[podiumRank - 1]}
                     </div>
-                    <div style={{ fontWeight: 700, fontSize: '0.8125rem', color: 'var(--text-primary)', marginBottom: '0.125rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <Link href={`/company/${slug}/learners/${r.learner_id}`} style={{ fontWeight: 700, fontSize: '0.8125rem', color: 'var(--primary)', textDecoration: 'none', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: '0.125rem' }}>
                       {r.full_name.split(' ')[0]}
-                    </div>
+                    </Link>
                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
                       {r.department ?? ''}
                     </div>
                     <div style={{
-                      height, background: podiumRank === 1 ? 'var(--accent)' : 'var(--surface-raised)',
+                      height, background: podiumRank === 1 ? 'var(--primary)' : 'var(--surface-raised)',
                       border: '1px solid var(--border)', borderRadius: '0.5rem 0.5rem 0 0',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       flexDirection: 'column', gap: '0.125rem',
@@ -173,11 +171,13 @@ export default function CompanyLeaderboardPage() {
               <tbody>
                 {filtered.map((r) => (
                   <tr key={r.learner_id} style={{ borderBottom: '1px solid var(--border-muted)', background: r.rank <= 3 ? 'var(--surface-raised)' : 'transparent' }}>
-                    <td style={{ padding: '0.75rem 1rem', fontWeight: 700, color: r.rank <= 3 ? 'var(--accent)' : 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums' }}>
+                    <td style={{ padding: '0.75rem 1rem', fontWeight: 700, color: r.rank <= 3 ? 'var(--primary)' : 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums' }}>
                       {r.rank <= 3 ? MEDAL[r.rank - 1] : `#${r.rank}`}
                     </td>
                     <td style={{ padding: '0.75rem 1rem' }}>
-                      <div style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{r.full_name}</div>
+                      <Link href={`/company/${slug}/learners/${r.learner_id}`} style={{ fontWeight: 500, color: 'var(--primary)', textDecoration: 'none' }}>
+                        {r.full_name}
+                      </Link>
                       <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{r.email}</div>
                     </td>
                     <td style={{ padding: '0.75rem 1rem', color: 'var(--text-secondary)', fontSize: '0.8125rem' }}>
@@ -199,6 +199,6 @@ export default function CompanyLeaderboardPage() {
           </div>
         </>
       )}
-    </PageShell>
+    </CompanyShell>
   );
 }

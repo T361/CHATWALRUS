@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic';
 
-import PageShell from '@/components/layout/PageShell';
+import CompanyShell from '@/components/layout/CompanyShell';
 import KpiCard from '@/components/company/KpiCard';
 import AlertBanner from '@/components/company/AlertBanner';
 import TimelineToggle from '@/components/company/TimelineToggle';
@@ -27,11 +27,11 @@ export default async function CompanyDashboardPage(
   const db = createAdminClient();
   if (!db) {
     return (
-      <PageShell>
+      <CompanyShell slug={slug}>
         <div className="card" style={{ background: 'var(--warning-bg)', borderColor: 'rgba(245,158,11,0.25)' }}>
           <p style={{ color: 'var(--warning)' }}>Database not connected.</p>
         </div>
-      </PageShell>
+      </CompanyShell>
     );
   }
 
@@ -46,14 +46,16 @@ export default async function CompanyDashboardPage(
     { data: latestMilestone },
     { data: alerts },
     { data: trendData },
+    { data: top3 },
   ] = await Promise.all([
     db.from('learners').select('*', { count: 'exact', head: true }).eq('company_id', company.id).eq('is_active', true),
-    db.from('enrollments').select('*', { count: 'exact', head: true }).eq('company_id', company.id).eq('is_active', true).not('completed_at', 'is', null),
+    db.from('enrollments').select('*', { count: 'exact', head: true }).eq('company_id', company.id).not('completed_at', 'is', null),
     db.from('assignments').select('*', { count: 'exact', head: true }).eq('company_id', company.id),
     db.from('assignments').select('*', { count: 'exact', head: true }).eq('company_id', company.id).eq('submitted', true),
     db.from('milestone_checks').select('*').eq('company_id', company.id).order('checked_at', { ascending: false }).limit(1).single(),
     db.from('alerts').select('*').eq('company_id', company.id).eq('status', 'open').order('created_at', { ascending: false }).limit(5),
     db.from('daily_snapshots').select('snapshot_date, completion_percent').eq('company_id', company.id).order('snapshot_date', { ascending: false }).limit(30),
+    db.from('learner_points').select('learner_id, total_points, learners(full_name)').eq('company_id', company.id).order('total_points', { ascending: false }).limit(3),
   ]);
 
   // Use milestone average_completion_percent which is calculated with full pagination
@@ -100,9 +102,7 @@ export default async function CompanyDashboardPage(
       : null;
 
   return (
-    <PageShell>
-      <Link href="/" className="back-link">← Companies</Link>
-
+    <CompanyShell slug={slug} companyName={company.name}>
       <div className="page-header">
         <div>
           <h1 className="page-title">{company.name}</h1>
@@ -177,6 +177,37 @@ export default async function CompanyDashboardPage(
         </div>
       )}
 
+      {top3 && top3.length > 0 && (
+        <div className="card" style={{ marginBottom: '1.25rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.875rem' }}>
+            <p className="section-title" style={{ marginBottom: 0 }}>🏆 Top Learners</p>
+            <Link href={`/company/${slug}/leaderboard`} style={{ fontSize: '0.75rem', color: 'var(--primary)', textDecoration: 'none' }}>Full leaderboard →</Link>
+          </div>
+          <div style={{ display: 'flex', gap: '0.75rem' }}>
+            {top3.map((row, i) => {
+              const medals = ['🥇', '🥈', '🥉'];
+              const learner = (row as Record<string, unknown>).learners as Record<string, string> | null;
+              const name = learner?.full_name ?? 'Learner';
+              return (
+                <Link
+                  key={row.learner_id}
+                  href={`/company/${slug}/learners/${row.learner_id}`}
+                  style={{ flex: 1, textDecoration: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '0.75rem 1rem', display: 'flex', flexDirection: 'column', gap: '0.25rem', minWidth: 0 }}
+                >
+                  <span style={{ fontSize: '1.25rem' }}>{medals[i]}</span>
+                  <span style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {name.split(' ')[0]}
+                  </span>
+                  <span style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--primary)', fontVariantNumeric: 'tabular-nums' }}>
+                    {Number(row.total_points).toLocaleString()} pts
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '0.875rem' }}>
         {[
           { href: `/company/${slug}/learners`, icon: '⌀', label: 'Learner Breakdown', sub: `${totalEnrolled ?? 0} learners · progress & status` },
@@ -196,6 +227,6 @@ export default async function CompanyDashboardPage(
           </Link>
         ))}
       </div>
-    </PageShell>
+    </CompanyShell>
   );
 }
