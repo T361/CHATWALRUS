@@ -1,11 +1,11 @@
 export const dynamic = 'force-dynamic';
 
 import CompanyShell from '@/components/layout/CompanyShell';
-import Link from 'next/link';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { notFound } from 'next/navigation';
 import LearnerStatusBadge from '@/components/learners/LearnerStatusBadge';
 import type { LearnerStatus } from '@/types/learner';
+import type { LearnerSessionHistoryItem } from '@/types/zoom';
 
 function ProgressBar({ pct, color }: { pct: number; color: string }) {
   const clamped = Math.min(100, Math.max(0, pct));
@@ -57,7 +57,7 @@ export default async function LearnerDetailPage(
     db.from('learner_status_snapshots').select('status, completion_percent, benchmark_percent, snapshot_date').eq('learner_id', learnerId).order('snapshot_date', { ascending: false }).limit(1).single(),
     db.from('quizzes').select('*, courses(name)').eq('learner_id', learnerId).order('attempted_at', { ascending: false }),
     db.from('assignments').select('*, courses(name)').eq('learner_id', learnerId).order('submitted_at', { ascending: false }),
-    db.from('zoom_attendance').select('join_time, attended').eq('learner_id', learnerId).order('join_time', { ascending: false }).limit(20),
+    db.from('zoom_attendance').select('id, zoom_session_id, learner_id, company_id, attendee_name, attendee_email, join_time, leave_time, duration_minutes, attended, created_at, zoom_sessions(topic, session_type, host_email, start_time, end_time)').eq('learner_id', learnerId).order('join_time', { ascending: false }),
     db.from('learner_points').select('total_points, zoom_attendance_points, lesson_completion_points, quiz_points, course_completion_points, assignment_points, survey_points, streak_bonus_points, sessions_attended').eq('learner_id', learnerId).single(),
     db.from('learner_points').select('learner_id').eq('company_id', company.id).gte('total_points', 0).order('total_points', { ascending: false }),
   ]);
@@ -83,8 +83,30 @@ export default async function LearnerDetailPage(
     quizByCourse.set(name, ex);
   }
 
-  const zoomTotal    = zoomSessions?.length ?? 0;
-  const zoomAttended = zoomSessions?.filter((z) => z.attended).length ?? 0;
+  const sessionHistory: LearnerSessionHistoryItem[] = (zoomSessions || []).map((row) => {
+    const session = Array.isArray(row.zoom_sessions) ? row.zoom_sessions[0] : row.zoom_sessions;
+    return {
+      id: row.id,
+      zoom_session_id: row.zoom_session_id,
+      learner_id: row.learner_id,
+      company_id: row.company_id,
+      attendee_name: row.attendee_name,
+      attendee_email: row.attendee_email,
+      join_time: row.join_time,
+      leave_time: row.leave_time,
+      duration_minutes: row.duration_minutes,
+      attended: row.attended,
+      created_at: row.created_at,
+      session_topic: session?.topic ?? null,
+      session_type: session?.session_type ?? null,
+      session_host_email: session?.host_email ?? null,
+      session_start_time: session?.start_time ?? null,
+      session_end_time: session?.end_time ?? null,
+    };
+  });
+
+  const zoomTotal = sessionHistory.length;
+  const zoomAttended = sessionHistory.filter((z) => z.attended).length;
 
   return (
     <CompanyShell slug={slug} companyName={company.name}>
@@ -206,6 +228,66 @@ export default async function LearnerDetailPage(
                 </div>
               ))}
           </div>
+        </div>
+      )}
+
+      {/* Session History */}
+      <h2 className="section-title" style={{ marginBottom: '0.75rem' }}>Session History</h2>
+      {sessionHistory.length === 0 ? (
+        <div className="card empty-state" style={{ marginBottom: '1.25rem' }}>
+          <p>No learner-linked Zoom attendance history found.</p>
+        </div>
+      ) : (
+        <div className="card" style={{ marginBottom: '1.25rem', overflow: 'auto' }}>
+          <table>
+            <thead>
+              <tr>
+                <th>Session</th>
+                <th>Type</th>
+                <th>Session Start</th>
+                <th>Join</th>
+                <th>Leave</th>
+                <th style={{ textAlign: 'center' }}>Duration</th>
+                <th>Host</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sessionHistory.map((session) => (
+                <tr key={session.id}>
+                  <td>
+                    <div>
+                      <div style={{ fontWeight: 500, fontSize: '0.875rem' }}>
+                        {session.session_topic || 'Untitled Session'}
+                      </div>
+                      <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', marginTop: '1px' }}>
+                        {session.attendee_email || learner.email || '—'}
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <span className="badge badge-not-started" style={{ textTransform: 'capitalize' }}>
+                      {session.session_type || 'meeting'}
+                    </span>
+                  </td>
+                  <td style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', whiteSpace: 'nowrap' }}>
+                    {session.session_start_time ? new Date(session.session_start_time).toLocaleString() : '—'}
+                  </td>
+                  <td style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', whiteSpace: 'nowrap' }}>
+                    {session.join_time ? new Date(session.join_time).toLocaleString() : '—'}
+                  </td>
+                  <td style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', whiteSpace: 'nowrap' }}>
+                    {session.leave_time ? new Date(session.leave_time).toLocaleString() : '—'}
+                  </td>
+                  <td className="tabular" style={{ textAlign: 'center', fontSize: '0.875rem', color: 'var(--text)' }}>
+                    {session.duration_minutes !== null ? `${session.duration_minutes}m` : '—'}
+                  </td>
+                  <td style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>
+                    {session.session_host_email || '—'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 

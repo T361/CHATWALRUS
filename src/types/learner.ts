@@ -127,6 +127,9 @@ export interface ZoomAttendanceRecord {
   attended: boolean;
   topic?: string;
   session_start?: string;
+  session_end?: string;
+  session_type?: string;
+  host_email?: string;
 }
 
 export interface DailySnapshot {

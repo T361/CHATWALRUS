@@ -28,6 +28,14 @@ export interface ZoomAttendance {
   created_at: string;
 }
 
+export interface LearnerSessionHistoryItem extends ZoomAttendance {
+  session_topic: string | null;
+  session_type: string | null;
+  session_host_email: string | null;
+  session_start_time: string | null;
+  session_end_time: string | null;
+}
+
 export interface ZoomTokenResponse {
   access_token: string;
   token_type: string;
