@@ -13,37 +13,41 @@ export async function GET(req: NextRequest) {
   const fromDate       = searchParams.get('from_date')         || null;
   const toDate         = searchParams.get('to_date')           || null;
 
-  // Build base query — fetch all matching rows (no 100-row limit)
-  let query = db
-    .from('surveys')
-    .select('id, rating, feedback_text, proficiency_level, submitted_at, company_id, course_id, companies(id, name), learners(full_name), courses(name)')
-    .order('submitted_at', { ascending: false });
+  // Paginate to get all matching rows past Supabase's default 1000-row cap
+  const rows: Array<Record<string, unknown>> = [];
+  for (let offset = 0; ; offset += 1000) {
+    let query = db
+      .from('surveys')
+      .select('id, rating, feedback_text, proficiency_level, submitted_at, company_id, course_id, companies(id, name), learners(full_name), courses(name)')
+      .order('submitted_at', { ascending: false })
+      .range(offset, offset + 999);
 
-  if (companyId && companyId !== 'all')  query = query.eq('company_id', companyId);
-  if (proficiency && proficiency !== 'all') query = query.eq('proficiency_level', proficiency);
-  if (fromDate) query = query.gte('submitted_at', fromDate);
-  if (toDate)   query = query.lte('submitted_at', toDate + 'T23:59:59Z');
+    if (companyId && companyId !== 'all')      query = query.eq('company_id', companyId);
+    if (proficiency && proficiency !== 'all')  query = query.eq('proficiency_level', proficiency);
+    if (fromDate)                              query = query.gte('submitted_at', fromDate);
+    if (toDate)                                query = query.lte('submitted_at', toDate + 'T23:59:59Z');
 
-  const { data: rows, error } = await query;
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const { data: page, error } = await query;
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (!page || page.length === 0) break;
+    rows.push(...(page as Array<Record<string, unknown>>));
+    if (page.length < 1000) break;
   }
 
-  const surveys = (rows || []).map((s) => {
-    const co = (s as Record<string, unknown>).companies as Record<string, string> | null;
-    const le = (s as Record<string, unknown>).learners  as Record<string, string> | null;
-    const cr = (s as Record<string, unknown>).courses   as Record<string, string> | null;
+  const surveys = rows.map((s) => {
+    const co = s.companies as Record<string, string> | null;
+    const le = s.learners  as Record<string, string> | null;
+    const cr = s.courses   as Record<string, string> | null;
     return {
-      id:               s.id,
-      rating:           s.rating,
-      feedback_text:    s.feedback_text,
-      proficiency_level:s.proficiency_level,
-      submitted_at:     s.submitted_at,
-      company_id:       s.company_id,
+      id:               s.id as string,
+      rating:           s.rating as number | null,
+      feedback_text:    s.feedback_text as string | null,
+      proficiency_level:s.proficiency_level as string | null,
+      submitted_at:     s.submitted_at as string | null,
+      company_id:       s.company_id as string | null,
       company_name:     co?.name ?? null,
       learner_name:     le?.full_name ?? null,
-      course_id:        s.course_id,
+      course_id:        s.course_id as string | null,
       course_name:      cr?.name ?? null,
     };
   });
