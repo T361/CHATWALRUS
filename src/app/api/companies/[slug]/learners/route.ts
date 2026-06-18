@@ -51,7 +51,6 @@ export async function GET(
       page: result.page,
       limit: result.limit,
       has_more: result.has_more,
-      course_options: result.course_options,
       filters: {
         q: searchParams.get('q') || '',
         course_id: searchParams.get('course_id') || '',

@@ -1,9 +1,9 @@
 import 'server-only';
 
 import { createAdminClient } from '@/lib/supabase/admin';
-import { readThroughTtlCache } from '@/lib/cache/serverCache';
 import { withServerTiming } from '@/lib/perf';
 import type { LearnerStatus } from '@/types/learner';
+import { isMissingRelationError } from '@/lib/utils/db';
 
 export interface LearnerDirectoryFilters {
   companyId?: string | null;
@@ -43,7 +43,6 @@ export interface LearnerDirectoryResult {
   page: number;
   limit: number;
   has_more: boolean;
-  course_options: CourseFilterOption[];
 }
 
 function normalizePage(value?: number): number {
@@ -53,46 +52,6 @@ function normalizePage(value?: number): number {
 function normalizeLimit(value?: number): number {
   const parsed = Number.isFinite(value) && value ? Math.floor(value) : 25;
   return Math.min(Math.max(parsed, 10), 100);
-}
-
-async function getCourseOptions(companyId?: string | null): Promise<CourseFilterOption[]> {
-  const key = companyId ? `courses:company:${companyId}` : 'courses:global';
-  return readThroughTtlCache(key, 60_000, async () => {
-    const db = createAdminClient();
-    let enrollmentQuery = db
-      .from('enrollments')
-      .select('course_id')
-      .eq('is_active', true);
-
-    if (companyId) {
-      enrollmentQuery = enrollmentQuery.eq('company_id', companyId);
-    }
-
-    const courseIds = new Set<string>();
-    for (let offset = 0; ; offset += 1000) {
-      const { data, error } = await enrollmentQuery.range(offset, offset + 999);
-      if (error) throw error;
-      if (!data || data.length === 0) break;
-      for (const row of data) {
-        if (row.course_id) courseIds.add(row.course_id);
-      }
-      if (data.length < 1000) break;
-    }
-
-    if (courseIds.size === 0) return [];
-
-    const { data: courses, error } = await db
-      .from('courses')
-      .select('id, name')
-      .in('id', Array.from(courseIds))
-      .order('name');
-    if (error) throw error;
-
-    return (courses || []).map((course) => ({
-      id: course.id,
-      name: course.name,
-    }));
-  });
 }
 
 type DirectoryFilterableQuery = {
@@ -122,7 +81,10 @@ function applyDirectoryQueryFilters(
   return nextQuery;
 }
 
-async function queryLearnerDirectoryView(filters: LearnerDirectoryFilters): Promise<LearnerDirectoryResult> {
+async function queryLearnerDirectoryTable(
+  tableName: 'learner_directory_rollups' | 'learner_directory_v',
+  filters: LearnerDirectoryFilters
+): Promise<LearnerDirectoryResult> {
   const db = createAdminClient();
   const page = normalizePage(filters.page);
   const limit = normalizeLimit(filters.limit);
@@ -134,11 +96,11 @@ async function queryLearnerDirectoryView(filters: LearnerDirectoryFilters): Prom
   };
 
   const countQuery = applyDirectoryQueryFilters(
-    db.from('learner_directory_v').select('learner_id', { count: 'exact', head: true }) as unknown as DirectoryFilterableQuery,
+    db.from(tableName).select('learner_id', { count: 'exact', head: true }) as unknown as DirectoryFilterableQuery,
     normalized,
   ) as unknown as Promise<{ count: number | null; error: Error | null }>;
   const dataQuery = applyDirectoryQueryFilters(
-    db.from('learner_directory_v')
+    db.from(tableName)
       .select('learner_id, company_id, company_name, company_slug, full_name, email, department, title, last_active_at, courses_enrolled, avg_progress, status, completion_percent, benchmark_percent, live_sessions_last_30_days')
       .order('full_name') as unknown as DirectoryFilterableQuery,
     normalized,
@@ -170,15 +132,12 @@ async function queryLearnerDirectoryView(filters: LearnerDirectoryFilters): Prom
     live_sessions_last_30_days: Number(row.live_sessions_last_30_days ?? 0),
   }));
 
-  const courseOptions = await getCourseOptions(filters.companyId ?? null);
-
   return {
     rows,
     total,
     page,
     limit,
     has_more: page * limit < total,
-    course_options: courseOptions,
   };
 }
 
@@ -186,7 +145,12 @@ export async function getLearnerDirectory(
   filters: LearnerDirectoryFilters,
 ): Promise<LearnerDirectoryResult> {
   return withServerTiming('learners.directory.load', async () => {
-    return queryLearnerDirectoryView(filters);
+    try {
+      return await queryLearnerDirectoryTable('learner_directory_rollups', filters);
+    } catch (error) {
+      if (!isMissingRelationError(error)) throw error;
+      return queryLearnerDirectoryTable('learner_directory_v', filters);
+    }
   }, {
     company_id: filters.companyId ?? 'global',
     page: filters.page ?? 1,
@@ -195,4 +159,91 @@ export async function getLearnerDirectory(
     has_search: !!filters.q,
     has_status_filter: !!filters.status && filters.status !== 'all',
   });
+}
+
+export async function getLearnerDirectoryMeta(companyId?: string | null): Promise<{
+  company_name?: string;
+  course_options: CourseFilterOption[];
+}> {
+  return withServerTiming('learners.directory.meta', async () => {
+    const db = createAdminClient();
+    const courseIds = new Set<string>();
+
+    try {
+      for (let offset = 0; ; offset += 1000) {
+        let query = db
+          .from('learner_directory_rollups')
+          .select('active_course_ids')
+          .order('learner_id')
+          .range(offset, offset + 999);
+
+        if (companyId) {
+          query = query.eq('company_id', companyId);
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        for (const row of data as Array<{ active_course_ids: string[] | null }>) {
+          for (const courseId of row.active_course_ids ?? []) {
+            if (courseId) courseIds.add(courseId);
+          }
+        }
+        if (data.length < 1000) break;
+      }
+    } catch (error) {
+      if (!isMissingRelationError(error)) throw error;
+      let enrollmentQuery = db
+        .from('enrollments')
+        .select('course_id')
+        .eq('is_active', true);
+
+      if (companyId) {
+        enrollmentQuery = enrollmentQuery.eq('company_id', companyId);
+      }
+
+      for (let offset = 0; ; offset += 1000) {
+        const { data, error: enrollmentError } = await enrollmentQuery.range(offset, offset + 999);
+        if (enrollmentError) throw enrollmentError;
+        if (!data || data.length === 0) break;
+        for (const row of data) {
+          if (row.course_id) courseIds.add(row.course_id);
+        }
+        if (data.length < 1000) break;
+      }
+    }
+
+    let companyName: string | undefined;
+    if (companyId) {
+      const { data: company, error } = await db
+        .from('companies')
+        .select('name')
+        .eq('id', companyId)
+        .single();
+      if (error) throw error;
+      companyName = company?.name;
+    }
+
+    if (courseIds.size === 0) {
+      return {
+        company_name: companyName,
+        course_options: [],
+      };
+    }
+
+    const { data: courses, error } = await db
+      .from('courses')
+      .select('id, name')
+      .in('id', Array.from(courseIds))
+      .order('name');
+    if (error) throw error;
+
+    return {
+      company_name: companyName,
+      course_options: (courses || []).map((course) => ({
+        id: course.id,
+        name: course.name,
+      })),
+    };
+  }, { company_id: companyId ?? 'global' });
 }

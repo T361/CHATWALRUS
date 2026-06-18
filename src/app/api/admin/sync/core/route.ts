@@ -9,6 +9,8 @@ import { syncEnrollmentData } from '@/lib/thinkific/syncEnrollmentData';
 import { syncStartDates } from '@/lib/thinkific/syncStartDates';
 import { summarizeSyncResults } from '@/lib/thinkific/syncCore';
 import { invalidateDashboardCaches } from '@/lib/cache/invalidation';
+import { refreshLearnerDirectoryRollups } from '@/lib/learners/rollups';
+import { refreshCompanyWeeklyRollups } from '@/lib/weekly/rollups';
 
 export async function POST(req: NextRequest) {
   const authError = requireAdminOrCron(req);
@@ -25,6 +27,8 @@ export async function POST(req: NextRequest) {
     const startDateResult = await syncStartDates();
     const results = { courses: courseResult, users: userResult, groups: groupResult, orders: orderResult, enrollments: enrollmentResult, start_dates: startDateResult };
     const summary = summarizeSyncResults(results);
+    await refreshLearnerDirectoryRollups();
+    await refreshCompanyWeeklyRollups();
     invalidateDashboardCaches();
 
     return NextResponse.json({

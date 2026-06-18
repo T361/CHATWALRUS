@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { startTransition, useEffect, useRef, useState, type ReactNode } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import LearnerStatusBadge from './LearnerStatusBadge';
 import { logClientTiming } from '@/lib/perf-client';
@@ -24,19 +24,40 @@ type LearnerDirectoryApiRow = {
   company_slug?: string | null;
 };
 
-type CourseOption = {
-  id: string;
-  name: string;
-};
-
 type LearnerDirectoryResponse = {
   learners: LearnerDirectoryApiRow[];
   total: number;
   page: number;
   limit: number;
   has_more: boolean;
-  course_options: CourseOption[];
+};
+
+type LearnerDirectoryMeta = {
+  course_options: CourseFilterOption[];
   company_name?: string;
+};
+
+type CourseFilterOption = {
+  id: string;
+  name: string;
+};
+
+type LearnerDirectorySeed = {
+  rows: Array<{
+    learner_id: string;
+    company_name: string | null;
+    company_slug: string | null;
+    full_name: string | null;
+    email: string | null;
+    department: string | null;
+    title: string | null;
+    avg_progress: number;
+    status: LearnerStatus;
+    courses_enrolled: number;
+    last_active_at: string | null;
+    live_sessions_last_30_days: number;
+  }>;
+  total: number;
 };
 
 function buildQueryString(
@@ -85,35 +106,64 @@ function TableSkeleton({ showCompany }: { showCompany: boolean }) {
   );
 }
 
+function toInitialRows(initialData?: LearnerDirectorySeed): LearnerDirectoryApiRow[] {
+  return (initialData?.rows || []).map((row) => ({
+    id: row.learner_id,
+    learner_id: row.learner_id,
+    full_name: row.full_name || 'Unknown',
+    email: row.email,
+    department: row.department,
+    title: row.title,
+    avg_progress: row.avg_progress,
+    progress_percent: row.avg_progress,
+    status: row.status,
+    courses_enrolled: row.courses_enrolled,
+    last_active_at: row.last_active_at,
+    live_sessions_last_30_days: row.live_sessions_last_30_days,
+    company_name: row.company_name,
+    company_slug: row.company_slug,
+  }));
+}
+
 export default function LearnerDirectory({
   endpoint,
+  metadataEndpoint,
   scope,
   companySlug,
   headerAction,
+  initialData,
+  initialMeta,
 }: {
   endpoint: string;
+  metadataEndpoint: string;
   scope: 'global' | 'company';
   companySlug?: string;
   headerAction?: ReactNode;
+  initialData?: LearnerDirectorySeed;
+  initialMeta?: LearnerDirectoryMeta;
 }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [rows, setRows] = useState<LearnerDirectoryApiRow[]>([]);
-  const [courseOptions, setCourseOptions] = useState<CourseOption[]>([]);
-  const [companyName, setCompanyName] = useState('');
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [rows, setRows] = useState<LearnerDirectoryApiRow[]>(() => toInitialRows(initialData));
+  const [courseOptions, setCourseOptions] = useState<CourseFilterOption[]>(() => initialMeta?.course_options || []);
+  const [companyName, setCompanyName] = useState(initialMeta?.company_name || '');
+  const [total, setTotal] = useState(initialData?.total || 0);
+  const [loading, setLoading] = useState(!initialData);
   const [refreshing, setRefreshing] = useState(false);
+  const [metaLoading, setMetaLoading] = useState(!initialMeta);
+  const [error, setError] = useState<string | null>(null);
   const [localSearch, setLocalSearch] = useState(searchParams.get('q') || '');
   const requestIdRef = useRef(0);
-  const hasLoadedOnceRef = useRef(false);
 
   const page = Number(searchParams.get('page') || '1');
   const limit = Number(searchParams.get('limit') || '25');
   const qParam = searchParams.get('q') || '';
   const statusFilter = searchParams.get('status') || 'all';
   const courseFilter = searchParams.get('course_id') || '';
+  const currentRequestKey = JSON.stringify({ q: qParam, status: statusFilter, course_id: courseFilter, page, limit });
+  const initialRowsRequestKeyRef = useRef<string | null>(initialData ? currentRequestKey : null);
+  const initialMetaEndpointRef = useRef<string | null>(initialMeta ? metadataEndpoint : null);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -126,35 +176,90 @@ export default function LearnerDirectory({
     const requestId = ++requestIdRef.current;
     const startedAt = performance.now();
     const paramsString = searchParams.toString();
+    let cancelled = false;
 
-    if (hasLoadedOnceRef.current) setRefreshing(true);
-    else setLoading(true);
+    const run = async () => {
+      if (initialRowsRequestKeyRef.current === currentRequestKey) {
+        initialRowsRequestKeyRef.current = '__consumed__';
+        return;
+      }
 
-    fetch(`${endpoint}${paramsString ? `?${paramsString}` : ''}`, {
+      await Promise.resolve();
+      if (cancelled || requestId !== requestIdRef.current) return;
+
+      if (rows.length > 0) setRefreshing(true);
+      else setLoading(true);
+      setError(null);
+
+      fetch(`${endpoint}${paramsString ? `?${paramsString}` : ''}`, {
+        credentials: 'same-origin',
+        cache: 'no-store',
+      })
+        .then(async (res) => {
+          if (!res.ok) {
+            const payload = await res.json().catch(() => ({}));
+            throw new Error(payload.error || payload.message || 'Could not load learners.');
+          }
+          return res.json();
+        })
+        .then((data: LearnerDirectoryResponse) => {
+          if (cancelled || requestId !== requestIdRef.current) return;
+          setRows(data.learners || []);
+          setTotal(data.total || 0);
+          logClientTiming('learners.directory.fetch', performance.now() - startedAt, {
+            scope,
+            total_rows: data.total || 0,
+            page: data.page || page,
+          });
+        })
+        .catch((fetchError: unknown) => {
+          if (cancelled || requestId !== requestIdRef.current) return;
+          setError(fetchError instanceof Error ? fetchError.message : 'Could not load learners.');
+        })
+        .finally(() => {
+          if (cancelled || requestId !== requestIdRef.current) return;
+          setLoading(false);
+          setRefreshing(false);
+        });
+    };
+
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentRequestKey, endpoint, page, qParam, rows.length, scope, searchParams]);
+
+  useEffect(() => {
+    if (initialMetaEndpointRef.current === metadataEndpoint) {
+      initialMetaEndpointRef.current = '__consumed__';
+      setMetaLoading(false);
+      return;
+    }
+
+    setMetaLoading(true);
+    setError(null);
+    fetch(metadataEndpoint, {
       credentials: 'same-origin',
       cache: 'no-store',
     })
-      .then((res) => res.json())
-      .then((data: LearnerDirectoryResponse) => {
-        if (requestId !== requestIdRef.current) return;
-        setRows(data.learners || []);
-        setCourseOptions(data.course_options || []);
-        setTotal(data.total || 0);
-        if (data.company_name) setCompanyName(data.company_name);
-        logClientTiming('learners.directory.fetch', performance.now() - startedAt, {
-          scope,
-          total_rows: data.total || 0,
-          page: data.page || page,
-        });
+      .then(async (res) => {
+        if (!res.ok) {
+          const payload = await res.json().catch(() => ({}));
+          throw new Error(payload.error || payload.message || 'Could not load learner filters.');
+        }
+        return res.json();
       })
-      .catch(() => {})
+      .then((data: LearnerDirectoryMeta) => {
+        setCourseOptions(data.course_options || []);
+        setCompanyName(data.company_name || '');
+      })
+      .catch((fetchError: unknown) => {
+        setError(fetchError instanceof Error ? fetchError.message : 'Could not load learner filters.');
+      })
       .finally(() => {
-        if (requestId !== requestIdRef.current) return;
-        hasLoadedOnceRef.current = true;
-        setLoading(false);
-        setRefreshing(false);
+        setMetaLoading(false);
       });
-  }, [endpoint, page, qParam, scope, searchParams]);
+  }, [metadataEndpoint]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -164,15 +269,19 @@ export default function LearnerDirectory({
         q: localSearch.trim(),
         page: 1,
       });
-      router.replace(qs ? `${pathname}?${qs}` : pathname);
-    }, 250);
+      startTransition(() => {
+        router.replace(qs ? `${pathname}?${qs}` : pathname);
+      });
+    }, 300);
 
     return () => window.clearTimeout(timer);
   }, [localSearch, pathname, router, searchParams]);
 
   function updateFilters(updates: Record<string, string | number | null | undefined>) {
     const qs = buildQueryString(searchParams, updates);
-    router.replace(qs ? `${pathname}?${qs}` : pathname);
+    startTransition(() => {
+      router.replace(qs ? `${pathname}?${qs}` : pathname);
+    });
   }
 
   const showCompany = scope === 'global';
@@ -200,7 +309,7 @@ export default function LearnerDirectory({
       <div style={{ display: 'flex', gap: '0.625rem', marginBottom: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
         <input
           type="text"
-          placeholder={scope === 'global' ? 'Search learner name or email...' : 'Search learner name or email...'}
+          placeholder="Search learner name or email..."
           value={localSearch}
           onChange={(event) => setLocalSearch(event.target.value)}
           style={{ flex: 1, minWidth: '220px' }}
@@ -209,6 +318,7 @@ export default function LearnerDirectory({
           value={courseFilter}
           onChange={(event) => updateFilters({ course_id: event.target.value || null, page: 1 })}
           style={{ minWidth: '220px' }}
+          disabled={metaLoading}
         >
           <option value="">All Courses</option>
           {courseOptions.map((course) => (
@@ -240,6 +350,11 @@ export default function LearnerDirectory({
 
       {loading ? (
         <TableSkeleton showCompany={showCompany} />
+      ) : error ? (
+        <div className="empty-state card">
+          <h3>Could not load learners</h3>
+          <p>{error}</p>
+        </div>
       ) : rows.length === 0 ? (
         <div className="empty-state card">
           <h3>No Learners Found</h3>

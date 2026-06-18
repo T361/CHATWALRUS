@@ -17,6 +17,8 @@ import { seedPointsFromActivity, recalculateAllPoints } from '@/lib/gamification
 import { awardAchievements } from '@/lib/gamification/awardAchievements';
 import { snapshotLeaderboard } from '@/lib/gamification/snapshotLeaderboard';
 import { invalidateDashboardCaches } from '@/lib/cache/invalidation';
+import { refreshLearnerDirectoryRollups } from '@/lib/learners/rollups';
+import { refreshCompanyWeeklyRollups } from '@/lib/weekly/rollups';
 
 export async function POST(req: NextRequest) {
   const authError = requireCronSecret(req);
@@ -76,6 +78,8 @@ export async function POST(req: NextRequest) {
     };
 
     const summary = summarizeSyncResults(results);
+    await refreshLearnerDirectoryRollups();
+    await refreshCompanyWeeklyRollups();
     invalidateDashboardCaches();
 
     if (logId) {

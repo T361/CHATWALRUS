@@ -11,6 +11,8 @@ import { createAlert } from '@/lib/alerts/createAlert';
 import { sendSlackAlert } from '@/lib/alerts/sendSlackAlert';
 import { refreshCompanySummaryRollups } from '@/lib/companies/rollups';
 import { invalidateDashboardCaches } from '@/lib/cache/invalidation';
+import { refreshLearnerDirectoryRollups } from '@/lib/learners/rollups';
+import { refreshCompanyWeeklyRollups } from '@/lib/weekly/rollups';
 import type { Company } from '@/types/company';
 import type { LearnerStatus } from '@/types/learner';
 
@@ -331,7 +333,10 @@ export async function runAllMilestoneChecks(): Promise<MilestoneCheckResult[]> {
   );
   const results = settled.filter((r): r is MilestoneCheckResult => r !== null);
   if (results.length > 0) {
-    await refreshCompanySummaryRollups(results.map((result) => result.companyId));
+    const companyIds = results.map((result) => result.companyId);
+    await refreshCompanySummaryRollups(companyIds);
+    await refreshLearnerDirectoryRollups(companyIds);
+    await refreshCompanyWeeklyRollups(companyIds);
     invalidateDashboardCaches();
   }
   return results;
