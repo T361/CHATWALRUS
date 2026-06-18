@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSession, isAdminAuthConfigured } from '@/lib/auth/session';
 import { isThinkificConfigured } from '@/lib/thinkific/client';
 import { isZoomConfigured } from '@/lib/zoom/client';
-import { isAdminConfigured as isSupabaseAdminConfigured } from '@/lib/supabase/admin';
+import { createAdminClient, isAdminConfigured as isSupabaseAdminConfigured } from '@/lib/supabase/admin';
 import { readThroughTtlCache } from '@/lib/cache/serverCache';
 import { withServerTiming } from '@/lib/perf';
+import { isMissingRelationError } from '@/lib/utils/db';
 
 interface ProbeResult {
   connected: boolean;
@@ -103,6 +104,69 @@ async function probeThinkific(): Promise<ProbeResult> {
   }
 }
 
+async function getLearnerRollupHealth() {
+  const db = createAdminClient();
+  const [activeLearnersResult, activeLearnerCompaniesResult] = await Promise.all([
+    db.from('learners').select('id', { count: 'exact', head: true }).eq('is_active', true),
+    db.from('learners').select('company_id').eq('is_active', true).not('company_id', 'is', null),
+  ]);
+
+  if (activeLearnersResult.error) throw activeLearnersResult.error;
+  if (activeLearnerCompaniesResult.error) throw activeLearnerCompaniesResult.error;
+
+  const activeLearners = Number(activeLearnersResult.count ?? 0);
+  const companiesWithActiveLearners = new Set(
+    (activeLearnerCompaniesResult.data || [])
+      .map((row) => row.company_id)
+      .filter((value): value is string => !!value)
+  ).size;
+
+  try {
+    const [rollupRowsResult, rollupCompanyRowsResult] = await Promise.all([
+      db.from('learner_directory_rollups').select('learner_id', { count: 'exact', head: true }),
+      db.from('learner_directory_rollups').select('company_id').not('company_id', 'is', null),
+    ]);
+
+    if (rollupRowsResult.error) throw rollupRowsResult.error;
+    if (rollupCompanyRowsResult.error) throw rollupCompanyRowsResult.error;
+
+    const rollupRows = Number(rollupRowsResult.count ?? 0);
+    const companiesWithRollupRows = new Set(
+      (rollupCompanyRowsResult.data || [])
+        .map((row) => row.company_id)
+        .filter((value): value is string => !!value)
+    ).size;
+
+    const healthy = activeLearners === 0 || rollupRows >= activeLearners;
+    let message: string | null = null;
+    if (!healthy) {
+      message = 'Rollup table exists but is not fully populated. Run Backfill Learner Rollups.';
+    }
+
+    return {
+      relation_present: true,
+      active_learners: activeLearners,
+      rollup_rows: rollupRows,
+      companies_with_active_learners: companiesWithActiveLearners,
+      companies_with_rollup_rows: companiesWithRollupRows,
+      healthy,
+      message,
+    };
+  } catch (error) {
+    if (!isMissingRelationError(error)) throw error;
+
+    return {
+      relation_present: false,
+      active_learners: activeLearners,
+      rollup_rows: 0,
+      companies_with_active_learners: companiesWithActiveLearners,
+      companies_with_rollup_rows: 0,
+      healthy: false,
+      message: 'learner_directory_rollups is missing. Apply migration 006.',
+    };
+  }
+}
+
 export async function GET(req: NextRequest) {
   return withServerTiming('admin.settings.status', async () => {
     const session = getAdminSession(req);
@@ -140,10 +204,19 @@ export async function GET(req: NextRequest) {
           configured: !!process.env.SLACK_BOT_TOKEN,
         },
       },
+      data_health: {
+        learner_rollups: null as Awaited<ReturnType<typeof getLearnerRollupHealth>> | null,
+      },
     };
 
     if (!includeProbes) {
-      return NextResponse.json(baseResponse);
+      const rollupHealth = await readThroughTtlCache('settings-status:learner-rollups', 5_000, getLearnerRollupHealth);
+      return NextResponse.json({
+        ...baseResponse,
+        data_health: {
+          learner_rollups: rollupHealth,
+        },
+      });
     }
 
     const probes = await readThroughTtlCache('settings-status:probes', 15_000, async () => {
@@ -154,6 +227,7 @@ export async function GET(req: NextRequest) {
       ]);
       return { supabasePublic, supabaseAdmin, thinkific };
     });
+    const rollupHealth = await readThroughTtlCache('settings-status:learner-rollups', 5_000, getLearnerRollupHealth);
 
     return NextResponse.json({
       ...baseResponse,
@@ -168,6 +242,9 @@ export async function GET(req: NextRequest) {
           ...baseResponse.integrations.thinkific,
           probe: probes.thinkific,
         },
+      },
+      data_health: {
+        learner_rollups: rollupHealth,
       },
     });
   });

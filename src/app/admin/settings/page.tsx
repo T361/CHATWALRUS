@@ -28,6 +28,17 @@ interface SettingsStatusResponse {
     zoom:  { configured: boolean };
     slack: { configured: boolean };
   };
+  data_health?: {
+    learner_rollups: {
+      relation_present: boolean;
+      active_learners: number;
+      rollup_rows: number;
+      companies_with_active_learners: number;
+      companies_with_rollup_rows: number;
+      healthy: boolean;
+      message: string | null;
+    };
+  };
 }
 
 const syncButtons = [
@@ -40,6 +51,7 @@ const syncButtons = [
   { type: 'surveys',        label: 'Import Surveys',           sub: 'Ratings + feedback from Thinkific',                                             endpoint: '/api/admin/sync/surveys' },
   { type: 'zoom',           label: 'Sync Zoom Attendance',     sub: 'Meetings + webinars attendance — requires Zoom credentials',                    endpoint: '/api/admin/sync/zoom' },
   { type: 'lesson-progress',label: 'Sync Lesson Progress',     sub: 'Lesson-level completion from Thinkific (slow — runs incrementally)',             endpoint: '/api/admin/sync/lesson-progress' },
+  { type: 'learners-rollups',label: 'Backfill Learner Rollups',sub: 'Populate learner directory rollups for already-synced learners',                 endpoint: '/api/admin/sync/learners-rollups' },
   { type: 'snapshots',      label: 'Create Daily Snapshots',   sub: 'Progress snapshots for trend charts',                                           endpoint: '/api/admin/sync/snapshots' },
   { type: 'gamification',   label: 'Recalculate Points',       sub: 'Recalculate all learner points + badges from recorded activity',                endpoint: '/api/admin/sync/gamification' },
   { type: 'milestones',     label: 'Run Milestone Checks',     sub: 'Learner statuses + risk alerts',                                                endpoint: '/api/jobs/run-milestones' },
@@ -357,6 +369,19 @@ export default function AdminSettingsPage() {
               connected={settingsStatus.integrations.slack.configured}
               detail={settingsStatus.integrations.slack.configured ? 'Bot token set' : 'Missing SLACK_BOT_TOKEN'}
             />
+            {settingsStatus.data_health?.learner_rollups && (
+              <IntegrationRow
+                label="Learner Rollups"
+                configured={settingsStatus.data_health.learner_rollups.relation_present}
+                connected={settingsStatus.data_health.learner_rollups.healthy}
+                detail={
+                  settingsStatus.data_health.learner_rollups.relation_present
+                    ? `${settingsStatus.data_health.learner_rollups.rollup_rows}/${settingsStatus.data_health.learner_rollups.active_learners} learner rows · ${settingsStatus.data_health.learner_rollups.companies_with_rollup_rows}/${settingsStatus.data_health.learner_rollups.companies_with_active_learners} companies`
+                    : 'Rollup table missing'
+                }
+                message={settingsStatus.data_health.learner_rollups.message}
+              />
+            )}
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.75rem' }}>
               <button className="btn btn-secondary btn-sm" onClick={loadIntegrationProbes} disabled={probesLoading}>
                 {probesLoading ? <><span className="spinner" />Checking</> : 'Refresh connection checks'}

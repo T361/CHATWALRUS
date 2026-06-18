@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { withServerTiming } from '@/lib/perf';
 import type { LearnerStatus } from '@/types/learner';
 import { isMissingRelationError } from '@/lib/utils/db';
+import { readThroughTtlCache } from '@/lib/cache/serverCache';
 
 export interface LearnerDirectoryFilters {
   companyId?: string | null;
@@ -52,6 +53,75 @@ function normalizePage(value?: number): number {
 function normalizeLimit(value?: number): number {
   const parsed = Number.isFinite(value) && value ? Math.floor(value) : 25;
   return Math.min(Math.max(parsed, 10), 100);
+}
+
+async function countBaseActiveLearners(companyId?: string | null): Promise<number> {
+  const db = createAdminClient();
+  let query = db
+    .from('learners')
+    .select('id', { count: 'exact', head: true })
+    .eq('is_active', true);
+
+  if (companyId) {
+    query = query.eq('company_id', companyId);
+  }
+
+  const { count, error } = await query;
+  if (error) throw error;
+  return Number(count ?? 0);
+}
+
+async function scopeHasActiveEnrollments(companyId?: string | null): Promise<boolean> {
+  const db = createAdminClient();
+  let query = db
+    .from('enrollments')
+    .select('id', { count: 'exact', head: true })
+    .eq('is_active', true);
+
+  if (companyId) {
+    query = query.eq('company_id', companyId);
+  }
+
+  const { count, error } = await query;
+  if (error) throw error;
+  return Number(count ?? 0) > 0;
+}
+
+async function getCourseOptionsFromEnrollments(companyId?: string | null): Promise<CourseFilterOption[]> {
+  const db = createAdminClient();
+  let enrollmentQuery = db
+    .from('enrollments')
+    .select('course_id')
+    .eq('is_active', true);
+
+  if (companyId) {
+    enrollmentQuery = enrollmentQuery.eq('company_id', companyId);
+  }
+
+  const courseIds = new Set<string>();
+  for (let offset = 0; ; offset += 1000) {
+    const { data, error } = await enrollmentQuery.range(offset, offset + 999);
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    for (const row of data) {
+      if (row.course_id) courseIds.add(row.course_id);
+    }
+    if (data.length < 1000) break;
+  }
+
+  if (courseIds.size === 0) return [];
+
+  const { data: courses, error } = await db
+    .from('courses')
+    .select('id, name')
+    .in('id', Array.from(courseIds))
+    .order('name');
+  if (error) throw error;
+
+  return (courses || []).map((course) => ({
+    id: course.id,
+    name: course.name,
+  }));
 }
 
 type DirectoryFilterableQuery = {
@@ -146,7 +216,17 @@ export async function getLearnerDirectory(
 ): Promise<LearnerDirectoryResult> {
   return withServerTiming('learners.directory.load', async () => {
     try {
-      return await queryLearnerDirectoryTable('learner_directory_rollups', filters);
+      const rollupResult = await queryLearnerDirectoryTable('learner_directory_rollups', filters);
+      if (rollupResult.total > 0 || rollupResult.rows.length > 0) {
+        return rollupResult;
+      }
+
+      const baseActiveLearnerCount = await countBaseActiveLearners(filters.companyId ?? null);
+      if (baseActiveLearnerCount === 0) {
+        return rollupResult;
+      }
+
+      return queryLearnerDirectoryTable('learner_directory_v', filters);
     } catch (error) {
       if (!isMissingRelationError(error)) throw error;
       return queryLearnerDirectoryTable('learner_directory_v', filters);
@@ -167,83 +247,70 @@ export async function getLearnerDirectoryMeta(companyId?: string | null): Promis
 }> {
   return withServerTiming('learners.directory.meta', async () => {
     const db = createAdminClient();
-    const courseIds = new Set<string>();
+    const cacheKey = companyId ? `learners:meta:${companyId}` : 'learners:meta:global';
+    return readThroughTtlCache(cacheKey, 5_000, async () => {
+      const courseIds = new Set<string>();
 
-    try {
-      for (let offset = 0; ; offset += 1000) {
-        let query = db
-          .from('learner_directory_rollups')
-          .select('active_course_ids')
-          .order('learner_id')
-          .range(offset, offset + 999);
+      try {
+        for (let offset = 0; ; offset += 1000) {
+          let query = db
+            .from('learner_directory_rollups')
+            .select('active_course_ids')
+            .order('learner_id')
+            .range(offset, offset + 999);
 
-        if (companyId) {
-          query = query.eq('company_id', companyId);
-        }
-
-        const { data, error } = await query;
-        if (error) throw error;
-        if (!data || data.length === 0) break;
-        for (const row of data as Array<{ active_course_ids: string[] | null }>) {
-          for (const courseId of row.active_course_ids ?? []) {
-            if (courseId) courseIds.add(courseId);
+          if (companyId) {
+            query = query.eq('company_id', companyId);
           }
-        }
-        if (data.length < 1000) break;
-      }
-    } catch (error) {
-      if (!isMissingRelationError(error)) throw error;
-      let enrollmentQuery = db
-        .from('enrollments')
-        .select('course_id')
-        .eq('is_active', true);
 
+          const { data, error } = await query;
+          if (error) throw error;
+          if (!data || data.length === 0) break;
+          for (const row of data as Array<{ active_course_ids: string[] | null }>) {
+            for (const courseId of row.active_course_ids ?? []) {
+              if (courseId) courseIds.add(courseId);
+            }
+          }
+          if (data.length < 1000) break;
+        }
+      } catch (error) {
+        if (!isMissingRelationError(error)) throw error;
+      }
+
+      let courseOptions: CourseFilterOption[] = [];
+      if (courseIds.size > 0) {
+        const { data: courses, error } = await db
+          .from('courses')
+          .select('id, name')
+          .in('id', Array.from(courseIds))
+          .order('name');
+        if (error) throw error;
+
+        courseOptions = (courses || []).map((course) => ({
+          id: course.id,
+          name: course.name,
+        }));
+      }
+
+      if (courseOptions.length === 0 && await scopeHasActiveEnrollments(companyId)) {
+        courseOptions = await getCourseOptionsFromEnrollments(companyId);
+      }
+
+      let companyName: string | undefined;
       if (companyId) {
-        enrollmentQuery = enrollmentQuery.eq('company_id', companyId);
+        const { data: company, error } = await db
+          .from('companies')
+          .select('name')
+          .eq('id', companyId)
+          .single();
+        if (error) throw error;
+        companyName = company?.name;
       }
 
-      for (let offset = 0; ; offset += 1000) {
-        const { data, error: enrollmentError } = await enrollmentQuery.range(offset, offset + 999);
-        if (enrollmentError) throw enrollmentError;
-        if (!data || data.length === 0) break;
-        for (const row of data) {
-          if (row.course_id) courseIds.add(row.course_id);
-        }
-        if (data.length < 1000) break;
-      }
-    }
-
-    let companyName: string | undefined;
-    if (companyId) {
-      const { data: company, error } = await db
-        .from('companies')
-        .select('name')
-        .eq('id', companyId)
-        .single();
-      if (error) throw error;
-      companyName = company?.name;
-    }
-
-    if (courseIds.size === 0) {
       return {
         company_name: companyName,
-        course_options: [],
+        course_options: courseOptions,
       };
-    }
-
-    const { data: courses, error } = await db
-      .from('courses')
-      .select('id, name')
-      .in('id', Array.from(courseIds))
-      .order('name');
-    if (error) throw error;
-
-    return {
-      company_name: companyName,
-      course_options: (courses || []).map((course) => ({
-        id: course.id,
-        name: course.name,
-      })),
-    };
+    });
   }, { company_id: companyId ?? 'global' });
 }
