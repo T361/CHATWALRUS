@@ -6,12 +6,21 @@ import { createAdminClient, isAdminConfigured as isSupabaseAdminConfigured } fro
 import { readThroughTtlCache } from '@/lib/cache/serverCache';
 import { withServerTiming } from '@/lib/perf';
 import { isMissingRelationError } from '@/lib/utils/db';
+import { getWeeklyRollupHealth } from '@/lib/weekly/rollups';
 
 interface ProbeResult {
   connected: boolean;
   status: number | null;
   message: string | null;
 }
+
+type SurveySyncLogRow = {
+  status: string | null;
+  records_processed: number | null;
+  error_message: string | null;
+  completed_at: string | null;
+  metadata: Record<string, unknown> | null;
+};
 
 async function probeSupabase(
   key: string | undefined,
@@ -167,6 +176,57 @@ async function getLearnerRollupHealth() {
   }
 }
 
+async function getSurveyDataHealth() {
+  const db = createAdminClient();
+  const { count: storedReviewsCount, error: surveysError } = await db
+    .from('surveys')
+    .select('id', { count: 'exact', head: true });
+  if (surveysError) throw surveysError;
+
+  let latestSync: SurveySyncLogRow | null = null;
+
+  try {
+    const { data, error } = await db
+      .from('sync_logs')
+      .select('status, records_processed, error_message, completed_at, metadata')
+      .eq('sync_type', 'surveys')
+      .order('started_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    latestSync = (data ?? null) as SurveySyncLogRow | null;
+  } catch (error) {
+    if (!isMissingRelationError(error)) throw error;
+  }
+
+  const storedReviews = Number(storedReviewsCount ?? 0);
+  const latestMetadata = latestSync?.metadata ?? null;
+  const upstreamReviews = Number(latestMetadata?.upstream_reviews_found ?? 0);
+  const endpointErrors = Array.isArray(latestMetadata?.endpoint_errors)
+    ? latestMetadata.endpoint_errors.length
+    : 0;
+  const healthy = storedReviews > 0 || latestSync?.status === 'success';
+  let message: string | null = null;
+
+  if (storedReviews === 0 && latestSync?.status === 'success') {
+    message = 'No stored survey reviews. Latest Thinkific course_reviews sync completed with zero upstream reviews.';
+  } else if (latestSync?.status === 'error') {
+    message = latestSync.error_message || 'Latest survey sync failed.';
+  }
+
+  return {
+    relation_present: true,
+    stored_reviews: storedReviews,
+    latest_sync_status: latestSync?.status ?? null,
+    latest_records_processed: Number(latestSync?.records_processed ?? 0),
+    latest_completed_at: latestSync?.completed_at ?? null,
+    upstream_reviews_found: upstreamReviews,
+    endpoint_errors: endpointErrors,
+    healthy,
+    message,
+  };
+}
+
 export async function GET(req: NextRequest) {
   return withServerTiming('admin.settings.status', async () => {
     const session = getAdminSession(req);
@@ -206,15 +266,23 @@ export async function GET(req: NextRequest) {
       },
       data_health: {
         learner_rollups: null as Awaited<ReturnType<typeof getLearnerRollupHealth>> | null,
+        weekly_rollups: null as Awaited<ReturnType<typeof getWeeklyRollupHealth>> | null,
+        surveys: null as Awaited<ReturnType<typeof getSurveyDataHealth>> | null,
       },
     };
 
     if (!includeProbes) {
-      const rollupHealth = await readThroughTtlCache('settings-status:learner-rollups', 5_000, getLearnerRollupHealth);
+      const [rollupHealth, weeklyRollupHealth, surveyHealth] = await Promise.all([
+        readThroughTtlCache('settings-status:learner-rollups', 5_000, getLearnerRollupHealth),
+        readThroughTtlCache('settings-status:weekly-rollups', 5_000, getWeeklyRollupHealth),
+        readThroughTtlCache('settings-status:surveys', 5_000, getSurveyDataHealth),
+      ]);
       return NextResponse.json({
         ...baseResponse,
         data_health: {
           learner_rollups: rollupHealth,
+          weekly_rollups: weeklyRollupHealth,
+          surveys: surveyHealth,
         },
       });
     }
@@ -227,7 +295,11 @@ export async function GET(req: NextRequest) {
       ]);
       return { supabasePublic, supabaseAdmin, thinkific };
     });
-    const rollupHealth = await readThroughTtlCache('settings-status:learner-rollups', 5_000, getLearnerRollupHealth);
+    const [rollupHealth, weeklyRollupHealth, surveyHealth] = await Promise.all([
+      readThroughTtlCache('settings-status:learner-rollups', 5_000, getLearnerRollupHealth),
+      readThroughTtlCache('settings-status:weekly-rollups', 5_000, getWeeklyRollupHealth),
+      readThroughTtlCache('settings-status:surveys', 5_000, getSurveyDataHealth),
+    ]);
 
     return NextResponse.json({
       ...baseResponse,
@@ -245,6 +317,8 @@ export async function GET(req: NextRequest) {
       },
       data_health: {
         learner_rollups: rollupHealth,
+        weekly_rollups: weeklyRollupHealth,
+        surveys: surveyHealth,
       },
     });
   });

@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { startTransition, useEffect, useRef, useState, type ReactNode } from 'react';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { usePathname, useSearchParams } from 'next/navigation';
 import LearnerStatusBadge from './LearnerStatusBadge';
 import { logClientTiming } from '@/lib/perf-client';
 import type { LearnerStatus } from '@/types/learner';
@@ -75,6 +75,19 @@ function buildQueryString(
   return next.toString();
 }
 
+function updateBrowserUrl(pathname: string, queryString: string, mode: 'push' | 'replace' = 'push') {
+  const target = queryString ? `${pathname}?${queryString}` : pathname;
+  const current = `${window.location.pathname}${window.location.search}`;
+  if (current === target) return;
+
+  if (mode === 'replace') {
+    window.history.replaceState(null, '', target);
+    return;
+  }
+
+  window.history.pushState(null, '', target);
+}
+
 function TableSkeleton({ showCompany }: { showCompany: boolean }) {
   return (
     <div className="card card-flush" style={{ overflow: 'hidden' }}>
@@ -142,9 +155,9 @@ export default function LearnerDirectory({
   initialData?: LearnerDirectorySeed;
   initialMeta?: LearnerDirectoryMeta;
 }) {
-  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const paramsString = searchParams.toString();
   const [rows, setRows] = useState<LearnerDirectoryApiRow[]>(() => toInitialRows(initialData));
   const [courseOptions, setCourseOptions] = useState<CourseFilterOption[]>(() => initialMeta?.course_options || []);
   const [companyName, setCompanyName] = useState(initialMeta?.company_name || '');
@@ -155,6 +168,7 @@ export default function LearnerDirectory({
   const [error, setError] = useState<string | null>(null);
   const [localSearch, setLocalSearch] = useState(searchParams.get('q') || '');
   const requestIdRef = useRef(0);
+  const rowsCountRef = useRef(rows.length);
 
   const page = Number(searchParams.get('page') || '1');
   const limit = Number(searchParams.get('limit') || '25');
@@ -166,6 +180,10 @@ export default function LearnerDirectory({
   const initialMetaEndpointRef = useRef<string | null>(initialMeta ? metadataEndpoint : null);
 
   useEffect(() => {
+    rowsCountRef.current = rows.length;
+  }, [rows.length]);
+
+  useEffect(() => {
     const timer = window.setTimeout(() => {
       setLocalSearch(qParam);
     }, 0);
@@ -175,7 +193,6 @@ export default function LearnerDirectory({
   useEffect(() => {
     const requestId = ++requestIdRef.current;
     const startedAt = performance.now();
-    const paramsString = searchParams.toString();
     let cancelled = false;
 
     const run = async () => {
@@ -187,7 +204,7 @@ export default function LearnerDirectory({
       await Promise.resolve();
       if (cancelled || requestId !== requestIdRef.current) return;
 
-      if (rows.length > 0) setRefreshing(true);
+      if (rowsCountRef.current > 0) setRefreshing(true);
       else setLoading(true);
       setError(null);
 
@@ -227,7 +244,7 @@ export default function LearnerDirectory({
     return () => {
       cancelled = true;
     };
-  }, [currentRequestKey, endpoint, page, qParam, rows.length, scope, searchParams]);
+  }, [currentRequestKey, endpoint, page, paramsString, qParam, scope]);
 
   useEffect(() => {
     if (initialMetaEndpointRef.current === metadataEndpoint) {
@@ -265,23 +282,19 @@ export default function LearnerDirectory({
     const timer = window.setTimeout(() => {
       const currentQ = searchParams.get('q') || '';
       if (localSearch === currentQ) return;
-      const qs = buildQueryString(searchParams, {
+      const qs = buildQueryString(new URLSearchParams(paramsString), {
         q: localSearch.trim(),
         page: 1,
       });
-      startTransition(() => {
-        router.replace(qs ? `${pathname}?${qs}` : pathname);
-      });
+      updateBrowserUrl(pathname, qs, 'replace');
     }, 300);
 
     return () => window.clearTimeout(timer);
-  }, [localSearch, pathname, router, searchParams]);
+  }, [localSearch, paramsString, pathname, searchParams]);
 
   function updateFilters(updates: Record<string, string | number | null | undefined>) {
-    const qs = buildQueryString(searchParams, updates);
-    startTransition(() => {
-      router.replace(qs ? `${pathname}?${qs}` : pathname);
-    });
+    const qs = buildQueryString(new URLSearchParams(paramsString), updates);
+    updateBrowserUrl(pathname, qs, 'push');
   }
 
   const showCompany = scope === 'global';

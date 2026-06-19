@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminOrCron } from '@/lib/auth/guards';
 import { withServerTiming } from '@/lib/perf';
-import { getWeeklyReportByCompanySlug } from '@/lib/weekly/rollups';
+import { getWeeklyReportResultByCompanySlug } from '@/lib/weekly/rollups';
 
 export async function GET(
   req: NextRequest,
@@ -13,9 +13,14 @@ export async function GET(
     if (authError) return authError;
 
     const { slug } = await params;
-    const report = await getWeeklyReportByCompanySlug(slug);
-    if (!report) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    const result = await getWeeklyReportResultByCompanySlug(slug);
+    if (!result.report) {
+      return NextResponse.json(
+        { error: result.error || 'Weekly report unavailable' },
+        { status: result.status },
+      );
+    }
 
-    return NextResponse.json(report);
+    return NextResponse.json(result.report);
   });
 }

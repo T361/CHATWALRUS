@@ -1,7 +1,7 @@
 import CompanyShell from '@/components/layout/CompanyShell';
 import Link from 'next/link';
 import type { CSSProperties } from 'react';
-import { getWeeklyReportByCompanySlug } from '@/lib/weekly/rollups';
+import { getWeeklyReportResultByCompanySlug } from '@/lib/weekly/rollups';
 
 const STATUS_COLORS: Record<string, string> = {
   high_engagement: 'var(--high-engagement)',
@@ -27,12 +27,16 @@ export default async function WeeklyPage(
   props: { params: Promise<{ slug: string }> }
 ) {
   const { slug } = await props.params;
-  const data = await getWeeklyReportByCompanySlug(slug);
+  const result = await getWeeklyReportResultByCompanySlug(slug);
+  const data = result.report;
 
   if (!data) {
     return (
       <CompanyShell slug={slug}>
-        <div className="empty-state card"><h3>Could not load report</h3></div>
+        <div className="empty-state card">
+          <h3>Could not load report</h3>
+          <p>{result.error || 'Weekly report data is unavailable.'}</p>
+        </div>
       </CompanyShell>
     );
   }

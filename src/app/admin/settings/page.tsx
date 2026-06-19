@@ -38,6 +38,25 @@ interface SettingsStatusResponse {
       healthy: boolean;
       message: string | null;
     };
+    weekly_rollups: {
+      relation_present: boolean;
+      active_companies: number;
+      rollup_companies: number;
+      week_start: string;
+      healthy: boolean;
+      message: string | null;
+    };
+    surveys: {
+      relation_present: boolean;
+      stored_reviews: number;
+      latest_sync_status: string | null;
+      latest_records_processed: number;
+      latest_completed_at: string | null;
+      upstream_reviews_found: number;
+      endpoint_errors: number;
+      healthy: boolean;
+      message: string | null;
+    };
   };
 }
 
@@ -48,10 +67,11 @@ const syncButtons = [
   { type: 'start-dates',    label: 'Auto-detect Start Dates',  sub: 'Infers program start date from earliest enrollment per company',                endpoint: '/api/admin/sync/start-dates' },
   { type: 'progress',       label: 'Import Progress',          sub: 'Enrollment + completion data',                                                  endpoint: '/api/admin/sync/progress' },
   { type: 'assignments',    label: 'Import Assignments',        sub: 'Submissions from Thinkific',                                                   endpoint: '/api/admin/sync/assignments' },
-  { type: 'surveys',        label: 'Import Surveys',           sub: 'Ratings + feedback from Thinkific',                                             endpoint: '/api/admin/sync/surveys' },
+  { type: 'surveys',        label: 'Import Survey Reviews',    sub: 'Thinkific course_reviews; may return zero if no upstream reviews exist',         endpoint: '/api/admin/sync/surveys' },
   { type: 'zoom',           label: 'Sync Zoom Attendance',     sub: 'Meetings + webinars attendance — requires Zoom credentials',                    endpoint: '/api/admin/sync/zoom' },
   { type: 'lesson-progress',label: 'Sync Lesson Progress',     sub: 'Lesson-level completion from Thinkific (slow — runs incrementally)',             endpoint: '/api/admin/sync/lesson-progress' },
   { type: 'learners-rollups',label: 'Backfill Learner Rollups',sub: 'Populate learner directory rollups for already-synced learners',                 endpoint: '/api/admin/sync/learners-rollups' },
+  { type: 'weekly-rollups', label: 'Backfill Weekly Rollups',  sub: 'Populate current-week weekly report rollups for active companies',               endpoint: '/api/admin/sync/weekly-rollups' },
   { type: 'snapshots',      label: 'Create Daily Snapshots',   sub: 'Progress snapshots for trend charts',                                           endpoint: '/api/admin/sync/snapshots' },
   { type: 'gamification',   label: 'Recalculate Points',       sub: 'Recalculate all learner points + badges from recorded activity',                endpoint: '/api/admin/sync/gamification' },
   { type: 'milestones',     label: 'Run Milestone Checks',     sub: 'Learner statuses + risk alerts',                                                endpoint: '/api/jobs/run-milestones' },
@@ -150,12 +170,12 @@ export default function AdminSettingsPage() {
 
   useEffect(() => {
     loadSettingsStatus();
-    loadPasscodes();
   }, []);
 
   useEffect(() => {
     if (settingsStatus?.auth.authenticated) {
       void loadIntegrationProbes();
+      void loadPasscodes();
     }
     // intentionally only when auth flips to true
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -174,6 +194,7 @@ export default function AdminSettingsPage() {
       let msg = '';
       if      (res.status === 401)                       msg = 'Login required';
       else if (res.status === 503)                       msg = data.error || 'Server config missing';
+      else if (type === 'weekly-rollups' && data.status === 'success') msg = `Done · ${data.rollup_companies ?? 0}/${data.active_companies ?? 0} companies`;
       else if (data.status === 'success')                msg = `Done · ${data.records_processed ?? 0} records`;
       else if (data.status === 'partial')                msg = `Partial · ${data.records_processed ?? 0} records`;
       else if (data.status === 'skipped' || data.status === 'unavailable') msg = `Skipped · ${data.message || 'Unavailable'}`;
@@ -382,6 +403,32 @@ export default function AdminSettingsPage() {
                 message={settingsStatus.data_health.learner_rollups.message}
               />
             )}
+            {settingsStatus.data_health?.weekly_rollups && (
+              <IntegrationRow
+                label="Weekly Rollups"
+                configured={settingsStatus.data_health.weekly_rollups.relation_present}
+                connected={settingsStatus.data_health.weekly_rollups.healthy}
+                detail={
+                  settingsStatus.data_health.weekly_rollups.relation_present
+                    ? `${settingsStatus.data_health.weekly_rollups.rollup_companies}/${settingsStatus.data_health.weekly_rollups.active_companies} companies · week ${settingsStatus.data_health.weekly_rollups.week_start}`
+                    : 'Rollup table missing'
+                }
+                message={settingsStatus.data_health.weekly_rollups.message}
+              />
+            )}
+            {settingsStatus.data_health?.surveys && (
+              <IntegrationRow
+                label="Survey Reviews"
+                configured={settingsStatus.data_health.surveys.relation_present}
+                connected={settingsStatus.data_health.surveys.healthy}
+                detail={
+                  settingsStatus.data_health.surveys.stored_reviews > 0
+                    ? `${settingsStatus.data_health.surveys.stored_reviews} stored reviews`
+                    : `${settingsStatus.data_health.surveys.upstream_reviews_found} upstream reviews · ${settingsStatus.data_health.surveys.endpoint_errors} endpoint errors`
+                }
+                message={settingsStatus.data_health.surveys.message}
+              />
+            )}
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.75rem' }}>
               <button className="btn btn-secondary btn-sm" onClick={loadIntegrationProbes} disabled={probesLoading}>
                 {probesLoading ? <><span className="spinner" />Checking</> : 'Refresh connection checks'}
@@ -395,7 +442,12 @@ export default function AdminSettingsPage() {
       {isAuthenticated && (
         <div className="card" style={{ marginTop: '1rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-            <h2 style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text)' }}>Passcode Management</h2>
+            <div>
+              <h2 style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text)' }}>Passcode Management</h2>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.125rem' }}>
+                Database access-code records for scoped workflows. Admin login uses the server-side ADMIN_PASSCODE_SECRET, not this table.
+              </p>
+            </div>
             <button className="btn btn-secondary btn-sm" onClick={loadPasscodes} disabled={passcodesLoading}>
               {passcodesLoading ? <><span className="spinner" />Loading</> : 'Refresh'}
             </button>

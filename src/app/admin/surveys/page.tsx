@@ -35,6 +35,7 @@ interface SurveyData {
   rating_trend:        TrendPoint[];
   course_performance:  CoursePerf[];
   companies:           Company[];
+  empty_reason:         string | null;
 }
 
 const PROFICIENCY_OPTIONS = ['all', 'beginner', 'intermediate', 'advanced'];
@@ -95,6 +96,9 @@ export default function SurveysPage() {
   const avgRating  = data?.average_rating ?? 0;
   const totalResp  = data?.total_responses ?? 0;
   const satRate    = data?.satisfaction_rate ?? 0;
+  const emptyFeedbackMessage = data?.total_responses === 0 && !search
+    ? data.empty_reason || 'No course reviews returned by Thinkific for current courses.'
+    : 'No feedback matches your filters.';
 
   const satColor = satRate >= 70 ? 'var(--on-track)' : satRate >= 50 ? 'var(--warning)' : 'var(--at-risk)';
 
@@ -241,7 +245,7 @@ export default function SurveysPage() {
 
                 {filteredFeedback.length === 0 ? (
                   <div className="empty-state" style={{ padding: '2rem' }}>
-                    <p>No feedback matches your filters.</p>
+                    <p>{emptyFeedbackMessage}</p>
                   </div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem', padding: '0.875rem 1rem' }}>

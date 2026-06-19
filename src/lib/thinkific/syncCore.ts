@@ -10,6 +10,7 @@ export interface SyncResult {
   recordsProcessed: number;
   errorMessage?: string;
   logId?: string;
+  metadata?: Record<string, unknown>;
 }
 
 export type SyncSummaryStatus = 'success' | 'partial' | 'skipped' | 'failed';
@@ -116,6 +117,7 @@ export async function updateSyncLog(
     records_processed?: number;
     error_message?: string;
     completed_at?: string;
+    metadata?: Record<string, unknown>;
   }
 ): Promise<void> {
   if (!isAdminConfigured()) return;

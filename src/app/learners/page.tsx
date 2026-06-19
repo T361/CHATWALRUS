@@ -1,39 +1,35 @@
 import PageShell from '@/components/layout/PageShell';
 import LearnerDirectory from '@/components/learners/LearnerDirectory';
 import { Suspense } from 'react';
-import { getLearnerDirectory, getLearnerDirectoryMeta } from '@/lib/learners/directory';
 
-function firstValue(value: string | string[] | undefined) {
-  return Array.isArray(value) ? value[0] : value;
+function LearnersFallback() {
+  return (
+    <>
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">All Learners</h1>
+          <p className="page-subtitle">Search and filter learners across every company</p>
+        </div>
+        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Loading...</div>
+      </div>
+      <div className="card">
+        <div className="empty-state">
+          <span className="spinner" />
+          <p>Loading learner directory...</p>
+        </div>
+      </div>
+    </>
+  );
 }
 
-export default async function GlobalLearnersPage(
-  props: {
-    searchParams: Promise<Record<string, string | string[] | undefined>>;
-  }
-) {
-  const searchParams = await props.searchParams;
-  const filters = {
-    q: firstValue(searchParams.q) || '',
-    courseId: firstValue(searchParams.course_id) || '',
-    status: firstValue(searchParams.status) || 'all',
-    page: Number(firstValue(searchParams.page) || '1'),
-    limit: Number(firstValue(searchParams.limit) || '25'),
-  };
-  const [initialData, initialMeta] = await Promise.all([
-    getLearnerDirectory(filters),
-    getLearnerDirectoryMeta(),
-  ]);
-
+export default function GlobalLearnersPage() {
   return (
     <PageShell>
-      <Suspense fallback={<div className="card"><div className="empty-state"><span className="spinner" /><p>Loading learners...</p></div></div>}>
+      <Suspense fallback={<LearnersFallback />}>
         <LearnerDirectory
           endpoint="/api/learners"
           metadataEndpoint="/api/learners/meta"
           scope="global"
-          initialData={initialData}
-          initialMeta={initialMeta}
         />
       </Suspense>
     </PageShell>

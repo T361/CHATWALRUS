@@ -7,7 +7,7 @@
 
 import { thinkificPaginate, isThinkificConfigured } from './client';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { runSync, type SyncResult } from './syncCore';
+import { createSyncLog, updateSyncLog, type SyncResult } from './syncCore';
 
 interface ThinkificReview {
   id: number;
@@ -19,41 +19,88 @@ interface ThinkificReview {
   created_at: string;
 }
 
+interface SurveySyncMetadata extends Record<string, unknown> {
+  courses_checked: number;
+  upstream_reviews_found: number;
+  records_upserted: number;
+  endpoint_errors: Array<{ course_id: string; message: string }>;
+}
+
+function safeMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'object' && error && 'message' in error) {
+    return String((error as { message?: unknown }).message || 'Unknown error');
+  }
+  return String(error);
+}
+
 export async function syncSurveys(): Promise<SyncResult> {
   if (!isThinkificConfigured()) {
-    return { syncType: 'surveys', status: 'skipped', recordsProcessed: 0, errorMessage: 'Thinkific not configured' };
+    return {
+      syncType: 'surveys',
+      status: 'skipped',
+      recordsProcessed: 0,
+      errorMessage: 'Thinkific not configured',
+      metadata: {
+        courses_checked: 0,
+        upstream_reviews_found: 0,
+        records_upserted: 0,
+        endpoint_errors: [],
+      },
+    };
   }
 
-  return runSync('surveys', async () => {
+  const metadata: SurveySyncMetadata = {
+    courses_checked: 0,
+    upstream_reviews_found: 0,
+    records_upserted: 0,
+    endpoint_errors: [],
+  };
+  const logId = await createSyncLog('surveys', 'running');
+
+  try {
     const db = createAdminClient();
-    let count = 0;
-    const { data: courses } = await db
+    const { data: courses, error: coursesError } = await db
       .from('courses')
       .select('id, thinkific_course_id, name');
+    if (coursesError) throw coursesError;
 
     const courseMap = new Map(
       (courses || []).map((course) => [String(course.thinkific_course_id), course.id]),
     );
 
-    const { data: allLearners } = await db
+    const { data: allLearners, error: learnersError } = await db
       .from('learners')
       .select('id, thinkific_user_id, company_id');
+    if (learnersError) throw learnersError;
+
     const learnerMap = new Map(
-      (allLearners || []).map((l) => [l.thinkific_user_id, { id: l.id, company_id: l.company_id }])
+      (allLearners || [])
+        .filter((learner) => learner.thinkific_user_id)
+        .map((learner) => [
+          String(learner.thinkific_user_id),
+          { id: learner.id, company_id: learner.company_id },
+        ]),
     );
 
     const reviews: ThinkificReview[] = [];
     for (const course of courses || []) {
       if (!course.thinkific_course_id) continue;
+      metadata.courses_checked += 1;
       try {
         const items = await thinkificPaginate<ThinkificReview>('/course_reviews', {
           course_id: String(course.thinkific_course_id),
         });
         reviews.push(...items);
       } catch (error) {
+        metadata.endpoint_errors.push({
+          course_id: String(course.thinkific_course_id),
+          message: safeMessage(error),
+        });
         console.warn(`[SurveySync] /course_reviews failed for course ${course.thinkific_course_id}:`, error);
       }
     }
+    metadata.upstream_reviews_found = reviews.length;
     console.log(`[SurveySync] /course_reviews returned ${reviews.length} total reviews`);
 
     const records = reviews.map((review) => {
@@ -80,11 +127,44 @@ export async function syncSurveys(): Promise<SyncResult> {
         records.slice(i, i + BATCH),
         { onConflict: 'thinkific_response_id' }
       );
-      if (error) console.warn('[SurveySync] Upsert error:', error.message);
-      count += Math.min(BATCH, records.length - i);
+      if (error) throw error;
+      metadata.records_upserted += Math.min(BATCH, records.length - i);
     }
 
-    console.log(`[SurveySync] Done — ${count} survey records upserted`);
-    return count;
-  });
+    console.log(`[SurveySync] Done — ${metadata.records_upserted} survey records upserted`);
+    if (logId) {
+      await updateSyncLog(logId, {
+        status: 'success',
+        records_processed: metadata.records_upserted,
+        metadata,
+      });
+    }
+
+    return {
+      syncType: 'surveys',
+      status: 'success',
+      recordsProcessed: metadata.records_upserted,
+      metadata,
+      logId: logId ?? undefined,
+    };
+  } catch (error) {
+    const errorMessage = safeMessage(error);
+    if (logId) {
+      await updateSyncLog(logId, {
+        status: 'error',
+        records_processed: metadata.records_upserted,
+        error_message: errorMessage,
+        metadata,
+      });
+    }
+
+    return {
+      syncType: 'surveys',
+      status: 'error',
+      recordsProcessed: metadata.records_upserted,
+      errorMessage,
+      metadata,
+      logId: logId ?? undefined,
+    };
+  }
 }

@@ -71,12 +71,11 @@ async function countBaseActiveLearners(companyId?: string | null): Promise<numbe
   return Number(count ?? 0);
 }
 
-async function scopeHasActiveEnrollments(companyId?: string | null): Promise<boolean> {
+async function countRollupRowsForScope(companyId?: string | null): Promise<number> {
   const db = createAdminClient();
   let query = db
-    .from('enrollments')
-    .select('id', { count: 'exact', head: true })
-    .eq('is_active', true);
+    .from('learner_directory_rollups')
+    .select('learner_id', { count: 'exact', head: true });
 
   if (companyId) {
     query = query.eq('company_id', companyId);
@@ -84,43 +83,28 @@ async function scopeHasActiveEnrollments(companyId?: string | null): Promise<boo
 
   const { count, error } = await query;
   if (error) throw error;
-  return Number(count ?? 0) > 0;
+  return Number(count ?? 0);
 }
 
-async function getCourseOptionsFromEnrollments(companyId?: string | null): Promise<CourseFilterOption[]> {
+async function getCourseOptionsFromReadModel(companyId?: string | null): Promise<CourseFilterOption[] | null> {
   const db = createAdminClient();
-  let enrollmentQuery = db
-    .from('enrollments')
-    .select('course_id')
-    .eq('is_active', true);
+  let query = db
+    .from('learner_course_filter_options_v')
+    .select('course_id, course_name')
+    .eq('scope_type', companyId ? 'company' : 'global')
+    .order('course_name');
 
   if (companyId) {
-    enrollmentQuery = enrollmentQuery.eq('company_id', companyId);
+    query = query.eq('company_id', companyId);
   }
 
-  const courseIds = new Set<string>();
-  for (let offset = 0; ; offset += 1000) {
-    const { data, error } = await enrollmentQuery.range(offset, offset + 999);
-    if (error) throw error;
-    if (!data || data.length === 0) break;
-    for (const row of data) {
-      if (row.course_id) courseIds.add(row.course_id);
-    }
-    if (data.length < 1000) break;
-  }
-
-  if (courseIds.size === 0) return [];
-
-  const { data: courses, error } = await db
-    .from('courses')
-    .select('id, name')
-    .in('id', Array.from(courseIds))
-    .order('name');
+  const { data, error } = await query;
+  if (isMissingRelationError(error)) return null;
   if (error) throw error;
 
-  return (courses || []).map((course) => ({
-    id: course.id,
-    name: course.name,
+  return (data || []).map((course) => ({
+    id: course.course_id,
+    name: course.course_name,
   }));
 }
 
@@ -221,6 +205,11 @@ export async function getLearnerDirectory(
         return rollupResult;
       }
 
+      const rollupRowsForScope = await countRollupRowsForScope(filters.companyId ?? null);
+      if (rollupRowsForScope > 0) {
+        return rollupResult;
+      }
+
       const baseActiveLearnerCount = await countBaseActiveLearners(filters.companyId ?? null);
       if (baseActiveLearnerCount === 0) {
         return rollupResult;
@@ -249,51 +238,50 @@ export async function getLearnerDirectoryMeta(companyId?: string | null): Promis
     const db = createAdminClient();
     const cacheKey = companyId ? `learners:meta:${companyId}` : 'learners:meta:global';
     return readThroughTtlCache(cacheKey, 5_000, async () => {
-      const courseIds = new Set<string>();
+      let courseOptions = await getCourseOptionsFromReadModel(companyId);
+      if (courseOptions === null) {
+        const courseIds = new Set<string>();
 
-      try {
-        for (let offset = 0; ; offset += 1000) {
-          let query = db
-            .from('learner_directory_rollups')
-            .select('active_course_ids')
-            .order('learner_id')
-            .range(offset, offset + 999);
+        try {
+          for (let offset = 0; ; offset += 1000) {
+            let query = db
+              .from('learner_directory_rollups')
+              .select('active_course_ids')
+              .order('learner_id')
+              .range(offset, offset + 999);
 
-          if (companyId) {
-            query = query.eq('company_id', companyId);
-          }
-
-          const { data, error } = await query;
-          if (error) throw error;
-          if (!data || data.length === 0) break;
-          for (const row of data as Array<{ active_course_ids: string[] | null }>) {
-            for (const courseId of row.active_course_ids ?? []) {
-              if (courseId) courseIds.add(courseId);
+            if (companyId) {
+              query = query.eq('company_id', companyId);
             }
+
+            const { data, error } = await query;
+            if (error) throw error;
+            if (!data || data.length === 0) break;
+            for (const row of data as Array<{ active_course_ids: string[] | null }>) {
+              for (const courseId of row.active_course_ids ?? []) {
+                if (courseId) courseIds.add(courseId);
+              }
+            }
+            if (data.length < 1000) break;
           }
-          if (data.length < 1000) break;
+        } catch (error) {
+          if (!isMissingRelationError(error)) throw error;
         }
-      } catch (error) {
-        if (!isMissingRelationError(error)) throw error;
-      }
 
-      let courseOptions: CourseFilterOption[] = [];
-      if (courseIds.size > 0) {
-        const { data: courses, error } = await db
-          .from('courses')
-          .select('id, name')
-          .in('id', Array.from(courseIds))
-          .order('name');
-        if (error) throw error;
+        courseOptions = [];
+        if (courseIds.size > 0) {
+          const { data: courses, error } = await db
+            .from('courses')
+            .select('id, name')
+            .in('id', Array.from(courseIds))
+            .order('name');
+          if (error) throw error;
 
-        courseOptions = (courses || []).map((course) => ({
-          id: course.id,
-          name: course.name,
-        }));
-      }
-
-      if (courseOptions.length === 0 && await scopeHasActiveEnrollments(companyId)) {
-        courseOptions = await getCourseOptionsFromEnrollments(companyId);
+          courseOptions = (courses || []).map((course) => ({
+            id: course.id,
+            name: course.name,
+          }));
+        }
       }
 
       let companyName: string | undefined;

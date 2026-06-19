@@ -39,7 +39,13 @@ type CompanyRow = {
   learning_timeline_days: number | null;
 };
 
-function getWeekWindow(now = new Date()) {
+export interface WeeklyReportResult {
+  report: WeeklyReportData | null;
+  status: number;
+  error: string | null;
+}
+
+export function getWeekWindow(now = new Date()) {
   const weekEnd = new Date(now);
   const weekStart = new Date(now);
   weekStart.setDate(weekStart.getDate() - 7);
@@ -48,6 +54,55 @@ function getWeekWindow(now = new Date()) {
     weekEndDate: now.toISOString().slice(0, 10),
     weekStartIso: weekStart.toISOString(),
     weekEndIso: weekEnd.toISOString(),
+  };
+}
+
+function safeErrorMessage(error: unknown): string {
+  if (!error) return 'Unknown error';
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'object' && 'message' in error) {
+    return String((error as { message?: unknown }).message || 'Unknown error');
+  }
+  return String(error);
+}
+
+function assertQueryOk(label: string, result: { error: unknown }) {
+  if (!result.error) return;
+  throw new Error(`${label} query failed: ${safeErrorMessage(result.error)}`);
+}
+
+function weeklyReportFromRollup(
+  company: CompanyRow,
+  weekStartDate: string,
+  weekEndDate: string,
+  rollup: Record<string, unknown>,
+): WeeklyReportData {
+  return {
+    company: {
+      name: company.name,
+      start_date: company.start_date,
+      learning_timeline_days: company.learning_timeline_days,
+    },
+    week_start: `${weekStartDate}T00:00:00.000Z`,
+    week_end: `${weekEndDate}T23:59:59.999Z`,
+    totals: {
+      learners: Number(rollup.learners ?? 0),
+      active_this_week: Number(rollup.active_this_week ?? 0),
+      course_completions: Number(rollup.course_completions ?? 0),
+      zoom_attendances: Number(rollup.zoom_attendances ?? 0),
+      assignments_submitted: Number(rollup.assignments_submitted ?? 0),
+      surveys_submitted: Number(rollup.surveys_submitted ?? 0),
+    },
+    status_distribution: {
+      high_engagement: Number(rollup.high_engagement_count ?? 0),
+      on_track: Number(rollup.on_track_count ?? 0),
+      slightly_behind: Number(rollup.slightly_behind_count ?? 0),
+      at_risk: Number(rollup.at_risk_count ?? 0),
+      not_started: Number(rollup.not_started_count ?? 0),
+    },
+    avg_completion: Number(rollup.avg_completion ?? 0),
+    top_learners: (rollup.top_learners_json ?? []) as WeeklyReportData['top_learners'],
+    open_alerts: (rollup.open_alerts_json ?? []) as WeeklyReportData['open_alerts'],
   };
 }
 
@@ -153,6 +208,17 @@ async function buildWeeklySnapshot(company: CompanyRow): Promise<Omit<WeeklyRepo
       .limit(10),
   ]);
 
+  [
+    ['learners', learnersResult],
+    ['active learners', activeThisWeekResult],
+    ['enrollments', completionsThisWeekResult],
+    ['zoom attendance', zoomThisWeekResult],
+    ['assignments', assignmentsThisWeekResult],
+    ['surveys', surveysThisWeekResult],
+    ['top learners', topLearnersResult],
+    ['alerts', alertsResult],
+  ].forEach(([label, result]) => assertQueryOk(String(label), result as { error: unknown }));
+
   const latestStatuses = latestStatusesResult?.data ?? [];
   const statusCounts = {
     high_engagement: 0,
@@ -246,10 +312,61 @@ export async function refreshCompanyWeeklyRollups(companyIds?: string[]): Promis
   }
 }
 
-export async function getWeeklyReportByCompanySlug(slug: string): Promise<WeeklyReportData | null> {
-  if (!isAdminConfigured()) return null;
+export async function getWeeklyRollupHealth() {
+  const db = createAdminClient();
+  const { weekStartDate } = getWeekWindow();
 
-  return withServerTiming('weekly.report.load', async () => {
+  const { count: activeCompaniesCount, error: activeCompaniesError } = await db
+    .from('companies')
+    .select('id', { count: 'exact', head: true })
+    .eq('is_active', true);
+  if (activeCompaniesError) throw activeCompaniesError;
+
+  const activeCompanies = Number(activeCompaniesCount ?? 0);
+
+  try {
+    const { count: rollupCompaniesCount, error } = await db
+      .from('company_weekly_rollups')
+      .select('company_id', { count: 'exact', head: true })
+      .eq('week_start', weekStartDate);
+    if (error) throw error;
+
+    const rollupCompanies = Number(rollupCompaniesCount ?? 0);
+    const healthy = activeCompanies === 0 || rollupCompanies >= activeCompanies;
+
+    return {
+      relation_present: true,
+      active_companies: activeCompanies,
+      rollup_companies: rollupCompanies,
+      week_start: weekStartDate,
+      healthy,
+      message: healthy ? null : 'Current-week rollups are not fully populated. Run Backfill Weekly Rollups.',
+    };
+  } catch (error) {
+    if (!isMissingRelationError(error)) throw error;
+
+    return {
+      relation_present: false,
+      active_companies: activeCompanies,
+      rollup_companies: 0,
+      week_start: weekStartDate,
+      healthy: false,
+      message: 'company_weekly_rollups is missing. Apply migration 006.',
+    };
+  }
+}
+
+export async function getWeeklyReportResultByCompanySlug(slug: string): Promise<WeeklyReportResult> {
+  if (!isAdminConfigured()) {
+    return {
+      report: null,
+      status: 503,
+      error: 'Supabase admin credentials are not configured.',
+    };
+  }
+
+  try {
+    return await withServerTiming('weekly.report.load', async () => {
     const db = createAdminClient();
     const { weekStartDate, weekEndDate } = getWeekWindow();
 
@@ -258,7 +375,14 @@ export async function getWeeklyReportByCompanySlug(slug: string): Promise<Weekly
       .select('id, name, start_date, learning_timeline_days')
       .eq('slug', slug)
       .single();
-    if (companyError || !company) return null;
+    if (companyError || !company) {
+      const missing = companyError && String((companyError as { code?: unknown }).code || '') === 'PGRST116';
+      return {
+        report: null,
+        status: missing || !company ? 404 : 500,
+        error: missing || !company ? 'Company not found.' : `Company lookup failed: ${safeErrorMessage(companyError)}`,
+      };
+    }
 
     let { data: rollup, error: rollupError } = await db
       .from('company_weekly_rollups')
@@ -271,56 +395,67 @@ export async function getWeeklyReportByCompanySlug(slug: string): Promise<Weekly
       if (rollupError && isMissingRelationError(rollupError)) {
         const snapshot = await buildWeeklySnapshot(company);
         return {
-          company: {
-            name: company.name,
-            start_date: company.start_date,
-            learning_timeline_days: company.learning_timeline_days,
+          report: {
+            company: {
+              name: company.name,
+              start_date: company.start_date,
+              learning_timeline_days: company.learning_timeline_days,
+            },
+            week_start: `${weekStartDate}T00:00:00.000Z`,
+            week_end: `${weekEndDate}T23:59:59.999Z`,
+            ...snapshot,
           },
-          week_start: `${weekStartDate}T00:00:00.000Z`,
-          week_end: `${weekEndDate}T23:59:59.999Z`,
-          ...snapshot,
+          status: 200,
+          error: null,
         };
       }
 
-      await refreshCompanyWeeklyRollups([company.id]);
-      const reread = await db
-        .from('company_weekly_rollups')
-        .select('*')
-        .eq('company_id', company.id)
-        .eq('week_start', weekStartDate)
-        .single();
-      rollup = reread.data;
-      rollupError = reread.error;
+      try {
+        await refreshCompanyWeeklyRollups([company.id]);
+        const reread = await db
+          .from('company_weekly_rollups')
+          .select('*')
+          .eq('company_id', company.id)
+          .eq('week_start', weekStartDate)
+          .single();
+        rollup = reread.data;
+        rollupError = reread.error;
+      } catch (error) {
+        return {
+          report: null,
+          status: 500,
+          error: `Weekly rollup recompute failed: ${safeErrorMessage(error)}`,
+        };
+      }
     }
 
-    if (rollupError || !rollup) return null;
+    if (rollupError || !rollup) {
+      return {
+        report: null,
+        status: 500,
+        error: rollupError
+          ? `Weekly rollup read failed: ${safeErrorMessage(rollupError)}`
+          : 'Weekly rollup missing after recompute.',
+      };
+    }
 
     return {
-      company: {
-        name: company.name,
-        start_date: company.start_date,
-        learning_timeline_days: company.learning_timeline_days,
-      },
-      week_start: `${weekStartDate}T00:00:00.000Z`,
-      week_end: `${weekEndDate}T23:59:59.999Z`,
-      totals: {
-        learners: Number(rollup.learners ?? 0),
-        active_this_week: Number(rollup.active_this_week ?? 0),
-        course_completions: Number(rollup.course_completions ?? 0),
-        zoom_attendances: Number(rollup.zoom_attendances ?? 0),
-        assignments_submitted: Number(rollup.assignments_submitted ?? 0),
-        surveys_submitted: Number(rollup.surveys_submitted ?? 0),
-      },
-      status_distribution: {
-        high_engagement: Number(rollup.high_engagement_count ?? 0),
-        on_track: Number(rollup.on_track_count ?? 0),
-        slightly_behind: Number(rollup.slightly_behind_count ?? 0),
-        at_risk: Number(rollup.at_risk_count ?? 0),
-        not_started: Number(rollup.not_started_count ?? 0),
-      },
-      avg_completion: Number(rollup.avg_completion ?? 0),
-      top_learners: (rollup.top_learners_json ?? []) as WeeklyReportData['top_learners'],
-      open_alerts: (rollup.open_alerts_json ?? []) as WeeklyReportData['open_alerts'],
+      report: weeklyReportFromRollup(company, weekStartDate, weekEndDate, rollup as Record<string, unknown>),
+      status: 200,
+      error: null,
     };
-  }, { slug, week_start: getWeekWindow().weekStartDate });
+    }, { slug, week_start: getWeekWindow().weekStartDate });
+  } catch (error) {
+    console.error('[WeeklyReport] Failed to load report:', { slug, error });
+    return {
+      report: null,
+      status: 500,
+      error: safeErrorMessage(error),
+    };
+  }
+}
+
+export async function getWeeklyReportByCompanySlug(slug: string): Promise<WeeklyReportData | null> {
+  const result = await getWeeklyReportResultByCompanySlug(slug);
+  return result.report;
 }

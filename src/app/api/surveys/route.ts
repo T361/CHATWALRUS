@@ -2,6 +2,21 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminOrCron } from '@/lib/auth/guards';
 import { createAdminClient } from '@/lib/supabase/admin';
 
+type SurveySyncMetadata = {
+  courses_checked?: number;
+  upstream_reviews_found?: number;
+  records_upserted?: number;
+  endpoint_errors?: Array<{ course_id: string; message: string }>;
+};
+
+type SurveySyncLogRow = {
+  status: string | null;
+  records_processed: number | null;
+  error_message: string | null;
+  completed_at: string | null;
+  metadata: SurveySyncMetadata | null;
+};
+
 export async function GET(req: NextRequest) {
   const authError = requireAdminOrCron(req);
   if (authError) return authError;
@@ -113,6 +128,20 @@ export async function GET(req: NextRequest) {
   // Also fetch all active companies so filter is complete even with active company filter
   const { data: allCompanies } = await db.from('companies').select('id, name').eq('is_active', true).order('name');
   const companies = (allCompanies || []).map((c) => ({ id: c.id, name: c.name }));
+  const { data: latestSync } = await db
+    .from('sync_logs')
+    .select('status, records_processed, error_message, completed_at, metadata')
+    .eq('sync_type', 'surveys')
+    .order('started_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const lastSync = (latestSync ?? null) as SurveySyncLogRow | null;
+  const emptyReason = surveys.length === 0
+    ? lastSync?.status === 'success'
+      ? 'No course reviews returned by Thinkific for current courses.'
+      : 'No stored survey reviews yet. Run Import Survey Reviews from Settings.'
+    : null;
 
   return NextResponse.json({
     surveys,
@@ -124,5 +153,13 @@ export async function GET(req: NextRequest) {
     rating_trend,
     course_performance,
     companies,
+    empty_reason: emptyReason,
+    last_sync: lastSync ? {
+      status: lastSync.status,
+      records_processed: Number(lastSync.records_processed ?? 0),
+      error_message: lastSync.error_message,
+      completed_at: lastSync.completed_at,
+      metadata: lastSync.metadata,
+    } : null,
   });
 }
