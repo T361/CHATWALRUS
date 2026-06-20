@@ -441,18 +441,16 @@ export default function AdminSettingsPage() {
       {/* Passcode Management */}
       {isAuthenticated && (
         <div className="card" style={{ marginTop: '1rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-            <div>
-              <h2 style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text)' }}>Passcode Management</h2>
-              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.125rem' }}>
-                Database access-code records for scoped workflows. Admin login uses the server-side ADMIN_PASSCODE_SECRET, not this table.
-              </p>
-            </div>
-            <button className="btn btn-secondary btn-sm" onClick={loadPasscodes} disabled={passcodesLoading}>
-              {passcodesLoading ? <><span className="spinner" />Loading</> : 'Refresh'}
-            </button>
+          <div style={{ marginBottom: '0.75rem' }}>
+            <h2 style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text)' }}>Company Passcode Management</h2>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+              Create passcodes that give companies access to their own dashboard. Each passcode is scoped to a single company and only allows access to that company&apos;s data.
+            </p>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.125rem', fontStyle: 'italic' }}>
+              Note: Admin login uses the server-side ADMIN_PASSCODE_SECRET environment variable, not this table.
+            </p>
           </div>
-          <PasscodeTable passcodes={passcodes} companies={companiesMap} />
+          <PasscodeTable passcodes={passcodes} companies={companiesMap} onRefresh={loadPasscodes} />
         </div>
       )}
     </PageShell>

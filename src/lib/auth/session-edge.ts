@@ -3,10 +3,14 @@
 
 export const ADMIN_SESSION_COOKIE = 'chatwalrus_admin_session';
 
+export type SessionRole = 'admin' | 'company';
+
 export interface AdminSession {
-  role: 'admin';
+  role: SessionRole;
   issuedAt: number;
   expiresAt: number;
+  companyId?: string | null;
+  companySlug?: string | null;
 }
 
 function base64urlToBytes(b64url: string): Uint8Array {
@@ -64,15 +68,27 @@ export async function getAdminSessionEdge(
 
   try {
     const payloadStr = new TextDecoder().decode(base64urlToBytes(encodedPayload));
-    const payload = JSON.parse(payloadStr) as { role?: string; iat?: number; exp?: number };
+    const payload = JSON.parse(payloadStr) as {
+      role?: string;
+      iat?: number;
+      exp?: number;
+      companyId?: string | null;
+      companySlug?: string | null;
+    };
     const now = Math.floor(Date.now() / 1000);
 
-    if (payload.role !== 'admin' || !payload.exp || payload.exp <= now) return null;
+    if (!payload.role || (payload.role !== 'admin' && payload.role !== 'company')) {
+      return null;
+    }
+
+    if (!payload.exp || payload.exp <= now) return null;
 
     return {
-      role: 'admin',
+      role: payload.role as SessionRole,
       issuedAt: payload.iat ?? 0,
       expiresAt: payload.exp,
+      companyId: payload.companyId ?? null,
+      companySlug: payload.companySlug ?? null,
     };
   } catch {
     return null;

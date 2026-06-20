@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 
 function IconGrid()     { return <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="7" height="7" rx="1"/><rect x="11" y="2" width="7" height="7" rx="1"/><rect x="2" y="11" width="7" height="7" rx="1"/><rect x="11" y="11" width="7" height="7" rx="1"/></svg>; }
 function IconUsers()    { return <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><circle cx="7" cy="7" r="3"/><path d="M1 17c0-3.314 2.686-5 6-5"/><circle cx="14" cy="8" r="2.5"/><path d="M12 17c0-2.761 2.015-4 4.5-4S21 14.239 21 17"/></svg>; }
+function IconBook()     { return <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a3 3 0 0 1 3 3v11a2.5 2.5 0 0 0-2.5-2.5H2V3z"/><path d="M18 3h-6a3 3 0 0 0-3 3v11a2.5 2.5 0 0 1 2.5-2.5H18V3z"/></svg>; }
 function IconTrophy()   { return <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M10 12v3M7 15h6"/><path d="M4 3h12v4a6 6 0 0 1-12 0V3z"/><path d="M4 5H2.5a1.5 1.5 0 0 0 1.5 1.5M16 5h1.5a1.5 1.5 0 0 1-1.5 1.5"/></svg>; }
 function IconChart()    { return <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="3" height="6" rx="1"/><rect x="8.5" y="7" width="3" height="10" rx="1"/><rect x="14" y="4" width="3" height="13" rx="1"/></svg>; }
 function IconNote()     { return <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h12v9l-4 4H4V4z"/><path d="M12 4v9h4"/></svg>; }
@@ -20,6 +21,7 @@ export default function CompanySidebar({ slug, companyName }: { slug: string; co
   const navItems = [
     { href: `/company/${slug}`,               label: 'Overview',      icon: <IconGrid />,     exact: true },
     { href: `/company/${slug}/learners`,      label: 'Learners',      icon: <IconUsers /> },
+    { href: `/company/${slug}/courses`,       label: 'Courses',       icon: <IconBook /> },
     { href: `/company/${slug}/leaderboard`,   label: 'Leaderboard',   icon: <IconTrophy /> },
     { href: `/company/${slug}/assessments`,   label: 'Assessments',   icon: <IconChart /> },
     { href: `/company/${slug}/sessions`,      label: 'Sessions',      icon: <IconVideo /> },

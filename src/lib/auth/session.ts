@@ -10,17 +10,23 @@ import { NextRequest, NextResponse } from 'next/server';
 export const ADMIN_SESSION_COOKIE = 'chatwalrus_admin_session';
 export const ADMIN_SESSION_TTL_SECONDS = 12 * 60 * 60;
 
+export type SessionRole = 'admin' | 'company';
+
 export interface AdminSession {
-  role: 'admin';
+  role: SessionRole;
   issuedAt: number;
   expiresAt: number;
+  companyId?: string | null;  // Set for company-scoped sessions
+  companySlug?: string | null;  // Cached for easy redirects
 }
 
 interface SessionPayload {
-  role: 'admin';
+  role: SessionRole;
   iat: number;
   exp: number;
   nonce: string;
+  companyId?: string | null;
+  companySlug?: string | null;
 }
 
 function getSessionSecret(): string | null {
@@ -64,16 +70,41 @@ export function createAdminSessionToken(): {
   expiresAt: Date;
   session: AdminSession;
 } | null {
+  return createSessionToken('admin', null, null);
+}
+
+export function createCompanySessionToken(
+  companyId: string,
+  companySlug: string
+): {
+  token: string;
+  expiresAt: Date;
+  session: AdminSession;
+} | null {
+  return createSessionToken('company', companyId, companySlug);
+}
+
+function createSessionToken(
+  role: SessionRole,
+  companyId: string | null,
+  companySlug: string | null
+): {
+  token: string;
+  expiresAt: Date;
+  session: AdminSession;
+} | null {
   const secret = getSessionSecret();
   if (!secret) return null;
 
   const issuedAt = Math.floor(Date.now() / 1000);
   const expiresAt = issuedAt + ADMIN_SESSION_TTL_SECONDS;
   const payload: SessionPayload = {
-    role: 'admin',
+    role,
     iat: issuedAt,
     exp: expiresAt,
     nonce: randomBytes(16).toString('base64url'),
+    companyId,
+    companySlug,
   };
   const encodedPayload = toBase64Url(JSON.stringify(payload));
   const signature = signPayload(encodedPayload, secret);
@@ -85,6 +116,8 @@ export function createAdminSessionToken(): {
       role: payload.role,
       issuedAt: payload.iat,
       expiresAt: payload.exp,
+      companyId: payload.companyId,
+      companySlug: payload.companySlug,
     },
   };
 }
@@ -103,7 +136,11 @@ export function verifyAdminSessionToken(token: string | undefined | null): Admin
     const payload = JSON.parse(Buffer.from(encodedPayload, 'base64url').toString('utf8')) as SessionPayload;
     const now = Math.floor(Date.now() / 1000);
 
-    if (payload.role !== 'admin' || !payload.exp || payload.exp <= now) {
+    if (!payload.role || (payload.role !== 'admin' && payload.role !== 'company')) {
+      return null;
+    }
+
+    if (!payload.exp || payload.exp <= now) {
       return null;
     }
 
@@ -111,6 +148,8 @@ export function verifyAdminSessionToken(token: string | undefined | null): Admin
       role: payload.role,
       issuedAt: payload.iat,
       expiresAt: payload.exp,
+      companyId: payload.companyId ?? null,
+      companySlug: payload.companySlug ?? null,
     };
   } catch {
     return null;

@@ -37,6 +37,9 @@ export default async function LearnersPage(
     q: firstValue(searchParams.q) || '',
     courseId: firstValue(searchParams.course_id) || '',
     status: firstValue(searchParams.status) || 'all',
+    role: firstValue(searchParams.role) || 'all',
+    sortBy: firstValue(searchParams.sort_by) || 'full_name',
+    sortDir: (firstValue(searchParams.sort_dir) === 'desc' ? 'desc' : 'asc') as 'asc' | 'desc',
     page: Number(firstValue(searchParams.page) || '1'),
     limit: Number(firstValue(searchParams.limit) || '25'),
   };

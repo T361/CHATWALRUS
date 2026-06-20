@@ -34,12 +34,19 @@ type LearnerDirectoryResponse = {
 
 type LearnerDirectoryMeta = {
   course_options: CourseFilterOption[];
+  role_options: RoleFilterOption[];
   company_name?: string;
 };
 
 type CourseFilterOption = {
   id: string;
   name: string;
+  learner_count?: number;
+};
+
+type RoleFilterOption = {
+  role: string;
+  learner_count: number;
 };
 
 type LearnerDirectorySeed = {
@@ -160,6 +167,7 @@ export default function LearnerDirectory({
   const paramsString = searchParams.toString();
   const [rows, setRows] = useState<LearnerDirectoryApiRow[]>(() => toInitialRows(initialData));
   const [courseOptions, setCourseOptions] = useState<CourseFilterOption[]>(() => initialMeta?.course_options || []);
+  const [roleOptions, setRoleOptions] = useState<RoleFilterOption[]>(() => initialMeta?.role_options || []);
   const [companyName, setCompanyName] = useState(initialMeta?.company_name || '');
   const [total, setTotal] = useState(initialData?.total || 0);
   const [loading, setLoading] = useState(!initialData);
@@ -175,7 +183,10 @@ export default function LearnerDirectory({
   const qParam = searchParams.get('q') || '';
   const statusFilter = searchParams.get('status') || 'all';
   const courseFilter = searchParams.get('course_id') || '';
-  const currentRequestKey = JSON.stringify({ q: qParam, status: statusFilter, course_id: courseFilter, page, limit });
+  const roleFilter = searchParams.get('role') || 'all';
+  const sortBy = searchParams.get('sort_by') || 'full_name';
+  const sortDir = searchParams.get('sort_dir') || 'asc';
+  const currentRequestKey = JSON.stringify({ q: qParam, status: statusFilter, course_id: courseFilter, role: roleFilter, sort_by: sortBy, sort_dir: sortDir, page, limit });
   const initialRowsRequestKeyRef = useRef<string | null>(initialData ? currentRequestKey : null);
   const initialMetaEndpointRef = useRef<string | null>(initialMeta ? metadataEndpoint : null);
 
@@ -268,6 +279,7 @@ export default function LearnerDirectory({
       })
       .then((data: LearnerDirectoryMeta) => {
         setCourseOptions(data.course_options || []);
+        setRoleOptions(data.role_options || []);
         setCompanyName(data.company_name || '');
       })
       .catch((fetchError: unknown) => {
@@ -295,6 +307,40 @@ export default function LearnerDirectory({
   function updateFilters(updates: Record<string, string | number | null | undefined>) {
     const qs = buildQueryString(new URLSearchParams(paramsString), updates);
     updateBrowserUrl(pathname, qs, 'push');
+  }
+
+  function toggleSort(column: string) {
+    if (sortBy === column) {
+      // Toggle direction
+      updateFilters({ sort_dir: sortDir === 'asc' ? 'desc' : 'asc', page: 1 });
+    } else {
+      // New column, default to ascending
+      updateFilters({ sort_by: column, sort_dir: 'asc', page: 1 });
+    }
+  }
+
+  function SortableHeader({ column, children }: { column: string; children: React.ReactNode }) {
+    const isSorted = sortBy === column;
+    const isAsc = isSorted && sortDir === 'asc';
+    const isDesc = isSorted && sortDir === 'desc';
+
+    return (
+      <th
+        onClick={() => toggleSort(column)}
+        style={{
+          cursor: 'pointer',
+          userSelect: 'none',
+          position: 'relative',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+          {children}
+          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', opacity: isSorted ? 1 : 0.3 }}>
+            {isAsc ? '↑' : isDesc ? '↓' : '↕'}
+          </span>
+        </div>
+      </th>
+    );
   }
 
   const showCompany = scope === 'global';
@@ -335,7 +381,22 @@ export default function LearnerDirectory({
         >
           <option value="">All Courses</option>
           {courseOptions.map((course) => (
-            <option key={course.id} value={course.id}>{course.name}</option>
+            <option key={course.id} value={course.id}>
+              {course.name}{course.learner_count !== undefined ? ` (${course.learner_count})` : ''}
+            </option>
+          ))}
+        </select>
+        <select
+          value={roleFilter}
+          onChange={(event) => updateFilters({ role: event.target.value || null, page: 1 })}
+          style={{ minWidth: '180px' }}
+          disabled={metaLoading}
+        >
+          <option value="all">All Roles</option>
+          {roleOptions.map((roleOption) => (
+            <option key={roleOption.role} value={roleOption.role}>
+              {roleOption.role} ({roleOption.learner_count})
+            </option>
           ))}
         </select>
         <select
@@ -387,13 +448,13 @@ export default function LearnerDirectory({
           <table>
             <thead>
               <tr>
-                <th>Name</th>
+                <SortableHeader column="full_name">Name</SortableHeader>
                 {showCompany && <th>Company</th>}
-                <th>Role</th>
-                <th>Progress</th>
+                <SortableHeader column="title">Role</SortableHeader>
+                <SortableHeader column="avg_progress">Progress</SortableHeader>
                 <th>Status</th>
-                <th>Courses</th>
-                <th>Last Active</th>
+                <SortableHeader column="courses_enrolled">Courses</SortableHeader>
+                <SortableHeader column="last_active_at">Last Active</SortableHeader>
                 <th style={{ textAlign: 'center' }}>Sessions</th>
               </tr>
             </thead>

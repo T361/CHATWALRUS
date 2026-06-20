@@ -11,6 +11,9 @@ export interface LearnerDirectoryFilters {
   q?: string;
   courseId?: string;
   status?: string;
+  role?: string;
+  sortBy?: string;
+  sortDir?: 'asc' | 'desc';
   page?: number;
   limit?: number;
 }
@@ -36,6 +39,12 @@ export interface LearnerDirectoryRow {
 export interface CourseFilterOption {
   id: string;
   name: string;
+  learner_count?: number;
+}
+
+export interface RoleFilterOption {
+  role: string;
+  learner_count: number;
 }
 
 export interface LearnerDirectoryResult {
@@ -108,6 +117,131 @@ async function getCourseOptionsFromReadModel(companyId?: string | null): Promise
   }));
 }
 
+async function getRoleOptionsWithCounts(companyId?: string | null): Promise<RoleFilterOption[]> {
+  const db = createAdminClient();
+
+  // Try rollup table first
+  try {
+    let query = db
+      .from('learner_directory_rollups')
+      .select('title');
+
+    if (companyId) {
+      query = query.eq('company_id', companyId);
+    }
+
+    const { data, error } = await query;
+    if (error && !isMissingRelationError(error)) throw error;
+
+    if (data && data.length > 0) {
+      // Count occurrences of each role
+      const roleCounts = new Map<string, number>();
+      for (const row of data as Array<{ title: string | null }>) {
+        const role = row.title || 'Unassigned';
+        roleCounts.set(role, (roleCounts.get(role) || 0) + 1);
+      }
+
+      return Array.from(roleCounts.entries())
+        .map(([role, count]) => ({ role, learner_count: count }))
+        .sort((a, b) => a.role.localeCompare(b.role));
+    }
+  } catch (error) {
+    if (!isMissingRelationError(error)) throw error;
+  }
+
+  // Fallback to learners table
+  let query = db
+    .from('learners')
+    .select('title')
+    .eq('is_active', true);
+
+  if (companyId) {
+    query = query.eq('company_id', companyId);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+
+  const roleCounts = new Map<string, number>();
+  for (const row of (data || []) as Array<{ title: string | null }>) {
+    const role = row.title || 'Unassigned';
+    roleCounts.set(role, (roleCounts.get(role) || 0) + 1);
+  }
+
+  return Array.from(roleCounts.entries())
+    .map(([role, count]) => ({ role, learner_count: count }))
+    .sort((a, b) => a.role.localeCompare(b.role));
+}
+
+async function addLearnerCountsToCourses(
+  courses: CourseFilterOption[],
+  companyId?: string | null
+): Promise<CourseFilterOption[]> {
+  if (courses.length === 0) return courses;
+
+  const db = createAdminClient();
+  const courseIds = courses.map(c => c.id);
+
+  // Try to get counts from rollups first
+  try {
+    let query = db
+      .from('learner_directory_rollups')
+      .select('active_course_ids');
+
+    if (companyId) {
+      query = query.eq('company_id', companyId);
+    }
+
+    const { data, error } = await query;
+    if (error && !isMissingRelationError(error)) throw error;
+
+    if (data && data.length > 0) {
+      const courseCounts = new Map<string, number>();
+      for (const row of data as Array<{ active_course_ids: string[] | null }>) {
+        for (const courseId of row.active_course_ids ?? []) {
+          if (courseIds.includes(courseId)) {
+            courseCounts.set(courseId, (courseCounts.get(courseId) || 0) + 1);
+          }
+        }
+      }
+
+      return courses.map(course => ({
+        ...course,
+        learner_count: courseCounts.get(course.id) || 0,
+      }));
+    }
+  } catch (error) {
+    if (!isMissingRelationError(error)) throw error;
+  }
+
+  // Fallback: count from enrollments
+  let enrollQuery = db
+    .from('enrollments')
+    .select('course_id, learner_id')
+    .in('course_id', courseIds)
+    .eq('is_active', true);
+
+  if (companyId) {
+    enrollQuery = enrollQuery.eq('company_id', companyId);
+  }
+
+  const { data: enrollments, error: enrollError } = await enrollQuery;
+  if (enrollError) throw enrollError;
+
+  const courseCounts = new Map<string, Set<string>>();
+  for (const enroll of (enrollments || []) as Array<{ course_id: string; learner_id: string }>) {
+    if (!courseCounts.has(enroll.course_id)) {
+      courseCounts.set(enroll.course_id, new Set());
+    }
+    courseCounts.get(enroll.course_id)!.add(enroll.learner_id);
+  }
+
+  return courses.map(course => ({
+    ...course,
+    learner_count: courseCounts.get(course.id)?.size || 0,
+  }));
+}
+
 type DirectoryFilterableQuery = {
   eq: (column: string, value: string) => DirectoryFilterableQuery;
   contains: (column: string, value: string[]) => DirectoryFilterableQuery;
@@ -116,7 +250,7 @@ type DirectoryFilterableQuery = {
 
 function applyDirectoryQueryFilters(
   query: DirectoryFilterableQuery,
-  filters: Required<Pick<LearnerDirectoryFilters, 'q' | 'courseId' | 'status'>> & { companyId?: string | null },
+  filters: Required<Pick<LearnerDirectoryFilters, 'q' | 'courseId' | 'status'>> & { companyId?: string | null; role?: string },
 ) {
   let nextQuery = query;
   if (filters.companyId) {
@@ -127,6 +261,9 @@ function applyDirectoryQueryFilters(
   }
   if (filters.courseId) {
     nextQuery = nextQuery.contains('active_course_ids', [filters.courseId]);
+  }
+  if (filters.role && filters.role !== 'all') {
+    nextQuery = nextQuery.eq('title', filters.role);
   }
   if (filters.q) {
     const q = filters.q.replace(/,/g, ' ');
@@ -147,7 +284,17 @@ async function queryLearnerDirectoryTable(
     q: filters.q?.trim() ?? '',
     courseId: filters.courseId ?? '',
     status: filters.status?.trim() || 'all',
+    role: filters.role?.trim() || 'all',
   };
+
+  // Determine sort column and direction
+  const sortBy = filters.sortBy || 'full_name';
+  const sortDir = filters.sortDir === 'desc' ? 'desc' : 'asc';
+  const ascending = sortDir === 'asc';
+
+  // Validate sortBy against allowed columns
+  const allowedSortColumns = ['full_name', 'email', 'department', 'title', 'courses_enrolled', 'avg_progress', 'last_active_at'];
+  const sortColumn = allowedSortColumns.includes(sortBy) ? sortBy : 'full_name';
 
   const countQuery = applyDirectoryQueryFilters(
     db.from(tableName).select('learner_id', { count: 'exact', head: true }) as unknown as DirectoryFilterableQuery,
@@ -156,7 +303,7 @@ async function queryLearnerDirectoryTable(
   const dataQuery = applyDirectoryQueryFilters(
     db.from(tableName)
       .select('learner_id, company_id, company_name, company_slug, full_name, email, department, title, last_active_at, courses_enrolled, avg_progress, status, completion_percent, benchmark_percent, live_sessions_last_30_days')
-      .order('full_name') as unknown as DirectoryFilterableQuery,
+      .order(sortColumn, { ascending }) as unknown as DirectoryFilterableQuery,
     normalized,
   ) as unknown as { range: (from: number, to: number) => Promise<{ data: unknown; error: Error | null }> };
 
@@ -233,6 +380,7 @@ export async function getLearnerDirectory(
 export async function getLearnerDirectoryMeta(companyId?: string | null): Promise<{
   company_name?: string;
   course_options: CourseFilterOption[];
+  role_options: RoleFilterOption[];
 }> {
   return withServerTiming('learners.directory.meta', async () => {
     const db = createAdminClient();
@@ -284,6 +432,12 @@ export async function getLearnerDirectoryMeta(companyId?: string | null): Promis
         }
       }
 
+      // Add learner counts to courses
+      courseOptions = await addLearnerCountsToCourses(courseOptions, companyId);
+
+      // Get role options with counts
+      const roleOptions = await getRoleOptionsWithCounts(companyId);
+
       let companyName: string | undefined;
       if (companyId) {
         const { data: company, error } = await db
@@ -298,6 +452,7 @@ export async function getLearnerDirectoryMeta(companyId?: string | null): Promis
       return {
         company_name: companyName,
         course_options: courseOptions,
+        role_options: roleOptions,
       };
     });
   }, { company_id: companyId ?? 'global' });

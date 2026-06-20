@@ -134,15 +134,60 @@ export default async function CompanyDashboardPage(
       )}
 
       <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))' }}>
-        <KpiCard title="Total Enrolled" value={totalEnrolled ?? 0} />
-        <KpiCard title="Completions" value={courseCompletions ?? 0} />
-        <KpiCard title="Avg Progress" value={`${avgProgress.toFixed(1)}%`} />
-        <KpiCard title="Assignment Rate" value={`${submissionRate}%`} />
-        <KpiCard title="On Pace" value={`${onPace}%`} color="var(--on-track)" />
-        <KpiCard title="Session Reach" value={`${zoomAnalytics.attendance_rate.toFixed(1)}%`} color="var(--primary)" href={`/company/${slug}/sessions`} />
-        <KpiCard title="Slightly Behind" value={slightlyBehind} color="var(--slightly-behind)" href={`/company/${slug}/learners?status=slightly_behind`} />
-        <KpiCard title="At Risk" value={atRisk} color="var(--at-risk)" href={`/company/${slug}/learners?status=at_risk`} />
-        <KpiCard title="Not Started" value={notStarted} color="var(--not-started)" href={`/company/${slug}/learners?status=not_started`} />
+        <KpiCard
+          title="Total Enrolled"
+          value={totalEnrolled ?? 0}
+          tooltip="Total number of active learners enrolled in courses for this company"
+        />
+        <KpiCard
+          title="Completions"
+          value={courseCompletions ?? 0}
+          tooltip="Number of course enrollments that have been fully completed (100% progress)"
+        />
+        <KpiCard
+          title="Avg Progress"
+          value={`${avgProgress.toFixed(1)}%`}
+          tooltip="Average course completion percentage across all active learners in this company"
+        />
+        <KpiCard
+          title="Assignment Rate"
+          value={`${submissionRate}%`}
+          tooltip="Percentage of assignments that have been submitted out of total assignments available"
+        />
+        <KpiCard
+          title="On Pace"
+          value={`${onPace}%`}
+          color="var(--on-track)"
+          tooltip="Percentage of learners who are On Track or High Engagement (meeting or exceeding the benchmark)"
+        />
+        <KpiCard
+          title="Session Reach"
+          value={`${zoomAnalytics.attendance_rate.toFixed(1)}%`}
+          color="var(--primary)"
+          href={`/company/${slug}/sessions`}
+          tooltip="Percentage of learners who have attended at least one live Zoom session"
+        />
+        <KpiCard
+          title="Slightly Behind"
+          value={slightlyBehind}
+          color="var(--slightly-behind)"
+          href={`/company/${slug}/learners?status=slightly_behind`}
+          tooltip="Learners who are progressing but below the current benchmark (click to view list)"
+        />
+        <KpiCard
+          title="At Risk"
+          value={atRisk}
+          color="var(--at-risk)"
+          href={`/company/${slug}/learners?status=at_risk`}
+          tooltip="Learners significantly behind the benchmark or with low engagement (click to view list)"
+        />
+        <KpiCard
+          title="Not Started"
+          value={notStarted}
+          color="var(--not-started)"
+          href={`/company/${slug}/learners?status=not_started`}
+          tooltip="Learners who have enrolled but have not yet logged in or started any coursework (click to view list)"
+        />
       </div>
 
       <LearnerStatusBar

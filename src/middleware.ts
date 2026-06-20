@@ -4,7 +4,8 @@ import { getAdminSessionEdge, ADMIN_SESSION_COOKIE } from '@/lib/auth/session-ed
 // Routes that don't require authentication at middleware level.
 // NOTE: individual route handlers still run their own guards (requireAdminOrCron).
 const PUBLIC_PATHS = [
-  '/admin/settings',   // login page is accessible to unauthenticated users
+  '/login',            // new dedicated login page
+  '/admin/settings',   // legacy login page (still accessible)
   '/api/auth/login',
   '/api/auth/logout',
   '/api/auth/session',
@@ -88,19 +89,39 @@ export async function middleware(req: NextRequest) {
     }));
   }
 
-  if (session) return NextResponse.next();
+  if (!session) {
+    // API routes: return 401 JSON instead of redirect
+    if (pathname.startsWith('/api/')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
-  // API routes: return 401 JSON instead of redirect
-  if (pathname.startsWith('/api/')) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Pages: redirect to login
+    const loginUrl = new URL('/login', req.url);
+    loginUrl.searchParams.set('redirect', pathname);
+    const response = NextResponse.redirect(loginUrl);
+    response.cookies.delete(ADMIN_SESSION_COOKIE);
+    return response;
   }
 
-  // Pages: redirect to login
-  const loginUrl = new URL('/admin/settings', req.url);
-  loginUrl.searchParams.set('redirect', pathname);
-  const response = NextResponse.redirect(loginUrl);
-  response.cookies.delete(ADMIN_SESSION_COOKIE);
-  return response;
+  // Company users: enforce access control to their company only
+  if (session.role === 'company' && session.companySlug) {
+    const allowedPrefix = `/company/${session.companySlug}`;
+
+    // Company users can only access /company/{their-slug}/* and /api/companies/{slug}/*
+    const isAllowedPage = pathname === allowedPrefix || pathname.startsWith(allowedPrefix + '/');
+    const isAllowedApi = pathname.startsWith(`/api/companies/${session.companySlug}`);
+    const isAuthApi = pathname.startsWith('/api/auth/');
+
+    if (!isAllowedPage && !isAllowedApi && !isAuthApi) {
+      // Redirect to their dashboard
+      if (pathname.startsWith('/api/')) {
+        return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+      }
+      return NextResponse.redirect(new URL(allowedPrefix, req.url));
+    }
+  }
+
+  return NextResponse.next();
 }
 
 export const config = {

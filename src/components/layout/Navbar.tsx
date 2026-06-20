@@ -33,12 +33,15 @@ export default function Navbar() {
       backdropFilter: 'blur(12px)',
     }}>
       <Link href="/" className="nav-brand">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
-          <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2Z" fill="var(--primary)" fillOpacity="0.15"/>
-          <path d="M8 10C8 8.9 8.9 8 10 8H14C15.1 8 16 8.9 16 10V14C16 15.1 15.1 16 14 16H10C8.9 16 8 15.1 8 14V10Z" fill="var(--primary)"/>
-          <circle cx="7" cy="12" r="1.5" fill="var(--cyan)"/>
-          <circle cx="17" cy="12" r="1.5" fill="var(--cyan)"/>
-        </svg>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/chatwalrus_logo.jpeg"
+          alt="ChatWalrus"
+          width={28}
+          height={28}
+          style={{ flexShrink: 0, borderRadius: '4px' }}
+          loading="eager"
+        />
         <span className="nav-brand-name">ChatWalrus</span>
         <span className="nav-brand-sub">CSM Dashboard</span>
       </Link>
