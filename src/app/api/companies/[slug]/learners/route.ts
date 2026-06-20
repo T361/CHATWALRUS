@@ -29,6 +29,8 @@ export async function GET(
       q: searchParams.get('q') || '',
       courseId: searchParams.get('course_id') || '',
       status: searchParams.get('status') || 'all',
+      sortBy: searchParams.get('sort_by') || undefined,
+      sortDir: (searchParams.get('sort_dir') as 'asc' | 'desc') || undefined,
       page: Number(searchParams.get('page') || '1'),
       limit: Number(searchParams.get('limit') || '25'),
     });
