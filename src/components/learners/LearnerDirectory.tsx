@@ -167,7 +167,6 @@ export default function LearnerDirectory({
   const paramsString = searchParams.toString();
   const [rows, setRows] = useState<LearnerDirectoryApiRow[]>(() => toInitialRows(initialData));
   const [courseOptions, setCourseOptions] = useState<CourseFilterOption[]>(() => initialMeta?.course_options || []);
-  const [roleOptions, setRoleOptions] = useState<RoleFilterOption[]>(() => initialMeta?.role_options || []);
   const [companyName, setCompanyName] = useState(initialMeta?.company_name || '');
   const [total, setTotal] = useState(initialData?.total || 0);
   const [loading, setLoading] = useState(!initialData);
@@ -183,10 +182,9 @@ export default function LearnerDirectory({
   const qParam = searchParams.get('q') || '';
   const statusFilter = searchParams.get('status') || 'all';
   const courseFilter = searchParams.get('course_id') || '';
-  const roleFilter = searchParams.get('role') || 'all';
   const sortBy = searchParams.get('sort_by') || 'full_name';
   const sortDir = searchParams.get('sort_dir') || 'asc';
-  const currentRequestKey = JSON.stringify({ q: qParam, status: statusFilter, course_id: courseFilter, role: roleFilter, sort_by: sortBy, sort_dir: sortDir, page, limit });
+  const currentRequestKey = JSON.stringify({ q: qParam, status: statusFilter, course_id: courseFilter, sort_by: sortBy, sort_dir: sortDir, page, limit });
   const initialRowsRequestKeyRef = useRef<string | null>(initialData ? currentRequestKey : null);
   const initialMetaEndpointRef = useRef<string | null>(initialMeta ? metadataEndpoint : null);
 
@@ -279,7 +277,6 @@ export default function LearnerDirectory({
       })
       .then((data: LearnerDirectoryMeta) => {
         setCourseOptions(data.course_options || []);
-        setRoleOptions(data.role_options || []);
         setCompanyName(data.company_name || '');
       })
       .catch((fetchError: unknown) => {
@@ -383,19 +380,6 @@ export default function LearnerDirectory({
           {courseOptions.map((course) => (
             <option key={course.id} value={course.id}>
               {course.name}{course.learner_count !== undefined ? ` (${course.learner_count})` : ''}
-            </option>
-          ))}
-        </select>
-        <select
-          value={roleFilter}
-          onChange={(event) => updateFilters({ role: event.target.value || null, page: 1 })}
-          style={{ minWidth: '180px' }}
-          disabled={metaLoading}
-        >
-          <option value="all">All Roles</option>
-          {roleOptions.map((roleOption) => (
-            <option key={roleOption.role} value={roleOption.role}>
-              {roleOption.role} ({roleOption.learner_count})
             </option>
           ))}
         </select>
