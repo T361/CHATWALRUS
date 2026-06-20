@@ -1,5 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { notFound } from 'next/navigation';
+import CompanyShell from '@/components/layout/CompanyShell';
 
 type CourseRow = {
   id: string;
@@ -134,12 +135,12 @@ export default async function CoursesPage(props: {
   });
 
   return (
-    <div style={{ padding: '2rem' }}>
+    <CompanyShell slug={params.slug}>
       <div className="page-header" style={{ marginBottom: '1.5rem' }}>
         <div>
           <h1 className="page-title">ChatWalrus Course Catalog</h1>
           <p className="page-subtitle">
-            {company.name} enrollment status across all ChatWalrus courses from Thinkific
+            All ChatWalrus courses from Thinkific - {company.name} enrollment status
           </p>
         </div>
       </div>
@@ -165,9 +166,9 @@ export default async function CoursesPage(props: {
         <span style={{ color: 'var(--text-muted)' }}>Sort by:</span>
         {[
           { key: 'name', label: 'Name' },
-          { key: 'enrollment', label: 'Your Enrollment' },
-          { key: 'progress', label: 'Your Progress' },
-          { key: 'completed', label: 'Completions' },
+          { key: 'enrollment', label: 'Enrolled' },
+          { key: 'progress', label: 'Progress' },
+          { key: 'completed', label: 'Completed' },
         ].map(({ key, label }) => {
           const isActive = sortBy === key;
           const nextDir = isActive && sortDir === 'asc' ? 'desc' : 'asc';
@@ -202,10 +203,10 @@ export default async function CoursesPage(props: {
               <tr>
                 <th>Course Name</th>
                 <th>Lessons</th>
-                <th>Your Enrollment</th>
-                <th>Your Avg Progress</th>
-                <th>Your Completions</th>
-                <th>Total Enrolled (All Companies)</th>
+                <th>Enrolled</th>
+                <th>Avg Progress</th>
+                <th>Completed</th>
+                <th>All Companies</th>
               </tr>
             </thead>
             <tbody>
@@ -274,6 +275,6 @@ export default async function CoursesPage(props: {
           </table>
         </div>
       )}
-    </div>
+    </CompanyShell>
   );
 }

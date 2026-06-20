@@ -134,16 +134,30 @@ async function getRoleOptionsWithCounts(companyId?: string | null): Promise<Role
     if (error && !isMissingRelationError(error)) throw error;
 
     if (data && data.length > 0) {
-      // Count occurrences of each role
+      // Normalize roles client-side
       const roleCounts = new Map<string, number>();
       for (const row of data as Array<{ title: string | null }>) {
-        const role = row.title || 'Unassigned';
+        const rawTitle = row.title || '';
+        let role = 'Other';
+
+        if (/finance|accounting|controller|treasurer|audit|fp&a/i.test(rawTitle)) {
+          role = 'Finance';
+        } else if (/marketing|brand|growth|demand gen|seo|social media/i.test(rawTitle)) {
+          role = 'Marketing';
+        } else if (/creative|design|content|copywriter|video|photo|graphic/i.test(rawTitle)) {
+          role = 'Creative';
+        } else if (/product|pm|product manager|product owner/i.test(rawTitle)) {
+          role = 'Product';
+        }
+
         roleCounts.set(role, (roleCounts.get(role) || 0) + 1);
       }
 
-      return Array.from(roleCounts.entries())
-        .map(([role, count]) => ({ role, learner_count: count }))
-        .sort((a, b) => a.role.localeCompare(b.role));
+      // Return in priority order
+      const roleOrder = ['Finance', 'Marketing', 'Creative', 'Product', 'Other'];
+      return roleOrder
+        .map(role => ({ role, learner_count: roleCounts.get(role) || 0 }))
+        .filter(r => r.learner_count > 0);
     }
   } catch (error) {
     if (!isMissingRelationError(error)) throw error;
