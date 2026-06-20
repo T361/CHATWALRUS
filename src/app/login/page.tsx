@@ -2,7 +2,6 @@
 
 import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import Image from 'next/image';
 
 function LoginForm() {
   const router = useRouter();
@@ -69,7 +68,7 @@ function LoginForm() {
       >
         {/* Logo */}
         <div style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'center' }}>
-          <Image
+          <img
             src="/chatwalrus_logo.jpeg"
             alt="ChatWalrus"
             width={56}
