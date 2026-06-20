@@ -68,6 +68,7 @@ function LoginForm() {
       >
         {/* Logo */}
         <div style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'center' }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/chatwalrus_logo.jpeg"
             alt="ChatWalrus"
