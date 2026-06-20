@@ -162,15 +162,33 @@ async function getRoleOptionsWithCounts(companyId?: string | null): Promise<Role
   const { data, error } = await query;
   if (error) throw error;
 
+  // Group by normalized role (will be normalized client-side for now)
+  // TODO: When Supabase Postgres functions work, use normalize_role() in query
   const roleCounts = new Map<string, number>();
+
   for (const row of (data || []) as Array<{ title: string | null }>) {
-    const role = row.title || 'Unassigned';
+    // Normalize roles client-side
+    const rawTitle = row.title || '';
+    let role = 'Other';
+
+    if (/finance|accounting|controller|treasurer|audit|fp&a/i.test(rawTitle)) {
+      role = 'Finance';
+    } else if (/marketing|brand|growth|demand gen|seo|social media/i.test(rawTitle)) {
+      role = 'Marketing';
+    } else if (/creative|design|content|copywriter|video|photo|graphic/i.test(rawTitle)) {
+      role = 'Creative';
+    } else if (/product|pm|product manager|product owner/i.test(rawTitle)) {
+      role = 'Product';
+    }
+
     roleCounts.set(role, (roleCounts.get(role) || 0) + 1);
   }
 
-  return Array.from(roleCounts.entries())
-    .map(([role, count]) => ({ role, learner_count: count }))
-    .sort((a, b) => a.role.localeCompare(b.role));
+  // Return in priority order
+  const roleOrder = ['Finance', 'Marketing', 'Creative', 'Product', 'Other'];
+  return roleOrder
+    .map(role => ({ role, learner_count: roleCounts.get(role) || 0 }))
+    .filter(r => r.learner_count > 0);
 }
 
 async function addLearnerCountsToCourses(
@@ -263,7 +281,19 @@ function applyDirectoryQueryFilters(
     nextQuery = nextQuery.contains('active_course_ids', [filters.courseId]);
   }
   if (filters.role && filters.role !== 'all') {
-    nextQuery = nextQuery.eq('title', filters.role);
+    // Map normalized role to title patterns
+    const rolePatterns: Record<string, string> = {
+      'Finance': 'title.ilike.%finance%,title.ilike.%accounting%,title.ilike.%controller%,title.ilike.%treasurer%,title.ilike.%audit%',
+      'Marketing': 'title.ilike.%marketing%,title.ilike.%brand%,title.ilike.%growth%,title.ilike.%seo%,title.ilike.%social media%',
+      'Creative': 'title.ilike.%creative%,title.ilike.%design%,title.ilike.%content%,title.ilike.%copywriter%,title.ilike.%video%,title.ilike.%photo%,title.ilike.%graphic%',
+      'Product': 'title.ilike.%product%,title.ilike.%pm%,title.ilike.%product manager%,title.ilike.%product owner%',
+      'Other': 'title.not.ilike.%finance%,title.not.ilike.%marketing%,title.not.ilike.%creative%,title.not.ilike.%design%,title.not.ilike.%product%',
+    };
+
+    const pattern = rolePatterns[filters.role];
+    if (pattern) {
+      nextQuery = nextQuery.or(pattern);
+    }
   }
   if (filters.q) {
     const q = filters.q.replace(/,/g, ' ');
