@@ -324,15 +324,28 @@ export default function LearnerDirectory({
     return (
       <th
         onClick={() => toggleSort(column)}
+        title={`Click to sort by ${children} ${isSorted ? (sortDir === 'asc' ? '(descending)' : '(ascending)') : '(ascending)'}`}
         style={{
           cursor: 'pointer',
           userSelect: 'none',
           position: 'relative',
+          transition: 'background 0.15s ease',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = 'var(--surface-raised)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = '';
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontWeight: isSorted ? 600 : 500 }}>
           {children}
-          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', opacity: isSorted ? 1 : 0.3 }}>
+          <span style={{
+            fontSize: '0.875rem',
+            color: isSorted ? 'var(--primary)' : 'var(--text-muted)',
+            opacity: isSorted ? 1 : 0.5,
+            fontWeight: 700,
+          }}>
             {isAsc ? '↑' : isDesc ? '↓' : '↕'}
           </span>
         </div>
