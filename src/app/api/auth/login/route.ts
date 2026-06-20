@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
       authenticated: true,
       role: sessionToken.session.role,
       expires_at: sessionToken.expiresAt.toISOString(),
-      redirect: `/company/${companies.slug}`,
+      redirect: `/company/${companySlug}`,
     });
     setAdminSessionCookie(response, sessionToken.token, sessionToken.expiresAt);
 

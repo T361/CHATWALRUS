@@ -33,16 +33,17 @@ async function getCourseData(companyId: string) {
     learner_id: string;
     progress_percent: number;
     completed_at: string | null;
-    courses: { id: string; name: string; total_lessons: number } | null;
-    learners: { title: string | null } | null;
+    courses: { id: string; name: string; total_lessons: number }[] | null;
+    learners: { title: string | null }[] | null;
   }>) {
-    if (!enroll.courses) continue;
+    const courseData = enroll.courses?.[0];
+    if (!courseData) continue;
 
     if (!courseMap.has(enroll.course_id)) {
       courseMap.set(enroll.course_id, {
-        id: enroll.courses.id,
-        name: enroll.courses.name,
-        total_lessons: enroll.courses.total_lessons,
+        id: courseData.id,
+        name: courseData.name,
+        total_lessons: courseData.total_lessons,
         enrollment_count: 0,
         avg_progress: 0,
         completion_count: 0,
@@ -55,7 +56,7 @@ async function getCourseData(companyId: string) {
     course.avg_progress += Number(enroll.progress_percent || 0);
     if (enroll.completed_at) course.completion_count++;
 
-    const role = enroll.learners?.title || 'Unassigned';
+    const role = enroll.learners?.[0]?.title || 'Unassigned';
     course.role_distribution[role] = (course.role_distribution[role] || 0) + 1;
   }
 
