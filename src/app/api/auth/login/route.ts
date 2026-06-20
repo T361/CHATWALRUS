@@ -63,16 +63,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid passcode' }, { status: 401 });
     }
 
-    // Type guard for companies relation
-    const companies = passcodeRecord.companies as { slug: string } | null;
-    if (!companies || !companies.slug) {
+    // Type guard for companies relation (Supabase returns as array)
+    const companies = passcodeRecord.companies as { slug: string }[] | null;
+    const companySlug = companies?.[0]?.slug;
+    if (!companySlug) {
       return NextResponse.json({ error: 'Company not found' }, { status: 401 });
     }
 
     // 3. Create company-scoped session
     const sessionToken = createCompanySessionToken(
       passcodeRecord.company_id,
-      companies.slug
+      companySlug
     );
     if (!sessionToken) {
       return NextResponse.json({ error: 'Session creation failed' }, { status: 503 });
