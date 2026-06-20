@@ -389,7 +389,7 @@ export async function getWeeklyReportResultByCompanySlug(slug: string): Promise<
       .select('*')
       .eq('company_id', company.id)
       .eq('week_start', weekStartDate)
-      .single();
+      .maybeSingle();
 
     if (rollupError || !rollup) {
       if (rollupError && isMissingRelationError(rollupError)) {
@@ -417,7 +417,7 @@ export async function getWeeklyReportResultByCompanySlug(slug: string): Promise<
           .select('*')
           .eq('company_id', company.id)
           .eq('week_start', weekStartDate)
-          .single();
+          .maybeSingle();
         rollup = reread.data;
         rollupError = reread.error;
       } catch (error) {
