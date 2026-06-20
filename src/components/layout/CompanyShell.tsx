@@ -14,9 +14,11 @@ export default function CompanyShell({
   return (
     <div className="app-shell-top">
       <TopNav />
-      <div style={{ display: 'flex', minHeight: 'calc(100vh - 54px)' }}>
+      {/* On mobile: column (tab strip on top, content below).
+          On desktop: row (sidebar left, content right). */}
+      <div className="company-shell-body">
         <CompanySidebar slug={slug} companyName={companyName} />
-        <main className="shell-content" style={{ flex: 1, minWidth: 0 }}>
+        <main className="shell-content company-shell-main">
           {children}
         </main>
       </div>

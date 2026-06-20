@@ -112,12 +112,12 @@ export default function CompanyLeaderboardPage() {
         <>
           {/* Top 3 podium */}
           {rows.length >= 3 && (
-            <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', justifyContent: 'center' }}>
+            <div className="podium-row">
               {[rows[1], rows[0], rows[2]].map((r, i) => {
                 const podiumRank = i === 0 ? 2 : i === 1 ? 1 : 3;
                 const height = podiumRank === 1 ? 120 : podiumRank === 2 ? 90 : 75;
                 return (
-                  <div key={r.learner_id} style={{ textAlign: 'center', flex: '0 0 140px' }}>
+                  <div key={r.learner_id} className="podium-card">
                     <div style={{ fontSize: podiumRank === 1 ? '2rem' : '1.5rem', marginBottom: '0.25rem' }}>
                       {MEDAL[podiumRank - 1]}
                     </div>

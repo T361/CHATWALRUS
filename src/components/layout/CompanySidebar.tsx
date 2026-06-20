@@ -15,105 +15,150 @@ function IconDownload() { return <svg width="15" height="15" viewBox="0 0 20 20"
 function IconVideo()    { return <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="2.5" y="4" width="10" height="12" rx="1.5"/><path d="M12.5 8l5-3v10l-5-3z"/></svg>; }
 function IconArrow()    { return <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M13 3H3v14h14v-10"/><path d="M8 12L17 3"/><path d="M13 3h4v4"/></svg>; }
 
+const NAV_ITEMS = [
+  { key: '',               label: 'Overview',      icon: <IconGrid />,     exact: true },
+  { key: 'learners',       label: 'Learners',      icon: <IconUsers /> },
+  { key: 'courses',        label: 'Courses',       icon: <IconBook /> },
+  { key: 'leaderboard',    label: 'Leaderboard',   icon: <IconTrophy /> },
+  { key: 'assessments',    label: 'Assessments',   icon: <IconChart /> },
+  { key: 'sessions',       label: 'Sessions',      icon: <IconVideo /> },
+  { key: 'interventions',  label: 'Interventions', icon: <IconNote /> },
+  { key: 'weekly',         label: 'Weekly',        icon: <IconCalendar /> },
+  { key: 'settings',       label: 'Settings',      icon: <IconCog /> },
+  { key: 'export',         label: 'Export',        icon: <IconDownload /> },
+];
+
 export default function CompanySidebar({ slug, companyName }: { slug: string; companyName?: string }) {
   const pathname = usePathname();
 
-  const navItems = [
-    { href: `/company/${slug}`,               label: 'Overview',      icon: <IconGrid />,     exact: true },
-    { href: `/company/${slug}/learners`,      label: 'Learners',      icon: <IconUsers /> },
-    { href: `/company/${slug}/courses`,       label: 'Courses',       icon: <IconBook /> },
-    { href: `/company/${slug}/leaderboard`,   label: 'Leaderboard',   icon: <IconTrophy /> },
-    { href: `/company/${slug}/assessments`,   label: 'Assessments',   icon: <IconChart /> },
-    { href: `/company/${slug}/sessions`,      label: 'Sessions',      icon: <IconVideo /> },
-    { href: `/company/${slug}/interventions`, label: 'Interventions', icon: <IconNote /> },
-    { href: `/company/${slug}/weekly`,        label: 'Weekly Report', icon: <IconCalendar /> },
-    { href: `/company/${slug}/settings`,      label: 'Settings',      icon: <IconCog /> },
-    { href: `/company/${slug}/export`,        label: 'Export',        icon: <IconDownload /> },
-  ];
+  function href(key: string) {
+    return key ? `/company/${slug}/${key}` : `/company/${slug}`;
+  }
 
-  function isActive(href: string, exact?: boolean) {
-    if (exact) return pathname === href;
-    return pathname === href || pathname.startsWith(href + '/');
+  function isActive(key: string, exact?: boolean) {
+    const h = href(key);
+    if (exact) return pathname === h;
+    return pathname === h || pathname.startsWith(h + '/');
   }
 
   return (
-    <aside style={{
-      width: 200,
-      flexShrink: 0,
-      borderRight: '1px solid var(--border)',
-      background: 'var(--bg-raised)',
-      display: 'flex',
-      flexDirection: 'column',
-      padding: '1rem 0.625rem',
-      gap: '2px',
-      position: 'sticky',
-      top: 54,
-      height: 'calc(100vh - 54px)',
-      overflowY: 'auto',
-    }}>
-      {/* Company name + back link */}
-      <Link
-        href="/"
-        style={{
-          display: 'flex', alignItems: 'center', gap: '0.375rem',
-          padding: '0.375rem 0.5rem',
-          borderRadius: 'var(--radius-sm)',
-          fontSize: '0.75rem',
-          color: 'var(--text-muted)',
-          textDecoration: 'none',
-          marginBottom: '0.25rem',
-          transition: 'color 120ms',
-        }}
-        onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text-secondary)'; }}
-        onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; }}
-      >
-        <IconArrow />
-        All Companies
-      </Link>
+    <>
+      {/* ── Desktop sidebar ─────────────────────────────────── */}
+      <aside className="company-sidebar-desktop" style={{
+        width: 200,
+        flexShrink: 0,
+        borderRight: '1px solid var(--border)',
+        background: 'var(--bg-raised)',
+        display: 'flex',
+        flexDirection: 'column',
+        padding: '1rem 0.625rem',
+        gap: '2px',
+        position: 'sticky',
+        top: 54,
+        height: 'calc(100vh - 54px)',
+        overflowY: 'auto',
+      }}>
+        <Link
+          href="/"
+          style={{
+            display: 'flex', alignItems: 'center', gap: '0.375rem',
+            padding: '0.375rem 0.5rem',
+            borderRadius: 'var(--radius-sm)',
+            fontSize: '0.75rem',
+            color: 'var(--text-muted)',
+            textDecoration: 'none',
+            marginBottom: '0.25rem',
+            transition: 'color 120ms',
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text-secondary)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; }}
+        >
+          <IconArrow />
+          All Companies
+        </Link>
 
-      {companyName && (
-        <div style={{
-          padding: '0.375rem 0.5rem',
-          fontSize: '0.8125rem',
-          fontWeight: 700,
-          color: 'var(--text)',
-          marginBottom: '0.375rem',
-          borderBottom: '1px solid var(--border-muted)',
-          paddingBottom: '0.625rem',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-        }}>
-          {companyName}
-        </div>
-      )}
+        {companyName && (
+          <div style={{
+            padding: '0.375rem 0.5rem',
+            fontSize: '0.8125rem',
+            fontWeight: 700,
+            color: 'var(--text)',
+            marginBottom: '0.375rem',
+            borderBottom: '1px solid var(--border-muted)',
+            paddingBottom: '0.625rem',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}>
+            {companyName}
+          </div>
+        )}
 
-      {navItems.map(({ href, label, icon, exact }) => {
-        const active = isActive(href, exact);
-        return (
-          <Link
-            key={href}
-            href={href}
-            style={{
-              display: 'flex', alignItems: 'center', gap: '0.5rem',
-              padding: '0.5rem 0.625rem',
-              borderRadius: 'var(--radius-sm)',
-              fontSize: '0.875rem',
-              fontWeight: active ? 600 : 450,
-              color: active ? 'var(--primary)' : 'var(--text-secondary)',
-              background: active ? 'color-mix(in srgb, var(--primary) 10%, transparent)' : 'transparent',
-              textDecoration: 'none',
-              transition: 'all 120ms',
-              borderLeft: active ? '2px solid var(--primary)' : '2px solid transparent',
-            }}
-            onMouseEnter={(e) => { if (!active) { e.currentTarget.style.background = 'var(--surface-raised)'; e.currentTarget.style.color = 'var(--text)'; } }}
-            onMouseLeave={(e) => { if (!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-secondary)'; } }}
-          >
-            <span style={{ opacity: active ? 1 : 0.65, flexShrink: 0 }}>{icon}</span>
-            {label}
-          </Link>
-        );
-      })}
-    </aside>
+        {NAV_ITEMS.map(({ key, label, icon, exact }) => {
+          const active = isActive(key, exact);
+          return (
+            <Link
+              key={key}
+              href={href(key)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '0.5rem',
+                padding: '0.5rem 0.625rem',
+                borderRadius: 'var(--radius-sm)',
+                fontSize: '0.875rem',
+                fontWeight: active ? 600 : 450,
+                color: active ? 'var(--primary)' : 'var(--text-secondary)',
+                background: active ? 'color-mix(in srgb, var(--primary) 10%, transparent)' : 'transparent',
+                textDecoration: 'none',
+                transition: 'all 120ms',
+                borderLeft: active ? '2px solid var(--primary)' : '2px solid transparent',
+              }}
+              onMouseEnter={(e) => { if (!active) { e.currentTarget.style.background = 'var(--surface-raised)'; e.currentTarget.style.color = 'var(--text)'; } }}
+              onMouseLeave={(e) => { if (!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-secondary)'; } }}
+            >
+              <span style={{ opacity: active ? 1 : 0.65, flexShrink: 0 }}>{icon}</span>
+              {label}
+            </Link>
+          );
+        })}
+      </aside>
+
+      {/* ── Mobile horizontal tab strip ─────────────────────── */}
+      <nav className="company-sidebar-mobile" style={{
+        display: 'none',
+        overflowX: 'auto',
+        borderBottom: '1px solid var(--border)',
+        background: 'var(--bg-raised)',
+        padding: '0 0.75rem',
+        gap: '2px',
+        flexShrink: 0,
+        WebkitOverflowScrolling: 'touch',
+        scrollbarWidth: 'none',
+      }}>
+        <style>{`.company-sidebar-mobile::-webkit-scrollbar { display: none; }`}</style>
+        {NAV_ITEMS.map(({ key, label, exact }) => {
+          const active = isActive(key, exact);
+          return (
+            <Link
+              key={key}
+              href={href(key)}
+              style={{
+                display: 'inline-flex', alignItems: 'center',
+                padding: '0.625rem 0.75rem',
+                fontSize: '0.8125rem',
+                fontWeight: active ? 700 : 500,
+                color: active ? 'var(--primary)' : 'var(--text-secondary)',
+                textDecoration: 'none',
+                whiteSpace: 'nowrap',
+                borderBottom: active ? '2px solid var(--primary)' : '2px solid transparent',
+                transition: 'all 120ms',
+                flexShrink: 0,
+              }}
+            >
+              {label}
+            </Link>
+          );
+        })}
+      </nav>
+    </>
   );
 }

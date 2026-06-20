@@ -204,7 +204,7 @@ export default async function CompanyDashboardPage(
       </div>
 
       {latestMilestone && (
-        <div className="card" style={{ marginBottom: '1.25rem', display: 'flex', gap: '2.5rem', alignItems: 'center' }}>
+        <div className="card" style={{ marginBottom: '1.25rem', display: 'flex', gap: '2rem', alignItems: 'center', flexWrap: 'wrap' }}>
           <div>
             <p className="kpi-label">Avg Completion</p>
             <p className="kpi-value tabular">{Number(latestMilestone.average_completion_percent).toFixed(1)}%</p>

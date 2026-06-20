@@ -23,24 +23,6 @@ function IconTrophy({ size = 15 }: { size?: number }) {
     </svg>
   );
 }
-function IconSurvey({ size = 15 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-      <rect x="4" y="2" width="12" height="16" rx="1.5"/>
-      <path d="M7 7h6M7 10h6M7 13h4"/>
-    </svg>
-  );
-}
-function IconUsers({ size = 15 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-      <circle cx="7" cy="7" r="3" />
-      <path d="M1.5 16c0-3 2.5-4.75 5.5-4.75S12.5 13 12.5 16" />
-      <circle cx="14.25" cy="7.75" r="2.25" />
-      <path d="M12.5 16c0-2.3 1.8-3.75 4-3.75.6 0 1.16.1 1.65.28" />
-    </svg>
-  );
-}
 function IconSettings({ size = 15 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
@@ -57,13 +39,25 @@ function IconSignOut({ size = 14 }: { size?: number }) {
     </svg>
   );
 }
+function IconMenu({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" style={{ flexShrink: 0 }}>
+      <path d="M3 5h14M3 10h14M3 15h14"/>
+    </svg>
+  );
+}
+function IconClose({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" style={{ flexShrink: 0 }}>
+      <path d="M4 4l12 12M16 4L4 16"/>
+    </svg>
+  );
+}
 
 // ── Nav config ─────────────────────────────────────────────────────────────
 const mainLinks = [
   { href: '/',               label: 'Companies',   icon: <IconBuilding />, exact: true },
-  { href: '/learners',       label: 'Learners',    icon: <IconUsers /> },
   { href: '/leaderboard',    label: 'Leaderboard', icon: <IconTrophy /> },
-  { href: '/admin/surveys',  label: 'Surveys',     icon: <IconSurvey /> },
   { href: '/admin/settings', label: 'Settings',    icon: <IconSettings /> },
 ];
 
@@ -72,6 +66,7 @@ export default function TopNav() {
   const pathname = usePathname();
   const router   = useRouter();
   const [signingOut, setSigningOut] = useState(false);
+  const [menuOpen, setMenuOpen]     = useState(false);
 
   function isActive(href: string, exact?: boolean) {
     if (exact) return pathname === href;
@@ -81,13 +76,13 @@ export default function TopNav() {
 
   async function handleSignOut() {
     setSigningOut(true);
+    setMenuOpen(false);
     await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
     router.push('/admin/settings');
   }
 
   return (
     <header style={{ position: 'sticky', top: 0, zIndex: 50 }}>
-      {/* ── Primary nav ─────────────────────────────────────────────────── */}
       <nav style={{
         height: 54,
         background: 'var(--bg-raised)',
@@ -119,11 +114,11 @@ export default function TopNav() {
           </div>
         </Link>
 
-        {/* Separator */}
-        <div style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 0.25rem', flexShrink: 0 }} />
+        {/* Desktop separator */}
+        <div className="nav-sep-desktop" style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 0.25rem', flexShrink: 0 }} />
 
-        {/* Main links */}
-        <div style={{ display: 'flex', gap: '4px', flex: 1 }}>
+        {/* Desktop main links */}
+        <div className="nav-links-desktop" style={{ display: 'flex', gap: '4px', flex: 1 }}>
           {mainLinks.map(({ href, label, icon, exact }) => {
             const active = isActive(href, exact);
             return (
@@ -132,7 +127,7 @@ export default function TopNav() {
                 padding: '0.5rem 0.875rem',
                 borderRadius: 'var(--radius)',
                 fontSize: '0.9375rem',
-                fontWeight: active ? 650 : 500,
+                fontWeight: active ? 700 : 500,
                 color: active ? 'var(--text)' : 'var(--text-secondary)',
                 background: active ? 'var(--surface)' : 'transparent',
                 textDecoration: 'none',
@@ -150,8 +145,8 @@ export default function TopNav() {
           })}
         </div>
 
-        {/* Right side */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', flexShrink: 0 }}>
+        {/* Desktop right side */}
+        <div className="nav-right-desktop" style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', flexShrink: 0 }}>
           <ThemeToggle />
           <div style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 0.125rem' }} />
           <button
@@ -174,11 +169,86 @@ export default function TopNav() {
             onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}
           >
             <IconSignOut />
-            <span style={{ display: 'none' }} className="nav-sign-out-label">{signingOut ? 'Signing out…' : 'Sign out'}</span>
+            <span className="nav-sign-out-label">{signingOut ? 'Signing out…' : 'Sign out'}</span>
+          </button>
+        </div>
+
+        {/* Mobile: spacer + right controls */}
+        <div className="nav-mobile-right" style={{ display: 'none', alignItems: 'center', gap: '0.375rem', marginLeft: 'auto', flexShrink: 0 }}>
+          <ThemeToggle />
+          <button
+            onClick={() => setMenuOpen((v) => !v)}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: 36, height: 36, borderRadius: 'var(--radius)',
+              background: 'transparent', border: 'none',
+              color: 'var(--text-secondary)', cursor: 'pointer',
+            }}
+            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+          >
+            {menuOpen ? <IconClose /> : <IconMenu />}
           </button>
         </div>
       </nav>
 
+      {/* Mobile drawer */}
+      {menuOpen && (
+        <div
+          style={{
+            position: 'fixed', inset: '54px 0 0 0', zIndex: 49,
+            background: 'var(--bg-raised)',
+            borderTop: '1px solid var(--border)',
+            display: 'flex', flexDirection: 'column',
+            padding: '1rem',
+            gap: '2px',
+            overflowY: 'auto',
+          }}
+          className="nav-mobile-drawer"
+        >
+          {mainLinks.map(({ href, label, icon, exact }) => {
+            const active = isActive(href, exact);
+            return (
+              <Link
+                key={href}
+                href={href}
+                onClick={() => setMenuOpen(false)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '0.75rem',
+                  padding: '0.875rem 1rem',
+                  borderRadius: 'var(--radius)',
+                  fontSize: '1rem',
+                  fontWeight: active ? 700 : 500,
+                  color: active ? 'var(--primary)' : 'var(--text)',
+                  background: active ? 'color-mix(in srgb, var(--primary) 10%, transparent)' : 'transparent',
+                  textDecoration: 'none',
+                  borderLeft: active ? '3px solid var(--primary)' : '3px solid transparent',
+                }}
+              >
+                {React.cloneElement(icon as React.ReactElement<{ size?: number }>, { size: 20 })}
+                {label}
+              </Link>
+            );
+          })}
+
+          <div style={{ height: 1, background: 'var(--border)', margin: '0.75rem 0' }} />
+
+          <button
+            onClick={handleSignOut}
+            disabled={signingOut}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '0.75rem',
+              padding: '0.875rem 1rem',
+              borderRadius: 'var(--radius)',
+              background: 'transparent', border: 'none',
+              color: 'var(--text-secondary)', fontSize: '1rem', fontWeight: 500,
+              cursor: 'pointer', textAlign: 'left',
+            }}
+          >
+            <IconSignOut size={20} />
+            {signingOut ? 'Signing out…' : 'Sign out'}
+          </button>
+        </div>
+      )}
     </header>
   );
 }

@@ -148,13 +148,13 @@ export default function GlobalLeaderboardPage() {
         <>
           {/* Top 3 podium (only when not searching) */}
           {!search && top3.length >= 3 && (
-            <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.75rem', justifyContent: 'center', alignItems: 'flex-end' }}>
+            <div className="podium-row" style={{ marginBottom: '1.75rem', alignItems: 'flex-end' }}>
               {[top3[1], top3[0], top3[2]].map((r, podiumI) => {
                 const rank = podiumI === 0 ? 2 : podiumI === 1 ? 1 : 3;
                 const barH = rank === 1 ? 130 : rank === 2 ? 100 : 80;
                 const accent = rank === 1 ? 'var(--primary)' : rank === 2 ? 'rgba(148,163,184,0.4)' : 'rgba(180,120,70,0.35)';
                 return (
-                  <div key={r.learner_id} style={{ textAlign: 'center', flex: '0 0 160px' }}>
+                  <div key={r.learner_id} className="podium-card">
                     <div style={{ fontSize: rank === 1 ? '2.25rem' : '1.75rem', marginBottom: '0.25rem' }}>{MEDAL[rank - 1]}</div>
                     {r.company_slug ? (
                       <Link href={`/company/${r.company_slug}/learners/${r.learner_id}`} style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--primary)', textDecoration: 'none', display: 'block', marginBottom: '0.125rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', padding: '0 0.25rem' }}>

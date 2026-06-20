@@ -13,6 +13,7 @@ export async function GET(req: NextRequest) {
       q: searchParams.get('q') || '',
       courseId: searchParams.get('course_id') || '',
       status: searchParams.get('status') || 'all',
+      role: searchParams.get('role') || undefined,
       sortBy: searchParams.get('sort_by') || undefined,
       sortDir: (searchParams.get('sort_dir') as 'asc' | 'desc') || undefined,
       page: Number(searchParams.get('page') || '1'),
