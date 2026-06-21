@@ -52,7 +52,7 @@ const COMPANY_SESSION = {
 describe('middleware', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    process.env.NODE_ENV = 'test';
+    // NODE_ENV is read-only in TypeScript strict mode; it's already 'test' in vitest
     delete process.env.CRON_SECRET;
   });
 
