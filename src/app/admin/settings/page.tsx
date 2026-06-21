@@ -287,9 +287,8 @@ export default function AdminSettingsPage() {
             <img
               src="/chatwalrus_logo.jpeg"
               alt="ChatWalrus"
-              style={{ width: 72, height: 72, borderRadius: 12, objectFit: 'contain', background: 'white', marginBottom: '1rem', display: 'inline-block' }}
+              style={{ maxWidth: '200px', width: '100%', height: 'auto', borderRadius: 8, display: 'inline-block', marginBottom: '1rem' }}
             />
-            <h1 style={{ fontSize: '1.25rem', fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text)', margin: 0 }}>ChatWalrus CSM</h1>
             <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>Admin access</p>
           </div>
 
