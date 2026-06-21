@@ -23,6 +23,13 @@ function IconTrophy({ size = 15 }: { size?: number }) {
     </svg>
   );
 }
+function IconUsers({ size = 15 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+      <circle cx="7" cy="7" r="3"/><path d="M1 17c0-3.314 2.686-5 6-5"/><circle cx="14" cy="8" r="2.5"/><path d="M12 17c0-2.761 2.015-4 4.5-4S21 14.239 21 17"/>
+    </svg>
+  );
+}
 function IconSettings({ size = 15 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
@@ -57,6 +64,7 @@ function IconClose({ size = 20 }: { size?: number }) {
 // ── Nav config ─────────────────────────────────────────────────────────────
 const mainLinks = [
   { href: '/',               label: 'Companies',   icon: <IconBuilding />, exact: true },
+  { href: '/learners',       label: 'Learners',    icon: <IconUsers /> },
   { href: '/leaderboard',    label: 'Leaderboard', icon: <IconTrophy /> },
   { href: '/admin/settings', label: 'Settings',    icon: <IconSettings /> },
 ];

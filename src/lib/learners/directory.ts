@@ -6,18 +6,21 @@ import type { LearnerStatus } from '@/types/learner';
 import { isMissingRelationError } from '@/lib/utils/db';
 import { readThroughTtlCache } from '@/lib/cache/serverCache';
 
-// Normalize role title to standard category (8 categories)
-export function normalizeRole(title: string | null): string {
-  const rawTitle = title || '';
+// Normalize role title to standard category (9 categories)
+// Falls back to `department` when `title` is null.
+export function normalizeRole(title: string | null, department?: string | null): string {
+  const rawTitle = title || department || '';
 
   if (/finance|accounting|controller|treasurer|audit|fp&a/i.test(rawTitle)) {
     return 'Finance';
+  } else if (/\bsales\b|account executive|account manager|business development|revenue|bdr|sdr|closing|quota/i.test(rawTitle)) {
+    return 'Sales';
   } else if (/marketing|brand|growth|ecomm|ecommerce|digital|demand gen|seo|social/i.test(rawTitle)) {
     return 'Marketing';
-  } else if (/operations|supply chain|logistics|procurement|ops|warehouse|fulfillment/i.test(rawTitle)) {
-    return 'Operations';
-  } else if (/\bhr\b|human resources|people|talent|recruiting|recruitment/i.test(rawTitle)) {
+  } else if (/\bhr\b|human resources|people operations|people ops|talent|recruiting|recruitment/i.test(rawTitle)) {
     return 'HR';
+  } else if (/\boperations\b|supply chain|logistics|procurement|\bops\b|warehouse|fulfillment/i.test(rawTitle)) {
+    return 'Operations';
   } else if (/\bit\b|tech|technology|engineer|developer|software|data|analyst|systems/i.test(rawTitle)) {
     return 'IT';
   } else if (/creative|design|content|copywriter|video|photo|graphic|ux|ui/i.test(rawTitle)) {
@@ -147,7 +150,7 @@ async function getRoleOptionsWithCounts(companyId?: string | null): Promise<Role
   try {
     let query = db
       .from('learner_directory_rollups')
-      .select('title');
+      .select('title, department');
 
     if (companyId) {
       query = query.eq('company_id', companyId);
@@ -157,15 +160,13 @@ async function getRoleOptionsWithCounts(companyId?: string | null): Promise<Role
     if (error && !isMissingRelationError(error)) throw error;
 
     if (data && data.length > 0) {
-      // Normalize roles client-side with expanded categories
       const roleCounts = new Map<string, number>();
-      for (const row of data as Array<{ title: string | null }>) {
-        const role = normalizeRole(row.title);
+      for (const row of data as Array<{ title: string | null; department: string | null }>) {
+        const role = normalizeRole(row.title, row.department);
         roleCounts.set(role, (roleCounts.get(role) || 0) + 1);
       }
 
-      // Return in priority order
-      const roleOrder = ['Finance', 'Marketing', 'Operations', 'HR', 'IT', 'Creative', 'Product', 'Other'];
+      const roleOrder = ['Finance', 'Sales', 'Marketing', 'Operations', 'HR', 'IT', 'Creative', 'Product', 'Other'];
       return roleOrder
         .map(role => ({ role, learner_count: roleCounts.get(role) || 0 }))
         .filter(r => r.learner_count > 0);
@@ -177,7 +178,7 @@ async function getRoleOptionsWithCounts(companyId?: string | null): Promise<Role
   // Fallback to learners table
   let query = db
     .from('learners')
-    .select('title')
+    .select('title, department')
     .eq('is_active', true);
 
   if (companyId) {
@@ -187,16 +188,13 @@ async function getRoleOptionsWithCounts(companyId?: string | null): Promise<Role
   const { data, error } = await query;
   if (error) throw error;
 
-  // Group by normalized role with expanded categories
   const roleCounts = new Map<string, number>();
-
-  for (const row of (data || []) as Array<{ title: string | null }>) {
-    const role = normalizeRole(row.title);
+  for (const row of (data || []) as Array<{ title: string | null; department: string | null }>) {
+    const role = normalizeRole(row.title, row.department);
     roleCounts.set(role, (roleCounts.get(role) || 0) + 1);
   }
 
-  // Return in priority order
-  const roleOrder = ['Finance', 'Marketing', 'Operations', 'HR', 'IT', 'Creative', 'Product', 'Other'];
+  const roleOrder = ['Finance', 'Sales', 'Marketing', 'Operations', 'HR', 'IT', 'Creative', 'Product', 'Other'];
   return roleOrder
     .map(role => ({ role, learner_count: roleCounts.get(role) || 0 }))
     .filter(r => r.learner_count > 0);
@@ -294,14 +292,14 @@ function applyDirectoryQueryFilters(
   if (filters.role && filters.role !== 'all') {
     // Map normalized role to title patterns (expanded categories)
     const rolePatterns: Record<string, string> = {
-      'Finance': 'title.ilike.%finance%,title.ilike.%accounting%,title.ilike.%controller%,title.ilike.%treasurer%,title.ilike.%audit%',
-      'Marketing': 'title.ilike.%marketing%,title.ilike.%brand%,title.ilike.%growth%,title.ilike.%ecomm%,title.ilike.%digital%,title.ilike.%seo%,title.ilike.%social%',
-      'Operations': 'title.ilike.%operations%,title.ilike.%supply chain%,title.ilike.%logistics%,title.ilike.%procurement%,title.ilike.%ops%,title.ilike.%warehouse%',
-      'HR': 'title.ilike.%hr%,title.ilike.%human resources%,title.ilike.%people%,title.ilike.%talent%,title.ilike.%recruiting%',
-      'IT': 'title.ilike.%it%,title.ilike.%tech%,title.ilike.%engineer%,title.ilike.%developer%,title.ilike.%software%,title.ilike.%data%,title.ilike.%analyst%',
-      'Creative': 'title.ilike.%creative%,title.ilike.%design%,title.ilike.%content%,title.ilike.%copywriter%,title.ilike.%video%,title.ilike.%photo%,title.ilike.%graphic%,title.ilike.%ux%,title.ilike.%ui%',
-      'Product': 'title.ilike.%product%,title.ilike.%pm%,title.ilike.%product manager%,title.ilike.%product owner%',
-      'Other': 'title.not.ilike.%finance%,title.not.ilike.%marketing%,title.not.ilike.%operations%,title.not.ilike.%hr%,title.not.ilike.%it%,title.not.ilike.%creative%,title.not.ilike.%product%,title.not.ilike.%supply%,title.not.ilike.%ecomm%',
+      'Finance':    'title.ilike.%finance%,title.ilike.%accounting%,title.ilike.%controller%,title.ilike.%treasurer%,title.ilike.%audit%,department.ilike.%finance%,department.ilike.%accounting%',
+      'Sales':      'title.ilike.%sales%,title.ilike.%account executive%,title.ilike.%account manager%,title.ilike.%business development%,title.ilike.%bdr%,title.ilike.%sdr%,department.ilike.%sales%,department.ilike.%business development%',
+      'Marketing':  'title.ilike.%marketing%,title.ilike.%brand%,title.ilike.%growth%,title.ilike.%ecomm%,title.ilike.%digital%,title.ilike.%seo%,title.ilike.%social%,department.ilike.%marketing%,department.ilike.%ecomm%',
+      'Operations': 'title.ilike.%operations%,title.ilike.%supply chain%,title.ilike.%logistics%,title.ilike.%procurement%,title.ilike.%ops%,title.ilike.%warehouse%,department.ilike.%operations%,department.ilike.%logistics%',
+      'HR':         'title.ilike.%human resources%,title.ilike.%talent%,title.ilike.%recruiting%,department.ilike.%hr%,department.ilike.%human resources%,department.ilike.%people%,department.ilike.%talent%',
+      'IT':         'title.ilike.%tech%,title.ilike.%engineer%,title.ilike.%developer%,title.ilike.%software%,title.ilike.%analyst%,title.ilike.%systems%,department.ilike.%tech%,department.ilike.%it%,department.ilike.%engineering%',
+      'Creative':   'title.ilike.%creative%,title.ilike.%design%,title.ilike.%content%,title.ilike.%copywriter%,title.ilike.%video%,title.ilike.%graphic%,title.ilike.%ux%,department.ilike.%creative%,department.ilike.%design%',
+      'Product':    'title.ilike.%product%,title.ilike.%product manager%,title.ilike.%product owner%,department.ilike.%product%',
     };
 
     const pattern = rolePatterns[filters.role];

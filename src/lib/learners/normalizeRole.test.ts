@@ -17,6 +17,29 @@ describe('normalizeRole', () => {
     expect(normalizeRole('')).toBe('Other');
   });
 
+  it('falls back to department when title is null', () => {
+    expect(normalizeRole(null, 'Sales')).toBe('Sales');
+    expect(normalizeRole(null, 'Operations')).toBe('Operations');
+    expect(normalizeRole(null, 'Finance')).toBe('Finance');
+  });
+
+  it('prefers title over department', () => {
+    expect(normalizeRole('Marketing Manager', 'Sales')).toBe('Marketing');
+  });
+
+  describe('Sales', () => {
+    it.each([
+      'Sales Manager',
+      'Account Executive',
+      'Account Manager',
+      'Business Development Rep',
+      'SDR',
+      'BDR',
+    ])('maps "%s" → Sales', (title) => {
+      expect(normalizeRole(title)).toBe('Sales');
+    });
+  });
+
   describe('Finance', () => {
     it.each([
       'Finance Manager',
@@ -59,7 +82,7 @@ describe('normalizeRole', () => {
     it.each([
       'HR Business Partner',
       'Human Resources Manager',
-      'Head of People',
+      'People Operations Manager',
       'Talent Acquisition',
       'Recruiting Manager',
     ])('maps "%s" → HR', (title) => {
@@ -108,7 +131,7 @@ describe('normalizeRole', () => {
       'CEO',
       'Executive Assistant',
       'Office Manager',
-      'Sales Representative',
+      'Receptionist',
     ])('maps "%s" → Other', (title) => {
       expect(normalizeRole(title)).toBe('Other');
     });
