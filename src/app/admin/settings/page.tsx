@@ -117,8 +117,6 @@ export default function AdminSettingsPage() {
   const [settingsStatus,setSettingsStatus]= useState<SettingsStatusResponse | null>(null);
   const [statusError,   setStatusError]   = useState<string | null>(null);
   const [statusLoaded,  setStatusLoaded]  = useState(false);
-  const [authMessage,   setAuthMessage]   = useState<string | null>(null);
-  const [authLoading,   setAuthLoading]   = useState(false);
   const [passcodes,     setPasscodes]     = useState<Passcode[]>([]);
   const [companiesMap,  setCompaniesMap]  = useState<Record<string, string>>({});
   const [passcodesLoading, setPasscodesLoading] = useState(false);
@@ -205,19 +203,6 @@ export default function AdminSettingsPage() {
     setLoading((prev) => ({ ...prev, [type]: false }));
   }
 
-  async function logout() {
-    setAuthLoading(true); setAuthMessage(null);
-    try {
-      await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
-      // Immediately reflect logged-out state — no second status fetch needed
-      setSettingsStatus(prev =>
-        prev ? { ...prev, auth: { ...prev.auth, authenticated: false, role: null, expires_at: null } } : null
-      );
-      setPasscodes([]);
-    } catch { setAuthMessage('Logout request failed'); }
-    setAuthLoading(false);
-  }
-
   const isAuthenticated = !!settingsStatus?.auth.authenticated;
 
   // While auth status is loading — show spinner, then redirect if not authenticated
@@ -244,32 +229,6 @@ export default function AdminSettingsPage() {
     <PageShell>
       <div className="page-header" style={{ marginBottom: '1.5rem' }}>
         <h1 className="page-title">Settings</h1>
-      </div>
-
-      {/* Auth Card — session info + logout */}
-      <div className="card" style={{ marginBottom: '1rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-          <h2 style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text)' }}>Admin Access</h2>
-          <span className="badge badge-success">Active Session</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
-          <div>
-            <p style={{ fontSize: '0.875rem', fontWeight: 500 }}>Logged in as admin</p>
-            {settingsStatus?.auth.expires_at && (
-              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.125rem' }}>
-                Expires {new Date(settingsStatus.auth.expires_at).toLocaleString()}
-              </p>
-            )}
-          </div>
-          <button className="btn btn-secondary btn-sm" disabled={authLoading} onClick={logout}>
-            {authLoading ? 'Working...' : 'Log Out'}
-          </button>
-        </div>
-        {authMessage && (
-          <p style={{ fontSize: '0.75rem', color: authMessage === 'Logged out' ? 'var(--warning)' : 'var(--danger)', marginTop: '0.75rem' }}>
-            {authMessage}
-          </p>
-        )}
       </div>
 
       {/* Sync Card */}
