@@ -6,11 +6,20 @@ import {
   setAdminSessionCookie,
   verifyAdminPasscode,
 } from '@/lib/auth/session';
+import { checkRateLimit, recordFailedAttempt, clearRateLimit } from '@/lib/auth/rateLimit';
 import { withServerTiming } from '@/lib/perf';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 export async function POST(req: NextRequest) {
   return withServerTiming('auth.login.post', async () => {
+    const rl = checkRateLimit(req);
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: `Too many attempts — try again in ${Math.ceil(rl.retryAfterMs / 1000)}s` },
+        { status: 429 }
+      );
+    }
+
     if (!isAdminAuthConfigured()) {
       return NextResponse.json({ error: 'Admin auth not configured' }, { status: 503 });
     }
@@ -35,6 +44,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Admin auth not configured' }, { status: 503 });
       }
 
+      clearRateLimit(req);
       const response = NextResponse.json({
         authenticated: true,
         role: sessionToken.session.role,
@@ -60,6 +70,7 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (error || !passcodeRecord || !passcodeRecord.company_id) {
+      recordFailedAttempt(req);
       return NextResponse.json({ error: 'Invalid passcode' }, { status: 401 });
     }
 
@@ -71,6 +82,7 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
     const companySlug = company?.slug;
     if (!companySlug) {
+      recordFailedAttempt(req);
       return NextResponse.json({ error: 'Company not found' }, { status: 401 });
     }
 
@@ -83,6 +95,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Session creation failed' }, { status: 503 });
     }
 
+    clearRateLimit(req);
     const response = NextResponse.json({
       authenticated: true,
       role: sessionToken.session.role,
