@@ -74,7 +74,7 @@ export default function GlobalLeaderboardPage() {
           <h1 className="page-title">Global Leaderboard</h1>
           <p className="page-subtitle">Top learners across all companies ranked by engagement points</p>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           <button
             onClick={() => setShowLegend(v => !v)}
             className="btn btn-secondary btn-sm"
@@ -123,7 +123,7 @@ export default function GlobalLeaderboardPage() {
       )}
 
       {/* Search */}
-      <div style={{ position: 'relative', maxWidth: 380, marginBottom: '1.25rem' }}>
+      <div style={{ position: 'relative', maxWidth: 380, width: '100%', marginBottom: '1.25rem' }}>
         <svg style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }}
           width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
@@ -191,13 +191,14 @@ export default function GlobalLeaderboardPage() {
             </div>
           )}
 
-          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div className="card" style={{ padding: 0, overflowX: 'auto' }}>
             {/* Mini legend strip above table */}
             {!showLegend && (
               <div style={{
                 padding: '0.5rem 1rem', borderBottom: '1px solid var(--border)',
                 background: 'var(--surface-raised)',
                 display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap',
+                minWidth: 0,
               }}>
                 <span style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Points key:</span>
                 {POINT_LEGEND.map(({ icon, pts }) => (

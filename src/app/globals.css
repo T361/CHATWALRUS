@@ -867,6 +867,28 @@ a { color: inherit; text-decoration: none; }
 }
 
 /* ============================================================
+   MOBILE — leaderboard & learner pages
+   ============================================================ */
+
+@media (max-width: 767px) {
+  /* Leaderboard: ensure table card scrolls horizontally */
+  .card[style*="overflow"] {
+    overflow-x: auto !important;
+  }
+
+  /* Ensure select and input elements are tall enough for touch */
+  select, input[type="text"] {
+    min-height: 2.5rem;
+  }
+
+  /* Learner directory: pagination row stacks on very small screens */
+  .learner-pagination {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+/* ============================================================
    TABLET — 768px–1023px
    ============================================================ */
 

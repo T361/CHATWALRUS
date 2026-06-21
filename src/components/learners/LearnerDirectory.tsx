@@ -384,12 +384,12 @@ export default function LearnerDirectory({
           placeholder="Search learner name or email..."
           value={localSearch}
           onChange={(event) => setLocalSearch(event.target.value)}
-          style={{ flex: 1, minWidth: '220px' }}
+          style={{ flex: '1 1 200px', minWidth: 0 }}
         />
         <select
           value={courseFilter}
           onChange={(event) => updateFilters({ course_id: event.target.value || null, page: 1 })}
-          style={{ minWidth: '220px' }}
+          style={{ flex: '1 1 180px', minWidth: 0 }}
           disabled={metaLoading}
         >
           <option value="">All Courses</option>
@@ -403,7 +403,7 @@ export default function LearnerDirectory({
           <select
             value={roleFilter}
             onChange={(event) => updateFilters({ role: event.target.value || null, page: 1 })}
-            style={{ minWidth: '160px' }}
+            style={{ flex: '1 1 140px', minWidth: 0 }}
             disabled={metaLoading}
           >
             <option value="">All Roles</option>
@@ -417,7 +417,7 @@ export default function LearnerDirectory({
         <select
           value={statusFilter}
           onChange={(event) => updateFilters({ status: event.target.value, page: 1 })}
-          style={{ minWidth: '170px' }}
+          style={{ flex: '1 1 150px', minWidth: 0 }}
         >
           <option value="all">All Statuses</option>
           <option value="not_started">Not Started</option>
@@ -429,7 +429,7 @@ export default function LearnerDirectory({
         <select
           value={String(limit)}
           onChange={(event) => updateFilters({ limit: Number(event.target.value), page: 1 })}
-          style={{ minWidth: '110px' }}
+          style={{ flex: '0 0 auto', minWidth: '100px' }}
         >
           <option value="25">25 / page</option>
           <option value="50">50 / page</option>
