@@ -143,6 +143,20 @@ async function getCourseOptionsFromReadModel(companyId?: string | null): Promise
   }));
 }
 
+// Canonical display order for normalized role categories
+const ROLE_ORDER = ['Finance', 'Sales', 'Marketing', 'Operations', 'HR', 'IT', 'Creative', 'Product', 'Other'] as const;
+
+function buildRoleOptions(rows: Array<{ title: string | null; department: string | null }>): RoleFilterOption[] {
+  const roleCounts = new Map<string, number>();
+  for (const row of rows) {
+    const role = normalizeRole(row.title, row.department);
+    roleCounts.set(role, (roleCounts.get(role) || 0) + 1);
+  }
+  return ROLE_ORDER
+    .map(role => ({ role, learner_count: roleCounts.get(role) || 0 }))
+    .filter(r => r.learner_count > 0);
+}
+
 async function getRoleOptionsWithCounts(companyId?: string | null): Promise<RoleFilterOption[]> {
   const db = createAdminClient();
 
@@ -160,16 +174,7 @@ async function getRoleOptionsWithCounts(companyId?: string | null): Promise<Role
     if (error && !isMissingRelationError(error)) throw error;
 
     if (data && data.length > 0) {
-      const roleCounts = new Map<string, number>();
-      for (const row of data as Array<{ title: string | null; department: string | null }>) {
-        const role = normalizeRole(row.title, row.department);
-        roleCounts.set(role, (roleCounts.get(role) || 0) + 1);
-      }
-
-      const roleOrder = ['Finance', 'Sales', 'Marketing', 'Operations', 'HR', 'IT', 'Creative', 'Product', 'Other'];
-      return roleOrder
-        .map(role => ({ role, learner_count: roleCounts.get(role) || 0 }))
-        .filter(r => r.learner_count > 0);
+      return buildRoleOptions(data as Array<{ title: string | null; department: string | null }>);
     }
   } catch (error) {
     if (!isMissingRelationError(error)) throw error;
@@ -188,16 +193,7 @@ async function getRoleOptionsWithCounts(companyId?: string | null): Promise<Role
   const { data, error } = await query;
   if (error) throw error;
 
-  const roleCounts = new Map<string, number>();
-  for (const row of (data || []) as Array<{ title: string | null; department: string | null }>) {
-    const role = normalizeRole(row.title, row.department);
-    roleCounts.set(role, (roleCounts.get(role) || 0) + 1);
-  }
-
-  const roleOrder = ['Finance', 'Sales', 'Marketing', 'Operations', 'HR', 'IT', 'Creative', 'Product', 'Other'];
-  return roleOrder
-    .map(role => ({ role, learner_count: roleCounts.get(role) || 0 }))
-    .filter(r => r.learner_count > 0);
+  return buildRoleOptions((data || []) as Array<{ title: string | null; department: string | null }>);
 }
 
 async function addLearnerCountsToCourses(
