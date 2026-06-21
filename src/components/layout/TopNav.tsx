@@ -96,7 +96,7 @@ export default function TopNav() {
     setMenuOpen(false);
     await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
     // Hard navigation ensures the settings page fully remounts with a fresh auth check
-    window.location.assign('/admin/settings');
+    window.location.assign('/login');
   }
 
   return (

@@ -63,9 +63,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid passcode' }, { status: 401 });
     }
 
-    // Type guard for companies relation (Supabase returns as array)
-    const companies = passcodeRecord.companies as { slug: string }[] | null;
-    const companySlug = companies?.[0]?.slug;
+    // Fetch company slug separately — avoids PostgREST join type ambiguity
+    const { data: company } = await db
+      .from('companies')
+      .select('slug')
+      .eq('id', passcodeRecord.company_id)
+      .maybeSingle();
+    const companySlug = company?.slug;
     if (!companySlug) {
       return NextResponse.json({ error: 'Company not found' }, { status: 401 });
     }

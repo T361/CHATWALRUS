@@ -7,21 +7,6 @@ import { useRouter } from 'next/navigation';
 import type { Passcode } from '@/types/alert';
 import { logClientTiming } from '@/lib/perf-client';
 
-function EyeIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M1 10s3.5-7 9-7 9 7 9 7-3.5 7-9 7-9-7-9-7z"/><circle cx="10" cy="10" r="3"/>
-    </svg>
-  );
-}
-function EyeOffIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 3l14 14M8.5 8.6A3 3 0 0 0 13 13.4"/><path d="M6 5.3C3.6 6.8 2 9 2 10s3 7 8 7c1.5 0 2.9-.4 4-1.1M10 3c5 0 8 6 8 7 0 .5-.4 1.5-1.1 2.6"/>
-    </svg>
-  );
-}
-
 interface SettingsStatusResponse {
   auth: {
     authenticated: boolean;
@@ -132,8 +117,6 @@ export default function AdminSettingsPage() {
   const [settingsStatus,setSettingsStatus]= useState<SettingsStatusResponse | null>(null);
   const [statusError,   setStatusError]   = useState<string | null>(null);
   const [statusLoaded,  setStatusLoaded]  = useState(false);
-  const [passcode,      setPasscode]      = useState('');
-  const [showPassword,  setShowPassword]  = useState(false);
   const [authMessage,   setAuthMessage]   = useState<string | null>(null);
   const [authLoading,   setAuthLoading]   = useState(false);
   const [passcodes,     setPasscodes]     = useState<Passcode[]>([]);
@@ -222,34 +205,6 @@ export default function AdminSettingsPage() {
     setLoading((prev) => ({ ...prev, [type]: false }));
   }
 
-  async function login() {
-    setAuthLoading(true); setAuthMessage(null);
-    const startedAt = performance.now();
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST', credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ passcode }),
-      });
-      const data = await res.json();
-      if (!res.ok) { setAuthMessage(data.error || 'Login failed'); }
-      else {
-        setPasscode('');
-        logClientTiming('settings.login.submit', performance.now() - startedAt);
-        const redirect = new URLSearchParams(window.location.search).get('redirect');
-        if (redirect) {
-          router.push(redirect);
-        } else {
-          // Stay on settings — load the full admin panel in place
-          await loadSettingsStatus();
-          void loadIntegrationProbes();
-          void loadPasscodes();
-        }
-      }
-    } catch { setAuthMessage('Login request failed'); }
-    setAuthLoading(false);
-  }
-
   async function logout() {
     setAuthLoading(true); setAuthMessage(null);
     try {
@@ -265,7 +220,7 @@ export default function AdminSettingsPage() {
 
   const isAuthenticated = !!settingsStatus?.auth.authenticated;
 
-  // While auth status is loading — show nothing (prevents flash of full admin panel)
+  // While auth status is loading — show spinner, then redirect if not authenticated
   if (!statusLoaded) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -274,66 +229,12 @@ export default function AdminSettingsPage() {
     );
   }
 
-  // Not authenticated — show only the centered login card
+  // Not authenticated — send to the unified login page
   if (!isAuthenticated) {
+    router.replace('/login?mode=admin&redirect=/admin/settings');
     return (
-      <div style={{
-        minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: 'var(--bg)', padding: '1.5rem',
-      }}>
-        <div className="card" style={{ width: '100%', maxWidth: '360px', padding: '2rem' }}>
-          <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-            <h1 style={{ fontSize: '2rem', fontWeight: 800, letterSpacing: '-0.04em', color: 'var(--text)', margin: '0 0 0.375rem' }}>
-              ChatWalrus
-            </h1>
-            <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', margin: 0 }}>Admin access</p>
-          </div>
-
-          {settingsStatus?.auth.configured === false ? (
-            <p style={{ fontSize: '0.8125rem', color: 'var(--warning)' }}>
-              Auth not configured — set APP_SESSION_SECRET and ADMIN_PASSCODE_SECRET.
-            </p>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              <div style={{ position: 'relative' }}>
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={passcode}
-                  onChange={(e) => setPasscode(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && passcode && login()}
-                  placeholder="Passcode"
-                  style={{ width: '100%', paddingRight: '2.5rem' }}
-                  autoFocus
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(v => !v)}
-                  style={{
-                    position: 'absolute', right: '0.625rem', top: '50%', transform: 'translateY(-50%)',
-                    background: 'none', border: 'none', cursor: 'pointer',
-                    color: 'var(--text-muted)', padding: '0.25rem', lineHeight: 1, display: 'flex',
-                  }}
-                  aria-label={showPassword ? 'Hide' : 'Show'}
-                >
-                  {showPassword ? <EyeOffIcon /> : <EyeIcon />}
-                </button>
-              </div>
-
-              {authMessage && (
-                <p style={{ fontSize: '0.75rem', color: 'var(--danger)', margin: 0 }}>{authMessage}</p>
-              )}
-
-              <button
-                className="btn btn-primary"
-                disabled={authLoading || !passcode}
-                onClick={login}
-                style={{ width: '100%' }}
-              >
-                {authLoading ? 'Verifying...' : 'Sign In'}
-              </button>
-            </div>
-          )}
-        </div>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <span className="spinner" />
       </div>
     );
   }
