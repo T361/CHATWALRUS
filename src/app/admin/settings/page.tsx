@@ -282,14 +282,11 @@ export default function AdminSettingsPage() {
         background: 'var(--bg)', padding: '1.5rem',
       }}>
         <div className="card" style={{ width: '100%', maxWidth: '360px', padding: '2rem' }}>
-          <div style={{ marginBottom: '2rem' }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/chatwalrus_logo.jpeg"
-              alt="ChatWalrus"
-              style={{ display: 'block', width: 140, height: 140, objectFit: 'contain', borderRadius: 16, background: 'white', margin: '0 auto 1rem' }}
-            />
-            <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', textAlign: 'center' }}>Admin access</p>
+          <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+            <h1 style={{ fontSize: '2rem', fontWeight: 800, letterSpacing: '-0.04em', color: 'var(--text)', margin: '0 0 0.375rem' }}>
+              ChatWalrus
+            </h1>
+            <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', margin: 0 }}>Admin access</p>
           </div>
 
           {settingsStatus?.auth.configured === false ? (
