@@ -7,6 +7,21 @@ import { useRouter } from 'next/navigation';
 import type { Passcode } from '@/types/alert';
 import { logClientTiming } from '@/lib/perf-client';
 
+function EyeIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M1 10s3.5-7 9-7 9 7 9 7-3.5 7-9 7-9-7-9-7z"/><circle cx="10" cy="10" r="3"/>
+    </svg>
+  );
+}
+function EyeOffIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 3l14 14M8.5 8.6A3 3 0 0 0 13 13.4"/><path d="M6 5.3C3.6 6.8 2 9 2 10s3 7 8 7c1.5 0 2.9-.4 4-1.1M10 3c5 0 8 6 8 7 0 .5-.4 1.5-1.1 2.6"/>
+    </svg>
+  );
+}
+
 interface SettingsStatusResponse {
   auth: {
     authenticated: boolean;
@@ -221,8 +236,15 @@ export default function AdminSettingsPage() {
       else {
         setPasscode('');
         logClientTiming('settings.login.submit', performance.now() - startedAt);
-        const redirect = new URLSearchParams(window.location.search).get('redirect') || '/learners';
-        router.push(redirect);
+        const redirect = new URLSearchParams(window.location.search).get('redirect');
+        if (redirect) {
+          router.push(redirect);
+        } else {
+          // Stay on settings — load the full admin panel in place
+          await loadSettingsStatus();
+          void loadIntegrationProbes();
+          void loadPasscodes();
+        }
       }
     } catch { setAuthMessage('Login request failed'); }
     setAuthLoading(false);
@@ -232,75 +254,122 @@ export default function AdminSettingsPage() {
     setAuthLoading(true); setAuthMessage(null);
     try {
       await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
-      setAuthMessage('Logged out');
+      // Immediately reflect logged-out state — no second status fetch needed
+      setSettingsStatus(prev =>
+        prev ? { ...prev, auth: { ...prev.auth, authenticated: false, role: null, expires_at: null } } : null
+      );
       setPasscodes([]);
-      await loadSettingsStatus();
     } catch { setAuthMessage('Logout request failed'); }
     setAuthLoading(false);
   }
 
   const isAuthenticated = !!settingsStatus?.auth.authenticated;
 
+  // While auth status is loading — show nothing (prevents flash of full admin panel)
+  if (!statusLoaded) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <span className="spinner" />
+      </div>
+    );
+  }
+
+  // Not authenticated — show only the centered login card
+  if (!isAuthenticated) {
+    return (
+      <div style={{
+        minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'var(--bg)', padding: '1.5rem',
+      }}>
+        <div className="card" style={{ width: '100%', maxWidth: '360px', padding: '2rem' }}>
+          <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/chatwalrus_logo.jpeg"
+              alt="ChatWalrus"
+              style={{ width: 72, height: 72, borderRadius: 12, objectFit: 'contain', background: 'white', marginBottom: '1rem', display: 'inline-block' }}
+            />
+            <h1 style={{ fontSize: '1.25rem', fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text)', margin: 0 }}>ChatWalrus CSM</h1>
+            <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>Admin access</p>
+          </div>
+
+          {settingsStatus?.auth.configured === false ? (
+            <p style={{ fontSize: '0.8125rem', color: 'var(--warning)' }}>
+              Auth not configured — set APP_SESSION_SECRET and ADMIN_PASSCODE_SECRET.
+            </p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={passcode}
+                  onChange={(e) => setPasscode(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && passcode && login()}
+                  placeholder="Passcode"
+                  style={{ width: '100%', paddingRight: '2.5rem' }}
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(v => !v)}
+                  style={{
+                    position: 'absolute', right: '0.625rem', top: '50%', transform: 'translateY(-50%)',
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    color: 'var(--text-muted)', padding: '0.25rem', lineHeight: 1, display: 'flex',
+                  }}
+                  aria-label={showPassword ? 'Hide' : 'Show'}
+                >
+                  {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+                </button>
+              </div>
+
+              {authMessage && (
+                <p style={{ fontSize: '0.75rem', color: 'var(--danger)', margin: 0 }}>{authMessage}</p>
+              )}
+
+              <button
+                className="btn btn-primary"
+                disabled={authLoading || !passcode}
+                onClick={login}
+                style={{ width: '100%' }}
+              >
+                {authLoading ? 'Verifying...' : 'Sign In'}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Authenticated — full admin panel
   return (
     <PageShell>
       <div className="page-header" style={{ marginBottom: '1.5rem' }}>
         <h1 className="page-title">Settings</h1>
       </div>
 
-      {/* Auth Card */}
+      {/* Auth Card — session info + logout */}
       <div className="card" style={{ marginBottom: '1rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
           <h2 style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text)' }}>Admin Access</h2>
-          {isAuthenticated && <span className="badge badge-success">Active Session</span>}
+          <span className="badge badge-success">Active Session</span>
         </div>
-
-        {settingsStatus?.auth.configured === false ? (
-          <p style={{ fontSize: '0.8125rem', color: 'var(--warning)' }}>
-            Auth not configured — set APP_SESSION_SECRET and ADMIN_PASSCODE_SECRET.
-          </p>
-        ) : isAuthenticated ? (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
-            <div>
-              <p style={{ fontSize: '0.875rem', fontWeight: 500 }}>Logged in as admin</p>
-              {settingsStatus?.auth.expires_at && (
-                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.125rem' }}>
-                  Expires {new Date(settingsStatus.auth.expires_at).toLocaleString()}
-                </p>
-              )}
-            </div>
-            <button className="btn btn-secondary btn-sm" disabled={authLoading} onClick={logout}>
-              {authLoading ? 'Working...' : 'Log Out'}
-            </button>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
+          <div>
+            <p style={{ fontSize: '0.875rem', fontWeight: 500 }}>Logged in as admin</p>
+            {settingsStatus?.auth.expires_at && (
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.125rem' }}>
+                Expires {new Date(settingsStatus.auth.expires_at).toLocaleString()}
+              </p>
+            )}
           </div>
-        ) : (
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.75rem', flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem', minWidth: '240px' }}>
-              <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Admin Passcode</span>
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={passcode}
-                onChange={(e) => setPasscode(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && passcode && login()}
-                placeholder="Enter passcode"
-              />
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', cursor: 'pointer', userSelect: 'none' }}>
-                <input
-                  type="checkbox"
-                  checked={showPassword}
-                  onChange={(e) => setShowPassword(e.target.checked)}
-                  style={{ width: 13, height: 13, cursor: 'pointer', accentColor: 'var(--primary)' }}
-                />
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Show password</span>
-              </label>
-            </div>
-            <button className="btn btn-primary" disabled={authLoading || !passcode} onClick={login} style={{ marginBottom: '1.375rem' }}>
-              {authLoading ? 'Verifying...' : 'Log In'}
-            </button>
-          </div>
-        )}
-
+          <button className="btn btn-secondary btn-sm" disabled={authLoading} onClick={logout}>
+            {authLoading ? 'Working...' : 'Log Out'}
+          </button>
+        </div>
         {authMessage && (
-          <p style={{ fontSize: '0.75rem', color: authMessage.includes('active') || authMessage.includes('Session') ? 'var(--success)' : authMessage === 'Logged out' ? 'var(--warning)' : 'var(--danger)', marginTop: '0.75rem' }}>
+          <p style={{ fontSize: '0.75rem', color: authMessage === 'Logged out' ? 'var(--warning)' : 'var(--danger)', marginTop: '0.75rem' }}>
             {authMessage}
           </p>
         )}
@@ -308,12 +377,7 @@ export default function AdminSettingsPage() {
 
       {/* Sync Card */}
       <div className="card" style={{ marginBottom: '1rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-          <h2 style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text)' }}>Data Sync</h2>
-          {!isAuthenticated && settingsStatus?.auth.configured !== false && (
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Login required to run syncs</span>
-          )}
-        </div>
+        <h2 style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text)', marginBottom: '1rem' }}>Data Sync</h2>
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           {syncButtons.map((btn, i) => (
             <div
@@ -348,12 +412,6 @@ export default function AdminSettingsPage() {
         <h2 style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text)', marginBottom: '0.75rem' }}>Integration Status</h2>
         {statusError ? (
           <p style={{ fontSize: '0.875rem', color: 'var(--danger)' }}>{statusError}</p>
-        ) : !settingsStatus && !statusLoaded ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-            <span className="spinner" />Loading...
-          </div>
-        ) : !settingsStatus ? (
-          <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>Log in above to view integration status.</p>
         ) : (
           <div>
             <IntegrationRow
@@ -439,20 +497,18 @@ export default function AdminSettingsPage() {
       </div>
 
       {/* Passcode Management */}
-      {isAuthenticated && (
-        <div className="card" style={{ marginTop: '1rem' }}>
-          <div style={{ marginBottom: '0.75rem' }}>
-            <h2 style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text)' }}>Company Passcode Management</h2>
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-              Create passcodes that give companies access to their own dashboard. Each passcode is scoped to a single company and only allows access to that company&apos;s data.
-            </p>
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.125rem', fontStyle: 'italic' }}>
-              Note: Admin login uses the server-side ADMIN_PASSCODE_SECRET environment variable, not this table.
-            </p>
-          </div>
-          <PasscodeTable passcodes={passcodes} companies={companiesMap} onRefresh={loadPasscodes} />
+      <div className="card" style={{ marginTop: '1rem' }}>
+        <div style={{ marginBottom: '0.75rem' }}>
+          <h2 style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text)' }}>Company Passcode Management</h2>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+            Create passcodes that give companies access to their own dashboard. Each passcode is scoped to a single company and only allows access to that company&apos;s data.
+          </p>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.125rem', fontStyle: 'italic' }}>
+            Note: Admin login uses the server-side ADMIN_PASSCODE_SECRET environment variable, not this table.
+          </p>
         </div>
-      )}
+        <PasscodeTable passcodes={passcodes} companies={companiesMap} onRefresh={loadPasscodes} />
+      </div>
     </PageShell>
   );
 }

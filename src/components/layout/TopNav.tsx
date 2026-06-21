@@ -30,6 +30,14 @@ function IconUsers({ size = 15 }: { size?: number }) {
     </svg>
   );
 }
+function IconBook({ size = 15 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+      <path d="M3 4a1 1 0 0 1 1-1h4a3 3 0 0 1 3 3v10a2 2 0 0 0-2-2H4a1 1 0 0 1-1-1V4z"/>
+      <path d="M17 4a1 1 0 0 0-1-1h-4a3 3 0 0 0-3 3v10a2 2 0 0 1 2-2h4a1 1 0 0 0 1-1V4z"/>
+    </svg>
+  );
+}
 function IconSettings({ size = 15 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
@@ -65,6 +73,7 @@ function IconClose({ size = 20 }: { size?: number }) {
 const mainLinks = [
   { href: '/',               label: 'Companies',   icon: <IconBuilding />, exact: true },
   { href: '/learners',       label: 'Learners',    icon: <IconUsers /> },
+  { href: '/courses',        label: 'Courses',     icon: <IconBook /> },
   { href: '/leaderboard',    label: 'Leaderboard', icon: <IconTrophy /> },
   { href: '/admin/settings', label: 'Settings',    icon: <IconSettings /> },
 ];
@@ -86,7 +95,8 @@ export default function TopNav() {
     setSigningOut(true);
     setMenuOpen(false);
     await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
-    router.push('/admin/settings');
+    // Hard navigation ensures the settings page fully remounts with a fresh auth check
+    window.location.assign('/admin/settings');
   }
 
   return (
@@ -104,18 +114,14 @@ export default function TopNav() {
       }}>
         {/* Brand */}
         <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', textDecoration: 'none', marginRight: '0.875rem', flexShrink: 0 }}>
-          <div style={{
-            width: 30, height: 30, borderRadius: 8,
-            background: 'linear-gradient(135deg, rgba(59,130,246,0.2) 0%, rgba(6,182,212,0.1) 100%)',
-            border: '1px solid rgba(59,130,246,0.25)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-          }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-              <path d="M8 10C8 8.9 8.9 8 10 8H14C15.1 8 16 8.9 16 10V14C16 15.1 15.1 16 14 16H10C8.9 16 8 15.1 8 14V10Z" fill="var(--primary)"/>
-              <circle cx="6" cy="12" r="1.5" fill="var(--cyan)"/>
-              <circle cx="18" cy="12" r="1.5" fill="var(--cyan)"/>
-            </svg>
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/chatwalrus_logo.jpeg"
+            alt="ChatWalrus"
+            width={28}
+            height={28}
+            style={{ borderRadius: 6, objectFit: 'contain', background: 'white', flexShrink: 0, display: 'block' }}
+          />
           <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
             <span style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--text)', letterSpacing: '-0.02em' }}>ChatWalrus</span>
             <span style={{ fontSize: '0.625rem', color: 'var(--text-muted)', fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase' }}>CSM</span>
