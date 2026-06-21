@@ -118,9 +118,12 @@ export default function TopNav() {
           <img
             src="/chatwalrus_logo.jpeg"
             alt="ChatWalrus"
-            style={{ height: 26, width: 'auto', borderRadius: 4, display: 'block', flexShrink: 0 }}
+            style={{ display: 'block', width: 28, height: 28, borderRadius: 6, objectFit: 'contain', background: 'white', flexShrink: 0 }}
           />
-          <span style={{ fontSize: '0.625rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', flexShrink: 0 }}>CSM</span>
+          <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
+            <span style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--text)', letterSpacing: '-0.02em' }}>ChatWalrus</span>
+            <span style={{ fontSize: '0.625rem', color: 'var(--text-muted)', fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase' }}>CSM</span>
+          </div>
         </Link>
 
         {/* Desktop separator */}
