@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import ThemeToggle from './ThemeToggle';
 import { useState } from 'react';
+import { broadcastLogout } from './AuthSync';
 
 // ── Icons ──────────────────────────────────────────────────────────────────
 function IconBuilding({ size = 15 }: { size?: number }) {
@@ -95,7 +96,7 @@ export default function TopNav() {
     setSigningOut(true);
     setMenuOpen(false);
     await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
-    // Hard navigation ensures the settings page fully remounts with a fresh auth check
+    broadcastLogout();
     window.location.assign('/login');
   }
 

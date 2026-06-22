@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { AuthSync } from "@/components/layout/AuthSync";
 
 export const metadata: Metadata = {
   title: "ChatWalrus Engagement Dashboard",
@@ -22,6 +23,7 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: `try{var t=localStorage.getItem('cw-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}` }} />
       </head>
       <body className="antialiased">
+        <AuthSync />
         {children}
       </body>
     </html>
