@@ -43,6 +43,11 @@ export default async function GlobalLearnersPage(props: {
           scope="global"
           initialData={initialData}
           initialMeta={initialMeta}
+          headerAction={(
+            <a href="/api/admin/learners/export/csv" className="btn btn-secondary btn-sm">
+              ↓ Export CSV
+            </a>
+          )}
         />
       </Suspense>
     </PageShell>
