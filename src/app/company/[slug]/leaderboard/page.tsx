@@ -73,9 +73,6 @@ export default function CompanyLeaderboardPage() {
           <p className="page-subtitle">Top learners by total engagement points</p>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-          <Link href="/leaderboard" style={{ fontSize: '0.8125rem', color: 'var(--primary)', textDecoration: 'none' }}>
-            Global Leaderboard →
-          </Link>
           <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
             {rows.length} ranked
           </span>
