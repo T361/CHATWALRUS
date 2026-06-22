@@ -282,7 +282,7 @@ describe('POST /api/auth/login', () => {
     const req = makeRequest({ passcode: 'company-passcode' });
     await POST(req);
 
-    expect(mockCreateCompanySessionToken).toHaveBeenCalledWith('cid-456', 'beta-co');
+    expect(mockCreateCompanySessionToken).toHaveBeenCalledWith('cid-456', 'beta-co', '1');
   });
 
   it('returns 503 when company session token creation fails', async () => {
