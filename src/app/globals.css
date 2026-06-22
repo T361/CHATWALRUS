@@ -519,9 +519,8 @@ a { color: inherit; text-decoration: none; }
    TOP NAV — desktop vs mobile
    ============================================================ */
 
-/* Nav links moved to AdminSidebar — hidden from top bar on desktop */
-.nav-links-desktop   { display: none !important; }
-.nav-sep-desktop     { display: none !important; }
+.nav-links-desktop   { display: flex; }
+.nav-sep-desktop     { display: block; }
 .nav-right-desktop   { display: flex; }
 .nav-mobile-right    { display: none !important; }
 .nav-mobile-drawer   { display: none; }
@@ -600,6 +599,23 @@ a { color: inherit; text-decoration: none; }
   flex: 1;
   min-width: 0;
   padding: 1.5rem 2rem;
+  overflow-x: hidden;
+}
+
+/* Company pages viewed by an admin: sidebar left + content right */
+.company-admin-layout {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.company-admin-main {
+  flex: 1;
+  min-width: 0;
+  padding: 1.5rem 2.5rem;
+  max-width: 1280px;
+  box-sizing: border-box;
   overflow-x: hidden;
 }
 
@@ -872,6 +888,7 @@ a { color: inherit; text-decoration: none; }
   /* Admin sidebar: hidden on mobile (links are in hamburger drawer) */
   .admin-sidebar { display: none !important; }
   .admin-main-content { padding: 1rem 0.875rem; }
+  .company-admin-main { padding: 1rem 0.875rem; }
 
   /* Page headers */
   .page-title { font-size: 1.25rem; }
