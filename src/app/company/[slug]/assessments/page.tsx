@@ -153,8 +153,8 @@ export default function AssessmentsPage(props: { params: Promise<{ slug: string 
         <h1 className="page-title">Assessments</h1>
         <div style={{ display: 'flex', gap: '0.25rem', background: 'var(--surface)', padding: '0.25rem', borderRadius: 8, border: '1px solid var(--border)' }}>
           <button style={tabStyle('overview')}    onClick={() => setTab('overview')}>Overview</button>
-          <button style={tabStyle('quizzes')}     onClick={() => setTab('quizzes')}>Quizzes ({quizzes.length})</button>
           <button style={tabStyle('assignments')} onClick={() => setTab('assignments')}>Assignments ({assignments.length})</button>
+          <button style={tabStyle('quizzes')}     onClick={() => setTab('quizzes')}>Quizzes ({quizzes.length})</button>
         </div>
       </div>
 
@@ -184,13 +184,13 @@ export default function AssessmentsPage(props: { params: Promise<{ slug: string 
               {/* Quick split summary */}
               <div className="grid-2">
                 <div className="card">
-                  <p className="section-title">Quiz Summary</p>
+                  <p className="section-title">Assignment Summary</p>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
                     {[
-                      { label: 'Total attempts', value: quizzes.length },
-                      { label: 'Passed',         value: passed, color: 'var(--on-track)' },
-                      { label: 'Failed',         value: quizzes.length - passed, color: 'var(--at-risk)' },
-                      { label: 'Pass rate',      value: passRate !== null ? `${passRate}%` : '—' },
+                      { label: 'Total tracked',    value: assignments.length },
+                      { label: 'Submitted',        value: submitted, color: 'var(--on-track)' },
+                      { label: 'Pending',          value: assignments.length - submitted, color: 'var(--warning)' },
+                      { label: 'Submission rate',  value: subRate !== null ? `${subRate}%` : '—' },
                     ].map(({ label, value, color }) => (
                       <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>{label}</span>
@@ -200,13 +200,13 @@ export default function AssessmentsPage(props: { params: Promise<{ slug: string 
                   </div>
                 </div>
                 <div className="card">
-                  <p className="section-title">Assignment Summary</p>
+                  <p className="section-title">Quiz Summary</p>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
                     {[
-                      { label: 'Total tracked',    value: assignments.length },
-                      { label: 'Submitted',        value: submitted, color: 'var(--on-track)' },
-                      { label: 'Pending',          value: assignments.length - submitted, color: 'var(--warning)' },
-                      { label: 'Submission rate',  value: subRate !== null ? `${subRate}%` : '—' },
+                      { label: 'Total attempts', value: quizzes.length },
+                      { label: 'Passed',         value: passed, color: 'var(--on-track)' },
+                      { label: 'Failed',         value: quizzes.length - passed, color: 'var(--at-risk)' },
+                      { label: 'Pass rate',      value: passRate !== null ? `${passRate}%` : '—' },
                     ].map(({ label, value, color }) => (
                       <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>{label}</span>
@@ -230,11 +230,11 @@ export default function AssessmentsPage(props: { params: Promise<{ slug: string 
                   <table>
                     <thead>
                       <tr>
-                        <th>Learner</th>
-                        <th>Course</th>
-                        <th>Score</th>
-                        <th>Result</th>
-                        <th>Date</th>
+                        <th><strong>Learner</strong></th>
+                        <th><strong>Course</strong></th>
+                        <th><strong>Score</strong></th>
+                        <th><strong>Result</strong></th>
+                        <th><strong>Date</strong></th>
                       </tr>
                     </thead>
                     <tbody>
@@ -277,11 +277,11 @@ export default function AssessmentsPage(props: { params: Promise<{ slug: string 
                 <table>
                   <thead>
                     <tr>
-                      <th>Learner</th>
-                      <th>Course</th>
-                      <th>Status</th>
-                      <th>Score</th>
-                      <th>Submitted</th>
+                      <th><strong>Learner</strong></th>
+                      <th><strong>Course</strong></th>
+                      <th><strong>Status</strong></th>
+                      <th><strong>Score</strong></th>
+                      <th><strong>Submitted</strong></th>
                     </tr>
                   </thead>
                   <tbody>
