@@ -45,12 +45,15 @@ type SessionsResponse = {
   }>;
 };
 
+type View = 'weekly' | 'sessions';
+
 export default function CompanySessionsPage() {
   const { slug } = useParams<{ slug: string }>();
   const [analytics, setAnalytics] = useState<AnalyticsResponse | null>(null);
   const [sessions, setSessions] = useState<SessionsResponse['sessions']>([]);
   const [companyName, setCompanyName] = useState('');
   const [loading, setLoading] = useState(true);
+  const [view, setView] = useState<View>('weekly');
 
   useEffect(() => {
     let ignore = false;
@@ -127,109 +130,115 @@ export default function CompanySessionsPage() {
             </div>
           </div>
 
-          <div className="grid-2" style={{ marginBottom: '1.25rem' }}>
-            <div className="card">
-              <h3 className="section-title">Weekly Session Trends</h3>
+          {/* View toggle */}
+          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem' }}>
+            <button
+              className={view === 'weekly' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
+              onClick={() => setView('weekly')}
+            >
+              Weekly Session Trends
+            </button>
+            <button
+              className={view === 'sessions' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
+              onClick={() => setView('sessions')}
+            >
+              Per Session Attendance
+            </button>
+          </div>
+
+          {/* Weekly Session Trends view */}
+          {view === 'weekly' && (
+            <div className="card card-flush" style={{ overflow: 'auto' }}>
               {analytics.session_trends.length === 0 ? (
-                <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>No learner-linked Zoom attendance found for this period.</p>
+                <div className="empty-state"><p>No learner-linked Zoom attendance found for this period.</p></div>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
-                  {analytics.session_trends.map((trend) => (
-                    <div key={trend.week_start} style={{ padding: '0.625rem 0', borderBottom: '1px solid var(--border-muted)' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', marginBottom: '0.25rem' }}>
-                        <span style={{ fontSize: '0.8125rem', fontWeight: 600 }}>{new Date(trend.week_start).toLocaleDateString()}</span>
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{trend.sessions_held} sessions</span>
-                      </div>
-                      <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                        <span>{trend.total_attendances} attendances</span>
-                        <span>{trend.unique_attendees} unique attendees</span>
-                        <span>{trend.average_duration_minutes.toFixed(1)} avg mins</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="card">
-              <h3 className="section-title">Recent Live Sessions</h3>
-              {sessions.length === 0 ? (
-                <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>No session attendance is currently linked to this company.</p>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  {sessions.slice(0, 5).map((session) => (
-                    <div key={session.session_id} style={{ padding: '0.625rem 0', borderBottom: '1px solid var(--border-muted)' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem' }}>
-                        <div>
-                          <p style={{ fontSize: '0.875rem', fontWeight: 600 }}>{session.topic || 'Untitled session'}</p>
-                          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                            {session.start_time ? new Date(session.start_time).toLocaleString() : 'Unknown start'}
-                          </p>
-                        </div>
-                        <span style={{ fontSize: '0.75rem', color: 'var(--primary)', fontWeight: 600 }}>
-                          {session.attendee_count} attendees
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="card card-flush" style={{ overflow: 'auto' }}>
-            <div style={{ padding: '1rem 1rem 0.5rem' }}>
-              <h3 className="section-title" style={{ marginBottom: 0 }}>Per-Session Attendance Lists</h3>
-            </div>
-            {sessions.length === 0 ? (
-              <div className="empty-state"><p>No learner-linked Zoom attendance history found.</p></div>
-            ) : (
-              <table>
-                <thead>
-                  <tr>
-                    <th>Session</th>
-                    <th>Host</th>
-                    <th>Attendees</th>
-                    <th>Attendance List</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sessions.map((session) => (
-                    <tr key={session.session_id}>
-                      <td>
-                        <div>
-                          <p style={{ fontWeight: 600 }}>{session.topic || 'Untitled session'}</p>
-                          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                            {session.start_time ? new Date(session.start_time).toLocaleString() : 'Unknown start'}
-                          </p>
-                        </div>
-                      </td>
-                      <td style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>{session.host_email || '—'}</td>
-                      <td className="tabular" style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>{session.attendee_count}</td>
-                      <td>
-                        <details>
-                          <summary style={{ cursor: 'pointer', color: 'var(--primary)', fontSize: '0.8125rem' }}>
-                            View attendees
-                          </summary>
-                          <div style={{ marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', minWidth: '320px' }}>
-                            {session.attendees.map((attendee) => (
-                              <div key={attendee.attendance_id} style={{ border: '1px solid var(--border-muted)', borderRadius: 8, padding: '0.5rem 0.75rem' }}>
-                                <p style={{ fontSize: '0.8125rem', fontWeight: 600 }}>{attendee.attendee_name || attendee.attendee_email || 'Unknown attendee'}</p>
-                                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{attendee.attendee_email || 'No email matched'}</p>
-                                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-                                  Joined {attendee.join_time ? new Date(attendee.join_time).toLocaleString() : '—'} · Left {attendee.leave_time ? new Date(attendee.leave_time).toLocaleString() : '—'} · {attendee.duration_minutes ?? 0} mins
-                                </p>
-                              </div>
-                            ))}
-                          </div>
-                        </details>
-                      </td>
+                <table>
+                  <thead>
+                    <tr>
+                      <th><strong>Date</strong></th>
+                      <th><strong>Total Attendances</strong></th>
+                      <th><strong>Unique Attendees</strong></th>
+                      <th><strong>Avg Minutes</strong></th>
+                      <th><strong>Total Sessions</strong></th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
+                  </thead>
+                  <tbody>
+                    {analytics.session_trends.map((trend) => (
+                      <tr key={trend.week_start}>
+                        <td style={{ fontWeight: 600, fontSize: '0.875rem' }}>
+                          {new Date(trend.week_start).toLocaleDateString()}
+                        </td>
+                        <td className="tabular" style={{ fontSize: '0.875rem' }}>{trend.total_attendances}</td>
+                        <td className="tabular" style={{ fontSize: '0.875rem' }}>{trend.unique_attendees}</td>
+                        <td className="tabular" style={{ fontSize: '0.875rem' }}>{trend.average_duration_minutes.toFixed(1)}</td>
+                        <td className="tabular" style={{ fontSize: '0.875rem' }}>{trend.sessions_held}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )}
+
+          {/* Per Session Attendance view */}
+          {view === 'sessions' && (
+            <div className="card card-flush" style={{ overflow: 'auto' }}>
+              {sessions.length === 0 ? (
+                <div className="empty-state"><p>No learner-linked Zoom attendance history found.</p></div>
+              ) : (
+                <table>
+                  <thead>
+                    <tr>
+                      <th><strong>Session Name</strong></th>
+                      <th><strong>Date</strong></th>
+                      <th><strong>Time</strong></th>
+                      <th><strong>Host</strong></th>
+                      <th><strong>Attendees</strong></th>
+                      <th><strong>Attendance List</strong></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sessions.map((session) => {
+                      const startDate = session.start_time ? new Date(session.start_time) : null;
+                      return (
+                        <tr key={session.session_id}>
+                          <td>
+                            <span style={{ fontWeight: 600, fontSize: '0.875rem' }}>{session.topic || 'Untitled session'}</span>
+                          </td>
+                          <td style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
+                            {startDate ? startDate.toLocaleDateString() : '—'}
+                          </td>
+                          <td style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
+                            {startDate ? startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
+                          </td>
+                          <td style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>{session.host_email || '—'}</td>
+                          <td className="tabular" style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>{session.attendee_count}</td>
+                          <td>
+                            <details>
+                              <summary style={{ cursor: 'pointer', color: 'var(--primary)', fontSize: '0.8125rem' }}>
+                                View attendees
+                              </summary>
+                              <div style={{ marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', minWidth: '320px' }}>
+                                {session.attendees.map((attendee) => (
+                                  <div key={attendee.attendance_id} style={{ border: '1px solid var(--border-muted)', borderRadius: 8, padding: '0.5rem 0.75rem' }}>
+                                    <p style={{ fontSize: '0.8125rem', fontWeight: 600 }}>{attendee.attendee_name || attendee.attendee_email || 'Unknown attendee'}</p>
+                                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{attendee.attendee_email || 'No email matched'}</p>
+                                    <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+                                      Joined {attendee.join_time ? new Date(attendee.join_time).toLocaleString() : '—'} · Left {attendee.leave_time ? new Date(attendee.leave_time).toLocaleString() : '—'} · {attendee.duration_minutes ?? 0} mins
+                                    </p>
+                                  </div>
+                                ))}
+                              </div>
+                            </details>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )}
         </>
       )}
     </CompanyShell>
