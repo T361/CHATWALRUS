@@ -2,6 +2,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import PageShell from '@/components/layout/PageShell';
 import Link from 'next/link';
 import { normalizeRole } from '@/lib/learners/directory';
+import CompanyFilter from './CompanyFilter';
 
 export const dynamic = 'force-dynamic';
 
@@ -170,18 +171,7 @@ export default async function GlobalCoursesPage(props: {
       {/* Filters row */}
       <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap' }}>
         {/* Company filter */}
-        <form method="GET" action="/courses" style={{ display: 'contents' }}>
-          <input type="hidden" name="sort_by"  value={sortBy} />
-          <input type="hidden" name="sort_dir" value={sortDir} />
-          <input type="hidden" name="filter"   value={filter} />
-          <select name="company_id" defaultValue={companyId} style={{ minWidth: '180px' }}>
-            <option value="">All Companies</option>
-            {companies.map(c => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
-          <button type="submit" className="btn btn-secondary btn-sm">Filter</button>
-        </form>
+        <CompanyFilter companies={companies} companyId={companyId} />
 
         <div style={{ width: 1, height: 20, background: 'var(--border)', flexShrink: 0 }} />
 
