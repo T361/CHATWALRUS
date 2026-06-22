@@ -1,6 +1,4 @@
-import TopNav from './TopNav';
-import CompanySidebar from './CompanySidebar';
-import MiniRankings from './MiniRankings';
+import CompanyTopNav from './CompanyTopNav';
 
 export default function CompanyShell({
   slug,
@@ -13,16 +11,8 @@ export default function CompanyShell({
 }) {
   return (
     <div className="app-shell-top">
-      <TopNav />
-      {/* On mobile: column (tab strip on top, content below).
-          On desktop: row (sidebar left, content right). */}
-      <div className="company-shell-body">
-        <CompanySidebar slug={slug} companyName={companyName} />
-        <main className="shell-content company-shell-main">
-          {children}
-        </main>
-      </div>
-      <MiniRankings />
+      <CompanyTopNav slug={slug} companyName={companyName} />
+      <main style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>{children}</main>
     </div>
   );
 }
