@@ -410,32 +410,35 @@ export async function getWeeklyReportResultByCompanySlug(slug: string): Promise<
         };
       }
 
-      try {
-        await refreshCompanyWeeklyRollups([company.id]);
-        const reread = await db
-          .from('company_weekly_rollups')
-          .select('*')
-          .eq('company_id', company.id)
-          .eq('week_start', weekStartDate)
-          .maybeSingle();
-        rollup = reread.data;
-        rollupError = reread.error;
-      } catch (error) {
-        return {
-          report: null,
-          status: 500,
-          error: `Weekly rollup recompute failed: ${safeErrorMessage(error)}`,
-        };
-      }
+      // Kick off a background refresh so the next load is cached,
+      // but don't block on it — build the snapshot live instead so
+      // this request always succeeds on the first visit.
+      refreshCompanyWeeklyRollups([company.id]).catch((err) => {
+        console.warn('[WeeklyReport] Background refresh failed:', safeErrorMessage(err));
+      });
+
+      const snapshot = await buildWeeklySnapshot(company);
+      return {
+        report: {
+          company: {
+            name: company.name,
+            start_date: company.start_date,
+            learning_timeline_days: company.learning_timeline_days,
+          },
+          week_start: `${weekStartDate}T00:00:00.000Z`,
+          week_end: `${weekEndDate}T23:59:59.999Z`,
+          ...snapshot,
+        },
+        status: 200,
+        error: null,
+      };
     }
 
-    if (rollupError || !rollup) {
+    if (rollupError) {
       return {
         report: null,
         status: 500,
-        error: rollupError
-          ? `Weekly rollup read failed: ${safeErrorMessage(rollupError)}`
-          : 'Weekly rollup missing after recompute.',
+        error: `Weekly rollup read failed: ${safeErrorMessage(rollupError)}`,
       };
     }
 
