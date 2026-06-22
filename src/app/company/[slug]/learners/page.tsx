@@ -1,6 +1,5 @@
 import CompanyShell from '@/components/layout/CompanyShell';
 import LearnerDirectory from '@/components/learners/LearnerDirectory';
-import Link from 'next/link';
 import { Suspense } from 'react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getLearnerDirectory, getLearnerDirectoryMeta } from '@/lib/learners/directory';
@@ -59,9 +58,9 @@ export default async function LearnersPage(
           initialData={initialData}
           initialMeta={initialMeta}
           headerAction={(
-            <Link href={`/api/companies/${slug}/export/csv`} className="btn btn-secondary btn-sm">
+            <a href={`/api/companies/${slug}/export/csv`} className="btn btn-secondary btn-sm">
               ↓ Export CSV
-            </Link>
+            </a>
           )}
         />
       </Suspense>
