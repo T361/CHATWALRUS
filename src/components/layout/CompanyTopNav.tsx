@@ -113,21 +113,13 @@ export default function CompanyTopNav({
 
         {/* Logo + company name */}
         <Link href={`/company/${slug}`} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', textDecoration: 'none', flexShrink: 0 }}>
-          {/* Wrapper div ensures blue square always visible even if JPEG fails */}
-          <div style={{
-            width: 28, height: 28, borderRadius: 6,
-            background: 'var(--primary)',
-            flexShrink: 0, overflow: 'hidden',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/chatwalrus_logo.jpeg"
-              alt=""
-              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-            />
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/chatwalrus_logo.jpeg"
+            alt="ChatWalrus"
+            style={{ display: 'block', width: 28, height: 28, borderRadius: 6, objectFit: 'contain', background: 'var(--primary)', flexShrink: 0 }}
+            onError={(e) => { (e.currentTarget as HTMLImageElement).style.background = 'var(--primary)'; (e.currentTarget as HTMLImageElement).style.opacity = '0.001'; }}
+          />
           <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
             <span style={{ fontWeight: 700, fontSize: '0.8125rem', color: 'var(--text)', letterSpacing: '-0.01em' }}>
               {displayName}

@@ -33,7 +33,11 @@ function isStaticAsset(pathname: string): boolean {
     pathname.startsWith('/favicon') ||
     pathname.endsWith('.ico') ||
     pathname.endsWith('.png') ||
-    pathname.endsWith('.svg')
+    pathname.endsWith('.svg') ||
+    pathname.endsWith('.jpg') ||
+    pathname.endsWith('.jpeg') ||
+    pathname.endsWith('.webp') ||
+    pathname.endsWith('.gif')
   );
 }
 
