@@ -32,24 +32,35 @@ const POINT_LEGEND = [
 
 function RankLimitInput({ limit }: { limit: number }) {
   const [val, setVal] = React.useState(String(limit));
+
+  function apply(v: string) {
+    const n = Math.min(500, Math.max(10, parseInt(v, 10) || 100));
+    const p = new URLSearchParams(window.location.search);
+    p.set('limit', String(n));
+    window.location.assign('/leaderboard?' + p.toString());
+  }
+
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
       <input
         type="number"
         value={val}
         min={10}
         max={500}
         onChange={e => setVal(e.target.value)}
-        onKeyDown={e => {
-          if (e.key === 'Enter') {
-            const p = new URLSearchParams(window.location.search);
-            p.set('limit', val);
-            window.location.assign('/leaderboard?' + p.toString());
-          }
+        onBlur={e => apply(e.target.value)}
+        onKeyDown={e => e.key === 'Enter' && apply(val)}
+        title="Top N learners to show (10–500). Press Enter or click away to apply."
+        style={{
+          width: 56,
+          textAlign: 'center',
+          fontWeight: 700,
+          fontSize: '0.875rem',
+          padding: '0.25rem 0.375rem',
+          borderRadius: 'var(--radius)',
         }}
-        style={{ width: 70, textAlign: 'center', fontWeight: 700 }}
       />
-      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>ranked</span>
+      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>ranked</span>
     </div>
   );
 }
@@ -115,25 +126,27 @@ export default function GlobalLeaderboardPage() {
           <p className="page-subtitle">Top learners across all companies ranked by engagement points</p>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem' }}>
-          {/* Row 1: Refresh + ranked input */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
-            {!loading && (
-              <button className="btn btn-secondary btn-sm" onClick={() => load(limit)}>
-                <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75">
-                  <path d="M4 10a6 6 0 1 0 1.27-3.77" strokeLinecap="round"/>
-                  <path d="M4 6v4h4" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-                Refresh
-              </button>
-            )}
+          {/* Row 1: Refresh + rank input */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={() => load(limit)}
+              disabled={loading}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}
+            >
+              <svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75">
+                <path d="M4 10a6 6 0 1 0 1.27-3.77" strokeLinecap="round"/>
+                <path d="M4 6v4h4" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              Refresh
+            </button>
             <RankLimitInput limit={limit} />
           </div>
-          {/* Row 2: Points Legend button */}
+          {/* Row 2: Points Legend right-aligned */}
           <button
             onClick={() => setShowLegend(v => !v)}
             className="btn btn-secondary btn-sm"
             title="Points legend"
-            style={{ alignSelf: 'flex-end' }}
           >
             📊 Points Legend
           </button>

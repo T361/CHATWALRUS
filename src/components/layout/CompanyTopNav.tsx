@@ -67,31 +67,28 @@ export default function CompanyTopNav({
         WebkitBackdropFilter: 'blur(16px)',
         overflow: 'hidden',
       }}>
-        {/* Logo */}
-        <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', textDecoration: 'none', flexShrink: 0 }}>
+        {/* Logo + company name */}
+        <Link href={`/company/${slug}`} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', textDecoration: 'none', flexShrink: 0 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/chatwalrus_logo.jpeg"
             alt="ChatWalrus"
+            width={28}
+            height={28}
             style={{ display: 'block', width: 28, height: 28, borderRadius: 6, objectFit: 'contain', background: 'white', flexShrink: 0 }}
+            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
           />
+          <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
+            <span style={{ fontWeight: 700, fontSize: '0.8125rem', color: 'var(--text)', letterSpacing: '-0.01em' }}>
+              {companyName || 'ChatWalrus'}
+            </span>
+            {companyName && (
+              <span style={{ fontSize: '0.625rem', color: 'var(--text-muted)', fontWeight: 500, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                CSM
+              </span>
+            )}
+          </div>
         </Link>
-
-        {/* Company name */}
-        {companyName && (
-          <span style={{
-            fontWeight: 700,
-            fontSize: '0.875rem',
-            color: 'var(--text)',
-            whiteSpace: 'nowrap',
-            flexShrink: 0,
-            maxWidth: 160,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-          }}>
-            {companyName}
-          </span>
-        )}
 
         {/* Separator */}
         <div style={{ width: 1, height: 18, background: 'var(--border)', flexShrink: 0 }} />

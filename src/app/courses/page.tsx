@@ -157,6 +157,11 @@ export default async function GlobalCoursesPage(props: {
   const enrolledCount = courses.filter(c => c.enrolled > 0).length;
   const totalEnrolled = courses.reduce((s, c) => s + c.enrolled, 0);
 
+  // Collect all unique roles present across all courses, sorted alphabetically
+  const allRoles = Array.from(
+    new Set(courses.flatMap(c => Object.keys(c.role_breakdown)))
+  ).sort();
+
   function filterLink(f: string) {
     const p = new URLSearchParams({ sort_by: sortBy, sort_dir: sortDir, filter: f });
     if (companyId) p.set('company_id', companyId);
@@ -183,16 +188,13 @@ export default async function GlobalCoursesPage(props: {
         {/* Company filter */}
         <CompanyFilter companies={companies} companyId={companyId} />
 
-        {/* Role filter */}
-        <RoleFilter role={role} />
-
         <div style={{ width: 1, height: 20, background: 'var(--border)', flexShrink: 0 }} />
 
         {/* Enrolled filter */}
-        <Link href={filterLink('all')} className={filter === 'all' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}>
+        <Link href={filterLink('all')} className={filter === 'all' ? 'btn btn-primary btn-xs' : 'btn btn-secondary btn-xs'}>
           All ({courses.length})
         </Link>
-        <Link href={filterLink('enrolled')} className={filter === 'enrolled' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}>
+        <Link href={filterLink('enrolled')} className={filter === 'enrolled' ? 'btn btn-primary btn-xs' : 'btn btn-secondary btn-xs'}>
           Has Enrollments ({enrolledCount})
         </Link>
       </div>
@@ -218,7 +220,12 @@ export default async function GlobalCoursesPage(props: {
                   <th style={{ width: 110, fontWeight: 700, cursor: 'pointer', background: sortBy === 'completed' ? 'var(--surface)' : undefined }}>
                     <SortLink field="completed" label="Completed" {...sortLinkProps} />
                   </th>
-                  <th style={{ fontWeight: 700 }}>Roles</th>
+                  <th style={{ fontWeight: 700, minWidth: 140 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+                      <span>Roles</span>
+                      <RoleFilter role={role} roles={allRoles} />
+                    </div>
+                  </th>
                   {!companyId && (
                     <th style={{ width: 100, fontWeight: 700, cursor: 'pointer', background: sortBy === 'companies' ? 'var(--surface)' : undefined }}>
                       <SortLink field="companies" label="Companies" {...sortLinkProps} />
@@ -228,10 +235,8 @@ export default async function GlobalCoursesPage(props: {
               </thead>
               <tbody>
                 {sorted.map(course => {
-                  const roleEntries = Object.entries(course.role_breakdown)
-                    .sort((a, b) => b[1] - a[1])
-                    .slice(0, 3);
                   const dim = course.enrolled === 0;
+                  const roleCount = role ? (course.role_breakdown[role] || 0) : null;
                   return (
                     <tr key={course.id} style={{ opacity: dim ? 0.45 : 1 }}>
                       <td style={{ fontWeight: 500 }}>{course.name}</td>
@@ -267,21 +272,39 @@ export default async function GlobalCoursesPage(props: {
                         ) : <span style={{ color: 'var(--text-muted)' }}>—</span>}
                       </td>
                       <td>
-                        {roleEntries.length > 0 ? (
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
-                            {roleEntries.map(([r, count]) => (
-                              <span key={r} style={{
-                                display: 'inline-flex', alignItems: 'center', gap: '0.25rem',
-                                padding: '0.125rem 0.375rem', borderRadius: 9999,
-                                background: 'var(--surface-raised)', border: '1px solid var(--border-muted)',
-                                fontSize: '0.6875rem', fontWeight: 500, color: 'var(--text-secondary)', whiteSpace: 'nowrap',
-                              }}>
-                                {r}
-                                <span style={{ fontWeight: 700, color: 'var(--text)', fontVariantNumeric: 'tabular-nums' }}>{count}</span>
-                              </span>
-                            ))}
-                          </div>
-                        ) : <span style={{ color: 'var(--text-muted)' }}>—</span>}
+                        {role ? (
+                          /* Specific role selected — show count for that role */
+                          roleCount !== null && roleCount > 0 ? (
+                            <span style={{
+                              display: 'inline-flex', alignItems: 'center', gap: '0.25rem',
+                              padding: '0.125rem 0.5rem', borderRadius: 9999,
+                              background: 'color-mix(in srgb, var(--primary) 12%, transparent)',
+                              color: 'var(--primary)', fontWeight: 700,
+                              fontSize: '0.8125rem', fontVariantNumeric: 'tabular-nums',
+                            }}>
+                              {roleCount}
+                            </span>
+                          ) : <span style={{ color: 'var(--text-muted)' }}>—</span>
+                        ) : (
+                          /* All roles — show top 3 badges */
+                          Object.keys(course.role_breakdown).length > 0 ? (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
+                              {Object.entries(course.role_breakdown)
+                                .sort((a, b) => b[1] - a[1])
+                                .slice(0, 3)
+                                .map(([r, count]) => (
+                                  <span key={r} style={{
+                                    display: 'inline-flex', alignItems: 'center', gap: '0.25rem',
+                                    padding: '0.125rem 0.375rem', borderRadius: 9999,
+                                    background: 'var(--surface-raised)', border: '1px solid var(--border-muted)',
+                                    fontSize: '0.6875rem', fontWeight: 500, color: 'var(--text-secondary)', whiteSpace: 'nowrap',
+                                  }}>
+                                    {r} <span style={{ fontWeight: 700, color: 'var(--text)', fontVariantNumeric: 'tabular-nums' }}>{count}</span>
+                                  </span>
+                                ))}
+                            </div>
+                          ) : <span style={{ color: 'var(--text-muted)' }}>—</span>
+                        )}
                       </td>
                       {!companyId && (
                         <td style={{ color: 'var(--text-muted)', fontSize: '0.8125rem', fontVariantNumeric: 'tabular-nums' }}>

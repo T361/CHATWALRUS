@@ -68,34 +68,34 @@ function LoginForm() {
   return (
     <div style={{
       minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-      background: 'var(--bg)', padding: '1.5rem',
+      background: 'var(--bg)', padding: '2rem',
     }}>
-      <div className="card" style={{ width: '100%', maxWidth: '460px', padding: '2.25rem' }}>
+      <div className="card" style={{ width: '100%', maxWidth: '540px', padding: '3rem 3.5rem' }}>
 
         {/* Brand */}
-        <div style={{ textAlign: 'center', marginBottom: '1.75rem' }}>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 800, letterSpacing: '-0.04em', color: 'var(--text)', margin: '0 0 0.25rem' }}>
+        <div style={{ textAlign: 'center', marginBottom: '2.25rem' }}>
+          <h1 style={{ fontSize: '2.25rem', fontWeight: 800, letterSpacing: '-0.04em', color: 'var(--text)', margin: '0 0 0.5rem' }}>
             ChatWalrus
           </h1>
-          <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', margin: 0 }}>
+          <p style={{ fontSize: '0.9375rem', color: 'var(--text-muted)', margin: 0 }}>
             {isCompany ? 'CSM Dashboard' : 'Admin Dashboard'}
           </p>
         </div>
 
         {/* Mode tabs */}
         <div style={{
-          display: 'flex', borderRadius: 8,
+          display: 'flex', borderRadius: 10,
           border: '1px solid var(--border)', overflow: 'hidden',
-          marginBottom: '1.5rem',
+          marginBottom: '2rem',
         }}>
           {([['company', 'Company'] as const, ['admin', 'Admin'] as const]).map(([key, label]) => (
             <button
               key={key}
               onClick={() => switchMode(key)}
               style={{
-                flex: 1, padding: '0.625rem 0.5rem',
+                flex: 1, padding: '0.75rem 0.5rem',
                 border: 'none', cursor: 'pointer',
-                fontSize: '0.8125rem', fontWeight: 700,
+                fontSize: '0.9375rem', fontWeight: 700,
                 background: mode === key ? 'var(--primary)' : 'transparent',
                 color: mode === key ? 'white' : 'var(--text-muted)',
                 transition: 'all 150ms',
@@ -107,11 +107,11 @@ function LoginForm() {
         </div>
 
         {/* Passcode field */}
-        <div style={{ marginBottom: '0.75rem' }}>
+        <div style={{ marginBottom: '1rem' }}>
           <label style={{
-            display: 'block', fontSize: '0.6875rem', fontWeight: 700,
+            display: 'block', fontSize: '0.75rem', fontWeight: 700,
             letterSpacing: '0.08em', textTransform: 'uppercase',
-            color: 'var(--text-muted)', marginBottom: '0.5rem',
+            color: 'var(--text-muted)', marginBottom: '0.625rem',
           }}>
             {isCompany ? 'Company Passcode' : 'Admin Passcode'}
           </label>
@@ -123,13 +123,13 @@ function LoginForm() {
               onKeyDown={(e) => e.key === 'Enter' && login()}
               placeholder={isCompany ? 'Enter your company passcode' : 'Enter admin passcode'}
               autoFocus
-              style={{ width: '100%', paddingRight: '2.5rem' }}
+              style={{ width: '100%', paddingRight: '2.75rem', fontSize: '1rem', padding: '0.75rem 2.75rem 0.75rem 0.875rem', height: 'auto' }}
             />
             <button
               type="button"
               onClick={() => setShowPassword(v => !v)}
               style={{
-                position: 'absolute', right: '0.625rem', top: '50%', transform: 'translateY(-50%)',
+                position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)',
                 background: 'none', border: 'none', cursor: 'pointer',
                 color: 'var(--text-muted)', padding: '0.25rem', lineHeight: 1, display: 'flex',
               }}
@@ -142,7 +142,7 @@ function LoginForm() {
 
         {/* Error */}
         {error && (
-          <p style={{ fontSize: '0.75rem', color: 'var(--danger)', margin: '0 0 0.75rem' }}>
+          <p style={{ fontSize: '0.8125rem', color: 'var(--danger)', margin: '0 0 0.875rem' }}>
             {error}
           </p>
         )}
@@ -152,13 +152,13 @@ function LoginForm() {
           className="btn btn-primary"
           disabled={loading || !passcode}
           onClick={login}
-          style={{ width: '100%' }}
+          style={{ width: '100%', padding: '0.875rem', fontSize: '1rem', fontWeight: 700, marginTop: '0.25rem' }}
         >
           {loading ? 'Verifying...' : 'Log In'}
         </button>
 
         {/* Hint */}
-        <p style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', textAlign: 'center', marginTop: '1rem' }}>
+        <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', textAlign: 'center', marginTop: '1.25rem' }}>
           {isCompany
             ? 'Use the passcode provided by your ChatWalrus admin'
             : 'Internal access only'}

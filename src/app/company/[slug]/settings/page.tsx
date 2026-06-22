@@ -97,7 +97,7 @@ export default function CompanySettingsPage(props: { params: Promise<{ slug: str
       {loading ? (
         <div className="card empty-state"><span className="spinner" /><p>Loading...</p></div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', maxWidth: 560 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', maxWidth: 560, margin: '0 auto' }}>
 
           {/* Program Configuration */}
           <div className="card">
