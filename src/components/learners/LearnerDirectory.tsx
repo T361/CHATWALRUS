@@ -341,7 +341,7 @@ export default function LearnerDirectory({
           e.currentTarget.style.background = '';
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontWeight: isSorted ? 600 : 500 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontWeight: 700 }}>
           {children}
           <span style={{
             fontSize: '0.875rem',
@@ -362,34 +362,35 @@ export default function LearnerDirectory({
   return (
     <>
       <div className="page-header">
-        <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
           <h1 className="page-title">{scope === 'global' ? 'All Learners' : 'Learners'}</h1>
-          <p className="page-subtitle">
-            {scope === 'global'
-              ? 'Search and filter learners across every company'
-              : `${companyName || 'Company'} learner directory with server-side filters`}
-          </p>
+          <span style={{
+            fontSize: '1.25rem',
+            fontWeight: 800,
+            color: 'var(--primary)',
+            fontVariantNumeric: 'tabular-nums',
+            lineHeight: 1,
+          }}>
+            {total} learner{total !== 1 ? 's' : ''}
+          </span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           {headerAction}
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
-            {total} learner{total !== 1 ? 's' : ''}
-          </div>
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: '0.625rem', marginBottom: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.625rem', flexWrap: 'wrap', alignItems: 'center' }}>
         <input
           type="text"
           placeholder="Search learner name or email..."
           value={localSearch}
           onChange={(event) => setLocalSearch(event.target.value)}
-          style={{ flex: '1 1 200px', minWidth: 0 }}
+          style={{ flex: '1 1 160px', minWidth: 0, padding: '0.375rem 0.625rem', height: '34px', boxSizing: 'border-box' }}
         />
         <select
           value={courseFilter}
           onChange={(event) => updateFilters({ course_id: event.target.value || null, page: 1 })}
-          style={{ flex: '1 1 180px', minWidth: 0 }}
+          style={{ flex: '1 1 130px', minWidth: 0, padding: '0.375rem 0.5rem', height: '34px', boxSizing: 'border-box' }}
           disabled={metaLoading}
         >
           <option value="">All Courses</option>
@@ -403,7 +404,7 @@ export default function LearnerDirectory({
           <select
             value={roleFilter}
             onChange={(event) => updateFilters({ role: event.target.value || null, page: 1 })}
-            style={{ flex: '1 1 140px', minWidth: 0 }}
+            style={{ flex: '1 1 110px', minWidth: 0, padding: '0.375rem 0.5rem', height: '34px', boxSizing: 'border-box' }}
             disabled={metaLoading}
           >
             <option value="">All Roles</option>
@@ -417,7 +418,7 @@ export default function LearnerDirectory({
         <select
           value={statusFilter}
           onChange={(event) => updateFilters({ status: event.target.value, page: 1 })}
-          style={{ flex: '1 1 150px', minWidth: 0 }}
+          style={{ flex: '1 1 120px', minWidth: 0, padding: '0.375rem 0.5rem', height: '34px', boxSizing: 'border-box' }}
         >
           <option value="all">All Statuses</option>
           <option value="not_started">Not Started</option>
@@ -429,7 +430,7 @@ export default function LearnerDirectory({
         <select
           value={String(limit)}
           onChange={(event) => updateFilters({ limit: Number(event.target.value), page: 1 })}
-          style={{ flex: '0 0 auto', minWidth: '100px' }}
+          style={{ flex: '0 0 auto', minWidth: '90px', padding: '0.375rem 0.5rem', height: '34px', boxSizing: 'border-box' }}
         >
           <option value="25">25 / page</option>
           <option value="50">50 / page</option>
@@ -464,13 +465,13 @@ export default function LearnerDirectory({
             <thead>
               <tr>
                 <SortableHeader column="full_name">Name</SortableHeader>
-                {showCompany && <th>Company</th>}
+                {showCompany && <th style={{ fontWeight: 700 }}>Company</th>}
                 <SortableHeader column="title">Role</SortableHeader>
                 <SortableHeader column="avg_progress">Progress</SortableHeader>
-                <th>Status</th>
+                <th style={{ fontWeight: 700 }}>Status</th>
                 <SortableHeader column="courses_enrolled">Courses</SortableHeader>
                 <SortableHeader column="last_active_at">Last Active</SortableHeader>
-                <th style={{ textAlign: 'center' }}>Sessions</th>
+                <th style={{ textAlign: 'center', fontWeight: 700 }}>Sessions</th>
               </tr>
             </thead>
             <tbody>
