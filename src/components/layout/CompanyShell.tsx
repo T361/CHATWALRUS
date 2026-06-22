@@ -22,7 +22,9 @@ export default function CompanyShell({
       {isAdmin ? (
         <div className="company-admin-layout">
           <AdminSidebar />
-          <main className="company-admin-main">{children}</main>
+          <main className="company-admin-main">
+            <div className="company-admin-content">{children}</div>
+          </main>
         </div>
       ) : (
         <main className="shell-content">{children}</main>
