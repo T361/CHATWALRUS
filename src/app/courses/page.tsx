@@ -3,6 +3,7 @@ import PageShell from '@/components/layout/PageShell';
 import Link from 'next/link';
 import { normalizeRole } from '@/lib/learners/directory';
 import CompanyFilter from './CompanyFilter';
+import { RoleFilter } from './RoleFilter';
 
 export const dynamic = 'force-dynamic';
 
@@ -83,6 +84,7 @@ function SortLink({
   sortDir,
   companyId,
   filter,
+  role,
 }: {
   field: string;
   label: string;
@@ -90,18 +92,20 @@ function SortLink({
   sortDir: string;
   companyId: string;
   filter: string;
+  role: string;
 }) {
   const isActive = sortBy === field;
   const nextDir = isActive && sortDir === 'asc' ? 'desc' : 'asc';
   const params = new URLSearchParams({ sort_by: field, sort_dir: nextDir, filter });
   if (companyId) params.set('company_id', companyId);
+  if (role) params.set('role', role);
   return (
     <Link
       href={`/courses?${params.toString()}`}
       style={{
         display: 'inline-flex', alignItems: 'center', gap: '0.25rem',
         color: isActive ? 'var(--primary)' : 'var(--text-secondary)',
-        fontWeight: isActive ? 700 : 500,
+        fontWeight: isActive ? 700 : 600,
         textDecoration: 'none', fontSize: '0.8125rem', whiteSpace: 'nowrap',
       }}
     >
@@ -112,7 +116,7 @@ function SortLink({
 }
 
 export default async function GlobalCoursesPage(props: {
-  searchParams: Promise<{ sort_by?: string; sort_dir?: string; filter?: string; company_id?: string }>;
+  searchParams: Promise<{ sort_by?: string; sort_dir?: string; filter?: string; company_id?: string; role?: string }>;
 }) {
   const searchParams = await props.searchParams;
   const db = createAdminClient();
@@ -121,6 +125,7 @@ export default async function GlobalCoursesPage(props: {
   const sortDir = searchParams.sort_dir || 'desc';
   const filter  = searchParams.filter   || 'all';
   const companyId = searchParams.company_id || '';
+  const role = searchParams.role || '';
 
   const [courses, companiesRes] = await Promise.all([
     getGlobalCourseData(companyId || undefined),
@@ -130,7 +135,11 @@ export default async function GlobalCoursesPage(props: {
   const companies: Company[] = (companiesRes.data || []) as Company[];
   const selectedCompany = companies.find(c => c.id === companyId);
 
-  const filtered = filter === 'enrolled' ? courses.filter(c => c.enrolled > 0) : courses;
+  // Apply filter then role filter
+  let filtered = filter === 'enrolled' ? courses.filter(c => c.enrolled > 0) : courses;
+  if (role) {
+    filtered = filtered.filter(c => (c.role_breakdown[role] || 0) > 0);
+  }
 
   const sorted = [...filtered].sort((a, b) => {
     let aVal: string | number = 0, bVal: string | number = 0;
@@ -151,10 +160,11 @@ export default async function GlobalCoursesPage(props: {
   function filterLink(f: string) {
     const p = new URLSearchParams({ sort_by: sortBy, sort_dir: sortDir, filter: f });
     if (companyId) p.set('company_id', companyId);
+    if (role) p.set('role', role);
     return `/courses?${p.toString()}`;
   }
 
-  const sortLinkProps = { sortBy, sortDir, companyId, filter };
+  const sortLinkProps = { sortBy, sortDir, companyId, filter, role };
 
   return (
     <PageShell>
@@ -172,6 +182,9 @@ export default async function GlobalCoursesPage(props: {
       <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap' }}>
         {/* Company filter */}
         <CompanyFilter companies={companies} companyId={companyId} />
+
+        {/* Role filter */}
+        <RoleFilter role={role} />
 
         <div style={{ width: 1, height: 20, background: 'var(--border)', flexShrink: 0 }} />
 
@@ -193,17 +206,31 @@ export default async function GlobalCoursesPage(props: {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th><SortLink field="name"      label="Course Name" {...sortLinkProps} /></th>
-                  <th style={{ width: 90 }}><SortLink field="enrolled"  label="Enrolled"    {...sortLinkProps} /></th>
-                  <th style={{ width: 140 }}><SortLink field="progress"  label="Avg Progress" {...sortLinkProps} /></th>
-                  <th style={{ width: 110 }}><SortLink field="completed" label="Completed"   {...sortLinkProps} /></th>
-                  <th>Roles</th>
-                  {!companyId && <th style={{ width: 100 }}><SortLink field="companies" label="Companies" {...sortLinkProps} /></th>}
+                  <th style={{ fontWeight: 700, cursor: 'pointer', background: sortBy === 'name' ? 'var(--surface)' : undefined }}>
+                    <SortLink field="name" label="Course Name" {...sortLinkProps} />
+                  </th>
+                  <th style={{ width: 90, fontWeight: 700, cursor: 'pointer', background: sortBy === 'enrolled' ? 'var(--surface)' : undefined }}>
+                    <SortLink field="enrolled" label="Enrolled" {...sortLinkProps} />
+                  </th>
+                  <th style={{ width: 140, fontWeight: 700, cursor: 'pointer', background: sortBy === 'progress' ? 'var(--surface)' : undefined }}>
+                    <SortLink field="progress" label="Avg Progress" {...sortLinkProps} />
+                  </th>
+                  <th style={{ width: 110, fontWeight: 700, cursor: 'pointer', background: sortBy === 'completed' ? 'var(--surface)' : undefined }}>
+                    <SortLink field="completed" label="Completed" {...sortLinkProps} />
+                  </th>
+                  <th style={{ fontWeight: 700 }}>Roles</th>
+                  {!companyId && (
+                    <th style={{ width: 100, fontWeight: 700, cursor: 'pointer', background: sortBy === 'companies' ? 'var(--surface)' : undefined }}>
+                      <SortLink field="companies" label="Companies" {...sortLinkProps} />
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody>
                 {sorted.map(course => {
-                  const roleEntries = Object.entries(course.role_breakdown).sort((a, b) => b[1] - a[1]);
+                  const roleEntries = Object.entries(course.role_breakdown)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 3);
                   const dim = course.enrolled === 0;
                   return (
                     <tr key={course.id} style={{ opacity: dim ? 0.45 : 1 }}>
@@ -242,14 +269,14 @@ export default async function GlobalCoursesPage(props: {
                       <td>
                         {roleEntries.length > 0 ? (
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
-                            {roleEntries.map(([role, count]) => (
-                              <span key={role} style={{
+                            {roleEntries.map(([r, count]) => (
+                              <span key={r} style={{
                                 display: 'inline-flex', alignItems: 'center', gap: '0.25rem',
                                 padding: '0.125rem 0.375rem', borderRadius: 9999,
                                 background: 'var(--surface-raised)', border: '1px solid var(--border-muted)',
                                 fontSize: '0.6875rem', fontWeight: 500, color: 'var(--text-secondary)', whiteSpace: 'nowrap',
                               }}>
-                                {role}
+                                {r}
                                 <span style={{ fontWeight: 700, color: 'var(--text)', fontVariantNumeric: 'tabular-nums' }}>{count}</span>
                               </span>
                             ))}
