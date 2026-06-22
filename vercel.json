@@ -6,9 +6,10 @@
     "src/app/api/admin/sync/zoom/route.ts":              { "maxDuration": 300 },
     "src/app/api/admin/sync/lesson-progress/route.ts":   { "maxDuration": 300 },
     "src/app/api/jobs/daily-thinkific-sync/route.ts":    { "maxDuration": 300 },
-    "src/app/api/jobs/sync-lesson-progress/route.ts":    { "maxDuration": 300 },
-    "src/app/api/jobs/sync-zoom-attendance/route.ts":    { "maxDuration": 300 },
-    "src/app/api/jobs/run-milestones/route.ts":          { "maxDuration": 300 }
+    "src/app/api/jobs/sync-lesson-progress/route.ts":          { "maxDuration": 300 },
+    "src/app/api/jobs/sync-zoom-attendance/route.ts":          { "maxDuration": 300 },
+    "src/app/api/jobs/run-milestones/route.ts":                { "maxDuration": 300 },
+    "src/app/api/admin/sync/weekly-rollups/route.ts":          { "maxDuration": 300 }
   },
   "crons": [
     {
@@ -26,6 +27,10 @@
     {
       "path": "/api/jobs/sync-lesson-progress",
       "schedule": "0 3 * * 0"
+    },
+    {
+      "path": "/api/admin/sync/weekly-rollups",
+      "schedule": "0 9 * * 1"
     }
   ]
 }
