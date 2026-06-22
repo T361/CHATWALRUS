@@ -31,6 +31,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Code and role are required' }, { status: 400 });
   }
 
+  // Check for duplicate passcode within the same company
+  const { data: existing } = await db
+    .from('passcodes')
+    .select('id')
+    .eq('code', code)
+    .eq('company_id', company_id || null)
+    .maybeSingle();
+  if (existing) {
+    return NextResponse.json(
+      { error: 'A passcode with this code already exists for this company' },
+      { status: 409 }
+    );
+  }
+
   const { data, error } = await db
     .from('passcodes')
     .insert({ code, role, company_id: company_id || null, description: description || null })

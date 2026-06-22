@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSession, verifySecret } from './session';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 export type AuthGuardResult = NextResponse | null;
 
@@ -31,6 +32,39 @@ export function requireCronSecret(req: NextRequest): AuthGuardResult {
 
   if (!cronSecret) return cronSecretNotConfiguredJson();
   if (!token || !verifySecret(token, cronSecret)) return unauthorizedJson();
+
+  return null;
+}
+
+/**
+ * Checks if the request has a valid company (or admin) session.
+ * For company sessions, also verifies that the passcode used to create
+ * the session still exists in the database (i.e. has not been deleted).
+ * Returns null if valid, or a NextResponse with status 401 if not.
+ */
+export async function requireCompanyAuth(req: NextRequest): Promise<AuthGuardResult> {
+  const session = getAdminSession(req);
+  if (!session) return unauthorizedJson();
+
+  // Admins have unrestricted access
+  if (session.role === 'admin') return null;
+
+  // Company sessions must have a still-valid passcode
+  if (session.role === 'company' && session.passcodeId) {
+    const db = createAdminClient();
+    if (!db) return NextResponse.json({ error: 'DB not configured' }, { status: 503 });
+
+    const { data } = await db
+      .from('passcodes')
+      .select('id')
+      .eq('id', session.passcodeId)
+      .maybeSingle();
+
+    if (!data) {
+      // Passcode was deleted — force re-login
+      return unauthorizedJson('Session is no longer valid. Please log in again.');
+    }
+  }
 
   return null;
 }

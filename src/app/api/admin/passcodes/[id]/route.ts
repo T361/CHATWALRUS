@@ -29,3 +29,20 @@ export async function PATCH(
 
   return NextResponse.json({ status: 'ok' });
 }
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const authError = requireAdminOrCron(req);
+  if (authError) return authError;
+  const { id } = await params;
+  const db = createAdminClient();
+  if (!db) return NextResponse.json({ error: 'DB not configured' }, { status: 503 });
+
+  const { error } = await db.from('passcodes').delete().eq('id', id);
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  return NextResponse.json({ status: 'ok' });
+}

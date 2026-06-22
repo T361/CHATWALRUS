@@ -18,6 +18,7 @@ export interface AdminSession {
   expiresAt: number;
   companyId?: string | null;  // Set for company-scoped sessions
   companySlug?: string | null;  // Cached for easy redirects
+  passcodeId?: string | null;  // The passcode used to create this session
 }
 
 interface SessionPayload {
@@ -27,6 +28,7 @@ interface SessionPayload {
   nonce: string;
   companyId?: string | null;
   companySlug?: string | null;
+  passcodeId?: string | null;
 }
 
 function getSessionSecret(): string | null {
@@ -75,19 +77,21 @@ export function createAdminSessionToken(): {
 
 export function createCompanySessionToken(
   companyId: string,
-  companySlug: string
+  companySlug: string,
+  passcodeId?: string | null
 ): {
   token: string;
   expiresAt: Date;
   session: AdminSession;
 } | null {
-  return createSessionToken('company', companyId, companySlug);
+  return createSessionToken('company', companyId, companySlug, passcodeId ?? null);
 }
 
 function createSessionToken(
   role: SessionRole,
   companyId: string | null,
-  companySlug: string | null
+  companySlug: string | null,
+  passcodeId: string | null = null
 ): {
   token: string;
   expiresAt: Date;
@@ -105,6 +109,7 @@ function createSessionToken(
     nonce: randomBytes(16).toString('base64url'),
     companyId,
     companySlug,
+    passcodeId,
   };
   const encodedPayload = toBase64Url(JSON.stringify(payload));
   const signature = signPayload(encodedPayload, secret);
@@ -118,6 +123,7 @@ function createSessionToken(
       expiresAt: payload.exp,
       companyId: payload.companyId,
       companySlug: payload.companySlug,
+      passcodeId: payload.passcodeId,
     },
   };
 }
@@ -150,6 +156,7 @@ export function verifyAdminSessionToken(token: string | undefined | null): Admin
       expiresAt: payload.exp,
       companyId: payload.companyId ?? null,
       companySlug: payload.companySlug ?? null,
+      passcodeId: payload.passcodeId ?? null,
     };
   } catch {
     return null;

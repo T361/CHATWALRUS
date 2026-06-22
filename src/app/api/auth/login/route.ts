@@ -89,7 +89,8 @@ export async function POST(req: NextRequest) {
     // 3. Create company-scoped session
     const sessionToken = createCompanySessionToken(
       passcodeRecord.company_id,
-      companySlug
+      companySlug,
+      passcodeRecord.id
     );
     if (!sessionToken) {
       return NextResponse.json({ error: 'Session creation failed' }, { status: 503 });
