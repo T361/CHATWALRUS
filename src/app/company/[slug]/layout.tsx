@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { ADMIN_SESSION_COOKIE, verifyAdminSessionToken } from '@/lib/auth/session';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { AdminCompanyProvider } from '@/components/layout/AdminCompanyContext';
 
 export default async function CompanySlugLayout({
   children,
@@ -16,9 +17,9 @@ export default async function CompanySlugLayout({
     redirect('/login');
   }
 
-  // Admins bypass passcode check
+  // Admins bypass passcode check — wrap children with isAdmin=true so CompanyShell shows sidebar
   if (session.role === 'admin') {
-    return <>{children}</>;
+    return <AdminCompanyProvider isAdmin={true}>{children}</AdminCompanyProvider>;
   }
 
   // Company sessions: verify the passcode still exists in DB
@@ -43,5 +44,5 @@ export default async function CompanySlugLayout({
     }
   }
 
-  return <>{children}</>;
+  return <AdminCompanyProvider isAdmin={false}>{children}</AdminCompanyProvider>;
 }

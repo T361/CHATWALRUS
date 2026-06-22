@@ -1,9 +1,11 @@
-import { cookies } from 'next/headers';
+'use client';
+
+import { useContext } from 'react';
 import CompanyTopNav from './CompanyTopNav';
 import AdminSidebar from './AdminSidebar';
-import { ADMIN_SESSION_COOKIE, verifyAdminSessionToken } from '@/lib/auth/session';
+import { AdminCompanyContext } from './AdminCompanyContext';
 
-export default async function CompanyShell({
+export default function CompanyShell({
   slug,
   companyName,
   children,
@@ -12,10 +14,7 @@ export default async function CompanyShell({
   companyName?: string;
   children: React.ReactNode;
 }) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get(ADMIN_SESSION_COOKIE)?.value;
-  const session = verifyAdminSessionToken(token);
-  const isAdmin = session?.role === 'admin';
+  const isAdmin = useContext(AdminCompanyContext);
 
   return (
     <div className="app-shell-top">
