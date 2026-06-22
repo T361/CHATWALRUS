@@ -1,8 +1,9 @@
 'use client';
 
 import PageShell from '@/components/layout/PageShell';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
+import React from 'react';
 
 interface LeaderboardRow {
   rank: number;
@@ -29,16 +30,51 @@ const POINT_LEGEND = [
   { icon: '⏰', label: 'On Pace',         pts: 30  },
 ];
 
+function RankLimitInput({ limit }: { limit: number }) {
+  const [val, setVal] = React.useState(String(limit));
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+      <input
+        type="number"
+        value={val}
+        min={10}
+        max={500}
+        onChange={e => setVal(e.target.value)}
+        onKeyDown={e => {
+          if (e.key === 'Enter') {
+            const p = new URLSearchParams(window.location.search);
+            p.set('limit', val);
+            window.location.assign('/leaderboard?' + p.toString());
+          }
+        }}
+        style={{ width: 70, textAlign: 'center', fontWeight: 700 }}
+      />
+      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>ranked</span>
+    </div>
+  );
+}
+
+function getLimitFromSearch(): number {
+  if (typeof window === 'undefined') return 100;
+  const p = new URLSearchParams(window.location.search);
+  const v = parseInt(p.get('limit') ?? '100', 10);
+  if (isNaN(v) || v < 10) return 10;
+  if (v > 500) return 500;
+  return v;
+}
+
 export default function GlobalLeaderboardPage() {
   const [rows,    setRows]    = useState<LeaderboardRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [seeding, setSeeding] = useState(false);
   const [search,  setSearch]  = useState('');
   const [showLegend, setShowLegend] = useState(false);
+  const [limit, setLimit] = useState(100);
+  const didInit = useRef(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (lim: number) => {
     setLoading(true);
-    const res = await fetch('/api/leaderboard/global');
+    const res = await fetch(`/api/leaderboard/global?limit=${lim}`);
     const d   = await res.json();
     const lb  = d.leaderboard ?? [];
 
@@ -46,7 +82,7 @@ export default function GlobalLeaderboardPage() {
       setSeeding(true);
       await fetch('/api/admin/sync/gamification', { method: 'POST' });
       setSeeding(false);
-      const res2 = await fetch('/api/leaderboard/global');
+      const res2 = await fetch(`/api/leaderboard/global?limit=${lim}`);
       const d2   = await res2.json();
       setRows(d2.leaderboard ?? []);
     } else {
@@ -55,8 +91,13 @@ export default function GlobalLeaderboardPage() {
     setLoading(false);
   }, []);
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (didInit.current) return;
+    didInit.current = true;
+    const lim = getLimitFromSearch();
+    setLimit(lim);
+    load(lim);
+  }, [load]);
 
   const filtered = rows.filter((r) => {
     const q = search.toLowerCase();
@@ -73,41 +114,46 @@ export default function GlobalLeaderboardPage() {
           <h1 className="page-title">Global Leaderboard</h1>
           <p className="page-subtitle">Top learners across all companies ranked by engagement points</p>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem' }}>
+          {/* Row 1: Refresh + ranked input */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+            {!loading && (
+              <button className="btn btn-secondary btn-sm" onClick={() => load(limit)}>
+                <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75">
+                  <path d="M4 10a6 6 0 1 0 1.27-3.77" strokeLinecap="round"/>
+                  <path d="M4 6v4h4" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                Refresh
+              </button>
+            )}
+            <RankLimitInput limit={limit} />
+          </div>
+          {/* Row 2: Points Legend button */}
           <button
             onClick={() => setShowLegend(v => !v)}
             className="btn btn-secondary btn-sm"
             title="Points legend"
+            style={{ alignSelf: 'flex-end' }}
           >
             📊 Points Legend
           </button>
-          {!loading && (
-            <button className="btn btn-secondary btn-sm" onClick={load}>
-              <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75">
-                <path d="M4 10a6 6 0 1 0 1.27-3.77" strokeLinecap="round"/>
-                <path d="M4 6v4h4" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-              Refresh
-            </button>
-          )}
-          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{rows.length} ranked</span>
         </div>
       </div>
 
       {/* Points legend panel */}
       {showLegend && (
-        <div className="card" style={{ marginBottom: '1.25rem', padding: '1rem 1.25rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-            <h3 style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text)' }}>How Points are Earned</h3>
+        <div className="card" style={{ marginBottom: '1.25rem', padding: '0.75rem 1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+            <h3 style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text)' }}>How Points are Earned</h3>
             <button onClick={() => setShowLegend(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1rem', lineHeight: 1 }}>×</button>
           </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
             {POINT_LEGEND.map(({ icon, label, pts }) => (
               <div key={label} style={{
-                display: 'flex', alignItems: 'center', gap: '0.375rem',
-                padding: '0.3125rem 0.625rem',
+                display: 'flex', alignItems: 'center', gap: '0.25rem',
+                padding: '0.25rem 0.5rem',
                 background: 'var(--surface-raised)', border: '1px solid var(--border)',
-                borderRadius: 'var(--radius-sm)', fontSize: '0.8125rem',
+                borderRadius: 'var(--radius-sm)', fontSize: '0.75rem',
               }}>
                 <span>{icon}</span>
                 <span style={{ color: 'var(--text-secondary)' }}>{label}</span>
@@ -115,7 +161,7 @@ export default function GlobalLeaderboardPage() {
               </div>
             ))}
           </div>
-          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.625rem' }}>
+          <p style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
             Points are idempotent — each unique activity is counted once. Streaks and on-pace bonuses are calculated daily.
           </p>
         </div>
@@ -214,7 +260,7 @@ export default function GlobalLeaderboardPage() {
               <thead>
                 <tr>
                   {['Rank', 'Learner', 'Company', 'Points', 'Sessions', 'Streak'].map((h) => (
-                    <th key={h}>{h}</th>
+                    <th key={h} style={{ fontWeight: 700 }}>{h}</th>
                   ))}
                 </tr>
               </thead>
