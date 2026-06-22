@@ -70,7 +70,7 @@ function LoginForm() {
       minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
       background: 'var(--bg)', padding: '1.5rem',
     }}>
-      <div className="card" style={{ width: '100%', maxWidth: '400px', padding: '2rem' }}>
+      <div className="card" style={{ width: '100%', maxWidth: '460px', padding: '2.25rem' }}>
 
         {/* Brand */}
         <div style={{ textAlign: 'center', marginBottom: '1.75rem' }}>
@@ -88,7 +88,7 @@ function LoginForm() {
           border: '1px solid var(--border)', overflow: 'hidden',
           marginBottom: '1.5rem',
         }}>
-          {([['company', '🏢', 'Company'] as const, ['admin', '⚙️', 'Admin'] as const]).map(([key, icon, label]) => (
+          {([['company', 'Company'] as const, ['admin', 'Admin'] as const]).map(([key, label]) => (
             <button
               key={key}
               onClick={() => switchMode(key)}
@@ -101,7 +101,7 @@ function LoginForm() {
                 transition: 'all 150ms',
               }}
             >
-              {icon} {label}
+              {label}
             </button>
           ))}
         </div>

@@ -9,11 +9,14 @@ export async function GET(req: NextRequest) {
 
   const db = createAdminClient();
 
+  const rawLimit = parseInt(req.nextUrl.searchParams.get('limit') ?? '100', 10);
+  const queryLimit = isNaN(rawLimit) || rawLimit < 10 ? 10 : rawLimit > 500 ? 500 : rawLimit;
+
   const { data: rows, error } = await db
     .from('learner_points')
     .select('learner_id, company_id, total_points, sessions_attended, current_streak_days, learners(full_name, email), companies(name, slug)')
     .order('total_points', { ascending: false })
-    .limit(100);
+    .limit(queryLimit);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
