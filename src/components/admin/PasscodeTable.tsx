@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import type { Passcode } from '@/types/alert';
+import { broadcastPasscodeDeleted } from '@/components/layout/AuthSync';
 
 interface PasscodeTableProps {
   passcodes: Passcode[];
@@ -80,6 +81,7 @@ export default function PasscodeTable({ passcodes, companies = {}, onRefresh }: 
         setMessage({ type: 'error', text: data.error || 'Failed to delete passcode' });
       } else {
         setMessage({ type: 'success', text: 'Passcode deleted successfully' });
+        broadcastPasscodeDeleted(); // kick any open company tabs using this passcode
         if (onRefresh) onRefresh();
       }
     } catch {
