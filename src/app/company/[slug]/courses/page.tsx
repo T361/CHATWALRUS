@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import CompanyShell from '@/components/layout/CompanyShell';
 import Link from 'next/link';
 import { normalizeRole } from '@/lib/learners/directory';
+import { CompanyRoleFilter } from './CompanyRoleFilter';
 
 type CourseRow = {
   id: string;
@@ -101,6 +102,7 @@ function SortLink({
   sortDir,
   slug,
   filter,
+  role,
 }: {
   field: string;
   label: string;
@@ -108,12 +110,15 @@ function SortLink({
   sortDir: string;
   slug: string;
   filter: string;
+  role: string;
 }) {
   const isActive = sortBy === field;
   const nextDir = isActive && sortDir === 'asc' ? 'desc' : 'asc';
+  const params = new URLSearchParams({ filter, sort_by: field, sort_dir: nextDir });
+  if (role) params.set('role', role);
   return (
     <Link
-      href={`/company/${slug}/courses?filter=${filter}&sort_by=${field}&sort_dir=${nextDir}`}
+      href={`/company/${slug}/courses?${params.toString()}`}
       style={{
         display: 'inline-flex', alignItems: 'center', gap: '0.25rem',
         color: isActive ? 'var(--primary)' : 'var(--text-secondary)',
@@ -129,7 +134,7 @@ function SortLink({
 
 export default async function CoursesPage(props: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ sort_by?: string; sort_dir?: string; filter?: 'enrolled' | 'all' }>;
+  searchParams: Promise<{ sort_by?: string; sort_dir?: string; filter?: 'enrolled' | 'all'; role?: string }>;
 }) {
   const params = await props.params;
   const searchParams = await props.searchParams;
@@ -145,11 +150,22 @@ export default async function CoursesPage(props: {
 
   const courses = await getCourseData(company.id);
 
-  // Filter
+  // Compute all distinct roles across all enrolled courses for the dropdown
+  const allRoles = Array.from(
+    new Set(courses.flatMap(c => Object.keys(c.role_breakdown)))
+  ).sort();
+
+  // Filter by enrollment status
   const filter = searchParams.filter || 'all';
-  const filteredCourses = filter === 'enrolled'
+  let filteredCourses = filter === 'enrolled'
     ? courses.filter(c => c.company_enrollment > 0)
     : courses;
+
+  // Filter by role
+  const role = searchParams.role || '';
+  if (role) {
+    filteredCourses = filteredCourses.filter(c => (c.role_breakdown[role] ?? 0) > 0);
+  }
 
   // Sort
   const sortBy = searchParams.sort_by || 'name';
@@ -189,7 +205,13 @@ export default async function CoursesPage(props: {
     return sortDir === 'asc' ? (aVal as number) - (bVal as number) : (bVal as number) - (aVal as number);
   });
 
-  const sortLinkProps = { sortBy, sortDir, slug: params.slug, filter };
+  const sortLinkProps = { sortBy, sortDir, slug: params.slug, filter, role };
+
+  function filterHref(newFilter: string) {
+    const p = new URLSearchParams({ filter: newFilter, sort_by: sortBy, sort_dir: sortDir });
+    if (role) p.set('role', role);
+    return `/company/${params.slug}/courses?${p.toString()}`;
+  }
 
   return (
     <CompanyShell slug={params.slug}>
@@ -205,13 +227,13 @@ export default async function CoursesPage(props: {
       {/* Filters */}
       <div style={{ marginBottom: '1.5rem', display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
         <a
-          href={`/company/${params.slug}/courses?filter=all&sort_by=${sortBy}&sort_dir=${sortDir}`}
+          href={filterHref('all')}
           className={filter === 'all' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
         >
           All Courses ({courses.length})
         </a>
         <a
-          href={`/company/${params.slug}/courses?filter=enrolled&sort_by=${sortBy}&sort_dir=${sortDir}`}
+          href={filterHref('enrolled')}
           className={filter === 'enrolled' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
         >
           Enrolled Only ({courses.filter(c => c.company_enrollment > 0).length})
@@ -242,7 +264,21 @@ export default async function CoursesPage(props: {
                   <th style={{ fontWeight: 700, cursor: 'pointer', background: sortBy === 'completed' ? 'var(--surface)' : undefined }}>
                     <SortLink field="completed" label="Completed" {...sortLinkProps} />
                   </th>
-                  <th style={{ fontWeight: 700 }}>Roles</th>
+                  <th style={{ fontWeight: 700, minWidth: 140 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                      <span>Roles</span>
+                      {allRoles.length > 0 && (
+                        <CompanyRoleFilter
+                          role={role}
+                          roles={allRoles}
+                          slug={params.slug}
+                          filter={filter}
+                          sortBy={sortBy}
+                          sortDir={sortDir}
+                        />
+                      )}
+                    </div>
+                  </th>
                   <th style={{ fontWeight: 700, cursor: 'pointer', background: sortBy === 'all_companies' ? 'var(--surface)' : undefined }}>
                     <SortLink field="all_companies" label="All Companies" {...sortLinkProps} />
                   </th>
@@ -293,10 +329,29 @@ export default async function CoursesPage(props: {
                       )}
                     </td>
                     <td>
-                      {roleEntries.length > 0 ? (
+                      {role ? (
+                        /* Selected role: show count for that role */
+                        <span style={{
+                          display: 'inline-flex', alignItems: 'center', gap: '0.25rem',
+                          padding: '0.125rem 0.375rem',
+                          borderRadius: '9999px',
+                          background: 'var(--primary-glow)',
+                          border: '1px solid var(--border-accent)',
+                          fontSize: '0.6875rem',
+                          fontWeight: 600,
+                          color: 'var(--primary)',
+                          whiteSpace: 'nowrap',
+                        }}>
+                          {role}
+                          <span style={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+                            {course.role_breakdown[role] || 0}
+                          </span>
+                        </span>
+                      ) : roleEntries.length > 0 ? (
+                        /* All roles: show top-3 badges */
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
-                          {roleEntries.map(([role, count]) => (
-                            <span key={role} style={{
+                          {roleEntries.map(([r, count]) => (
+                            <span key={r} style={{
                               display: 'inline-flex', alignItems: 'center', gap: '0.25rem',
                               padding: '0.125rem 0.375rem',
                               borderRadius: '9999px',
@@ -307,7 +362,7 @@ export default async function CoursesPage(props: {
                               color: 'var(--text-secondary)',
                               whiteSpace: 'nowrap',
                             }}>
-                              {role}
+                              {r}
                               <span style={{ fontWeight: 700, color: 'var(--text)', fontVariantNumeric: 'tabular-nums' }}>{count}</span>
                             </span>
                           ))}

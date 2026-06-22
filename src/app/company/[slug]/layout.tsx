@@ -22,7 +22,12 @@ export default async function CompanySlugLayout({
   }
 
   // Company sessions: verify the passcode still exists in DB
-  if (session.role === 'company' && session.passcodeId) {
+  if (session.role === 'company') {
+    // Old tokens issued before passcodeId was added — force re-login to get a fresh token
+    if (!session.passcodeId) {
+      redirect('/login?reason=session_refresh');
+    }
+
     const db = createAdminClient();
     if (db) {
       const { data } = await db

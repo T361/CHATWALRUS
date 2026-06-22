@@ -127,39 +127,8 @@ export default function TopNav() {
           </div>
         </Link>
 
-        {/* Desktop separator */}
-        <div className="nav-sep-desktop" style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 0.25rem', flexShrink: 0 }} />
-
-        {/* Desktop main links */}
-        <div className="nav-links-desktop" style={{ display: 'flex', gap: '4px', flex: 1 }}>
-          {mainLinks.map(({ href, label, icon, exact }) => {
-            const active = isActive(href, exact);
-            return (
-              <Link key={href} href={href} style={{
-                display: 'flex', alignItems: 'center', gap: '0.5rem',
-                padding: '0.5rem 0.875rem',
-                borderRadius: 'var(--radius)',
-                fontSize: '0.9375rem',
-                fontWeight: active ? 700 : 500,
-                color: active ? 'var(--text)' : 'var(--text-secondary)',
-                background: active ? 'var(--surface)' : 'transparent',
-                textDecoration: 'none',
-                transition: 'all 120ms',
-                whiteSpace: 'nowrap',
-                opacity: active ? 1 : 0.85,
-              }}
-              onMouseEnter={(e) => { if (!active) { e.currentTarget.style.background = 'var(--surface-raised)'; e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.opacity = '1'; }}}
-              onMouseLeave={(e) => { if (!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-secondary)'; e.currentTarget.style.opacity = '0.85'; }}}
-              >
-                <span style={{ opacity: active ? 1 : 0.7 }}>{React.cloneElement(icon as React.ReactElement<{ size?: number }>, { size: 17 })}</span>
-                {label}
-              </Link>
-            );
-          })}
-        </div>
-
         {/* Desktop right side */}
-        <div className="nav-right-desktop" style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', flexShrink: 0 }}>
+        <div className="nav-right-desktop" style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', flexShrink: 0, marginLeft: 'auto' }}>
           <ThemeToggle />
           <div style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 0.125rem' }} />
           <button
