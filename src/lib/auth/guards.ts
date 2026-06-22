@@ -70,6 +70,17 @@ export async function requireCompanyAuth(req: NextRequest): Promise<AuthGuardRes
 }
 
 /**
+ * Checks if the request has an Admin session with role === 'admin'.
+ * Company sessions are explicitly rejected.
+ */
+export function requireAdmin(req: NextRequest): AuthGuardResult {
+  const session = getAdminSession(req);
+  if (!session) return unauthorizedJson();
+  if (session.role !== 'admin') return unauthorizedJson('Admin access required');
+  return null;
+}
+
+/**
  * Checks if the request is allowed via CRON_SECRET or an Admin Session.
  */
 export function requireAdminOrCron(req: NextRequest): AuthGuardResult {

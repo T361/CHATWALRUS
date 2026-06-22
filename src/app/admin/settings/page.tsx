@@ -156,7 +156,7 @@ export default function AdminSettingsPage() {
   }, []);
 
   useEffect(() => {
-    if (settingsStatus?.auth.authenticated) {
+    if (settingsStatus?.auth.role === 'admin') {
       void loadIntegrationProbes();
       void loadPasscodes();
     }
@@ -165,7 +165,7 @@ export default function AdminSettingsPage() {
   }, [settingsStatus?.auth.authenticated]);
 
   async function runSync(type: string, endpoint: string) {
-    if (!settingsStatus?.auth.authenticated) {
+    if (settingsStatus?.auth.role !== 'admin') {
       setSyncStatus((prev) => ({ ...prev, [type]: 'Login required' }));
       return;
     }
@@ -190,7 +190,7 @@ export default function AdminSettingsPage() {
     setLoading((prev) => ({ ...prev, [type]: false }));
   }
 
-  const isAuthenticated = !!settingsStatus?.auth.authenticated;
+  const isAdmin = settingsStatus?.auth.role === 'admin';
 
   // While auth status is loading — show spinner, then redirect if not authenticated
   if (!statusLoaded) {
@@ -201,8 +201,8 @@ export default function AdminSettingsPage() {
     );
   }
 
-  // Not authenticated — send to the unified login page
-  if (!isAuthenticated) {
+  // Not an admin — send to the admin login page
+  if (!isAdmin) {
     router.replace('/login?mode=admin&redirect=/admin/settings');
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -211,7 +211,7 @@ export default function AdminSettingsPage() {
     );
   }
 
-  // Authenticated — full admin panel
+  // Admin authenticated — full admin panel
   return (
     <PageShell>
       <div className="page-header" style={{ marginBottom: '1.5rem' }}>

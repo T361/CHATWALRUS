@@ -379,18 +379,18 @@ export default function LearnerDirectory({
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.625rem', flexWrap: 'nowrap', alignItems: 'center', overflowX: 'auto' }}>
+      <div style={{ display: 'flex', gap: '0.375rem', marginBottom: '0.625rem', flexWrap: 'nowrap', alignItems: 'center', overflowX: 'auto' }}>
         <input
           type="text"
           placeholder="Search learner name or email..."
           value={localSearch}
           onChange={(event) => setLocalSearch(event.target.value)}
-          style={{ flex: '1 1 130px', minWidth: 100, padding: '0.375rem 0.625rem', height: '34px', boxSizing: 'border-box' }}
+          style={{ flex: '1 1 110px', minWidth: 90, padding: '0.25rem 0.5rem', height: '30px', fontSize: '0.8125rem', boxSizing: 'border-box' }}
         />
         <select
           value={courseFilter}
           onChange={(event) => updateFilters({ course_id: event.target.value || null, page: 1 })}
-          style={{ flex: '1 1 110px', minWidth: 90, padding: '0.375rem 0.5rem', height: '34px', boxSizing: 'border-box' }}
+          style={{ flex: '1 1 80px', minWidth: 70, padding: '0.25rem 0.375rem', height: '30px', fontSize: '0.8125rem', boxSizing: 'border-box' }}
           disabled={metaLoading}
         >
           <option value="">All Courses</option>
@@ -404,7 +404,7 @@ export default function LearnerDirectory({
           <select
             value={roleFilter}
             onChange={(event) => updateFilters({ role: event.target.value || null, page: 1 })}
-            style={{ flex: '1 1 90px', minWidth: 80, padding: '0.375rem 0.5rem', height: '34px', boxSizing: 'border-box' }}
+            style={{ flex: '1 1 70px', minWidth: 60, padding: '0.25rem 0.375rem', height: '30px', fontSize: '0.8125rem', boxSizing: 'border-box' }}
             disabled={metaLoading}
           >
             <option value="">All Roles</option>
@@ -418,7 +418,7 @@ export default function LearnerDirectory({
         <select
           value={statusFilter}
           onChange={(event) => updateFilters({ status: event.target.value, page: 1 })}
-          style={{ flex: '1 1 100px', minWidth: 90, padding: '0.375rem 0.5rem', height: '34px', boxSizing: 'border-box' }}
+          style={{ flex: '1 1 80px', minWidth: 70, padding: '0.25rem 0.375rem', height: '30px', fontSize: '0.8125rem', boxSizing: 'border-box' }}
         >
           <option value="all">All Statuses</option>
           <option value="not_started">Not Started</option>
@@ -430,11 +430,11 @@ export default function LearnerDirectory({
         <select
           value={String(limit)}
           onChange={(event) => updateFilters({ limit: Number(event.target.value), page: 1 })}
-          style={{ flex: '0 0 auto', width: 88, padding: '0.375rem 0.5rem', height: '34px', boxSizing: 'border-box' }}
+          style={{ flex: '0 0 auto', width: 82, padding: '0.25rem 0.375rem', height: '30px', fontSize: '0.8125rem', boxSizing: 'border-box' }}
         >
-          <option value="25">25 / page</option>
-          <option value="50">50 / page</option>
-          <option value="100">100 / page</option>
+          <option value="25">25 / pg</option>
+          <option value="50">50 / pg</option>
+          <option value="100">100 / pg</option>
         </select>
       </div>
 

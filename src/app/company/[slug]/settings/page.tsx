@@ -87,9 +87,9 @@ export default function CompanySettingsPage(props: { params: Promise<{ slug: str
 
   return (
     <CompanyShell slug={slug} companyName={settings?.name}>
-      <div className="page-header" style={{ marginBottom: '1.5rem' }}>
+      <div style={{ marginBottom: '1.5rem' }}>
         <h1 className="page-title">Company Settings</h1>
-        <p className="page-subtitle" style={{ marginTop: '0.25rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
+        <p className="page-subtitle" style={{ marginTop: '0.25rem' }}>
           Configure program dates and alert thresholds.
         </p>
       </div>

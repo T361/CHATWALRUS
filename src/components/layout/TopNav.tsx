@@ -118,7 +118,8 @@ export default function TopNav() {
           <img
             src="/chatwalrus_logo.jpeg"
             alt="ChatWalrus"
-            style={{ display: 'block', width: 28, height: 28, borderRadius: 6, objectFit: 'contain', background: 'white', flexShrink: 0 }}
+            style={{ display: 'block', width: 28, height: 28, borderRadius: 6, objectFit: 'contain', background: 'var(--primary)', flexShrink: 0 }}
+            onError={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = '0'; }}
           />
           <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
             <span style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--text)', letterSpacing: '-0.02em' }}>ChatWalrus</span>

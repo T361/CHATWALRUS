@@ -12,7 +12,7 @@ export default function CompanyShell({
   return (
     <div className="app-shell-top">
       <CompanyTopNav slug={slug} companyName={companyName} />
-      <main style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>{children}</main>
+      <main className="shell-content">{children}</main>
     </div>
   );
 }

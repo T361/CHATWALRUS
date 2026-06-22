@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAdminOrCron } from '@/lib/auth/guards';
+import { requireAdmin } from '@/lib/auth/guards';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const authError = requireAdminOrCron(req);
+  const authError = requireAdmin(req);
   if (authError) return authError;
   const { id } = await params;
   const db = createAdminClient();
@@ -34,7 +34,7 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const authError = requireAdminOrCron(req);
+  const authError = requireAdmin(req);
   if (authError) return authError;
   const { id } = await params;
   const db = createAdminClient();
