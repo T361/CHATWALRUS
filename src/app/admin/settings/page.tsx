@@ -26,7 +26,6 @@ interface SettingsStatusResponse {
       probe: { connected: boolean; status: number | null; message: string | null } | null;
     };
     zoom:  { configured: boolean };
-    slack: { configured: boolean };
   };
   data_health?: {
     learner_rollups: {
@@ -46,17 +45,6 @@ interface SettingsStatusResponse {
       healthy: boolean;
       message: string | null;
     };
-    surveys: {
-      relation_present: boolean;
-      stored_reviews: number;
-      latest_sync_status: string | null;
-      latest_records_processed: number;
-      latest_completed_at: string | null;
-      upstream_reviews_found: number;
-      endpoint_errors: number;
-      healthy: boolean;
-      message: string | null;
-    };
   };
 }
 
@@ -67,8 +55,7 @@ const syncButtons = [
   { type: 'start-dates',    label: 'Auto-detect Start Dates',  sub: 'Infers program start date from earliest enrollment per company',                endpoint: '/api/admin/sync/start-dates' },
   { type: 'progress',       label: 'Import Progress',          sub: 'Enrollment + completion data',                                                  endpoint: '/api/admin/sync/progress' },
   { type: 'assignments',    label: 'Import Assignments',        sub: 'Submissions from Thinkific',                                                   endpoint: '/api/admin/sync/assignments' },
-  { type: 'surveys',        label: 'Import Survey Reviews',    sub: 'Thinkific course_reviews; may return zero if no upstream reviews exist',         endpoint: '/api/admin/sync/surveys' },
-  { type: 'zoom',           label: 'Sync Zoom Attendance',     sub: 'Meetings + webinars attendance — requires Zoom credentials',                    endpoint: '/api/admin/sync/zoom' },
+{ type: 'zoom',           label: 'Sync Zoom Attendance',     sub: 'Meetings + webinars attendance — requires Zoom credentials',                    endpoint: '/api/admin/sync/zoom' },
   { type: 'lesson-progress',label: 'Sync Lesson Progress',     sub: 'Lesson-level completion from Thinkific (slow — runs incrementally)',             endpoint: '/api/admin/sync/lesson-progress' },
   { type: 'learners-rollups',label: 'Backfill Learner Rollups',sub: 'Populate learner directory rollups for already-synced learners',                 endpoint: '/api/admin/sync/learners-rollups' },
   { type: 'weekly-rollups', label: 'Backfill Weekly Rollups',  sub: 'Populate current-week weekly report rollups for active companies',               endpoint: '/api/admin/sync/weekly-rollups' },
@@ -298,12 +285,6 @@ export default function AdminSettingsPage() {
               connected={settingsStatus.integrations.zoom.configured}
               detail={settingsStatus.integrations.zoom.configured ? 'Credentials set' : 'Missing ZOOM_ACCOUNT_ID, CLIENT_ID, CLIENT_SECRET'}
             />
-            <IntegrationRow
-              label="Slack"
-              configured={settingsStatus.integrations.slack.configured}
-              connected={settingsStatus.integrations.slack.configured}
-              detail={settingsStatus.integrations.slack.configured ? 'Bot token set' : 'Missing SLACK_BOT_TOKEN'}
-            />
             {settingsStatus.data_health?.learner_rollups && (
               <IntegrationRow
                 label="Learner Rollups"
@@ -328,19 +309,6 @@ export default function AdminSettingsPage() {
                     : 'Rollup table missing'
                 }
                 message={settingsStatus.data_health.weekly_rollups.message}
-              />
-            )}
-            {settingsStatus.data_health?.surveys && (
-              <IntegrationRow
-                label="Survey Reviews"
-                configured={settingsStatus.data_health.surveys.relation_present}
-                connected={settingsStatus.data_health.surveys.healthy}
-                detail={
-                  settingsStatus.data_health.surveys.stored_reviews > 0
-                    ? `${settingsStatus.data_health.surveys.stored_reviews} stored reviews`
-                    : `${settingsStatus.data_health.surveys.upstream_reviews_found} upstream reviews · ${settingsStatus.data_health.surveys.endpoint_errors} endpoint errors`
-                }
-                message={settingsStatus.data_health.surveys.message}
               />
             )}
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.75rem' }}>

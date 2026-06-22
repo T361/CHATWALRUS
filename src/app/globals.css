@@ -328,6 +328,8 @@ th {
   white-space: nowrap;
 }
 
+.data-table th { font-weight: 700; }
+
 td {
   padding: 0.75rem 1rem;
   font-size: 0.875rem;

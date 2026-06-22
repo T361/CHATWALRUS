@@ -8,8 +8,7 @@ const EXPORT_TYPES = [
   { label: 'Learner Progress', sub: 'Names, email, status, completion %', href: (slug: string) => `/api/companies/${slug}/export/csv`, icon: '↓ CSV' },
   { label: 'Full Company Data', sub: 'All learner + enrollment data', href: (slug: string) => `/api/companies/${slug}/export/json`, icon: '↓ JSON' },
   { label: 'Assessments', sub: 'Quiz scores and assignment submissions', href: (slug: string) => `/api/companies/${slug}/export/csv?type=assessments`, icon: '↓ CSV' },
-  { label: 'Survey Responses', sub: 'Ratings and written feedback', href: (slug: string) => `/api/companies/${slug}/export/csv?type=surveys`, icon: '↓ CSV' },
-  { label: 'Zoom Attendance', sub: 'Live session attendance records', href: (slug: string) => `/api/companies/${slug}/export/csv?type=attendance`, icon: '↓ CSV' },
+{ label: 'Zoom Attendance', sub: 'Live session attendance records', href: (slug: string) => `/api/companies/${slug}/export/csv?type=attendance`, icon: '↓ CSV' },
 ];
 
 export default async function ExportPage(

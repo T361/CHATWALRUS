@@ -58,7 +58,7 @@ export default async function LearnerDetailPage(
     db.from('quizzes').select('*, courses(name)').eq('learner_id', learnerId).order('attempted_at', { ascending: false }),
     db.from('assignments').select('*, courses(name)').eq('learner_id', learnerId).order('submitted_at', { ascending: false }),
     db.from('zoom_attendance').select('id, zoom_session_id, learner_id, company_id, attendee_name, attendee_email, join_time, leave_time, duration_minutes, attended, created_at, zoom_sessions(topic, session_type, host_email, start_time, end_time)').eq('learner_id', learnerId).order('join_time', { ascending: false }),
-    db.from('learner_points').select('total_points, zoom_attendance_points, lesson_completion_points, quiz_points, course_completion_points, assignment_points, survey_points, streak_bonus_points, sessions_attended').eq('learner_id', learnerId).single(),
+    db.from('learner_points').select('total_points, zoom_attendance_points, lesson_completion_points, quiz_points, course_completion_points, assignment_points, streak_bonus_points, sessions_attended').eq('learner_id', learnerId).single(),
     db.from('learner_points').select('learner_id').eq('company_id', company.id).gte('total_points', 0).order('total_points', { ascending: false }),
   ]);
 
@@ -205,8 +205,7 @@ export default async function LearnerDetailPage(
               { label: '✅ Quizzes',          pts: pointsRow.quiz_points,               suffix: '' },
               { label: '🏆 Course Complete',  pts: pointsRow.course_completion_points,  suffix: '' },
               { label: '📝 Assignments',      pts: pointsRow.assignment_points,         suffix: '' },
-              { label: '📊 Surveys',          pts: pointsRow.survey_points,             suffix: '' },
-              { label: '🔥 Streaks & Pace',   pts: pointsRow.streak_bonus_points,       suffix: '' },
+{ label: '🔥 Streaks & Pace',   pts: pointsRow.streak_bonus_points,       suffix: '' },
             ]
               .filter((item) => Number(item.pts) > 0)
               .map((item) => (

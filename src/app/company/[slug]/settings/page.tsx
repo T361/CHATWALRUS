@@ -9,9 +9,7 @@ interface CompanySettings {
   end_date: string | null;
   learning_timeline_days: number | null;
   risk_threshold_percent: number | null;
-  slack_channel_id: string | null;
   csm_owner_email: string | null;
-  slack_routing: 'channel_only' | 'dm_only' | 'both' | null;
 }
 
 export default function CompanySettingsPage(props: { params: Promise<{ slug: string }> }) {
@@ -34,9 +32,7 @@ export default function CompanySettingsPage(props: { params: Promise<{ slug: str
           end_date:               c.end_date               ?? '',
           learning_timeline_days: c.learning_timeline_days ?? 90,
           risk_threshold_percent: c.risk_threshold_percent ?? 30,
-          slack_channel_id:       c.slack_channel_id       ?? '',
           csm_owner_email:        c.csm_owner_email        ?? '',
-          slack_routing:          c.slack_routing          ?? 'channel_only',
         });
       })
       .catch(() => setMsg({ text: 'Could not load company settings.', ok: false }))
@@ -50,11 +46,9 @@ export default function CompanySettingsPage(props: { params: Promise<{ slug: str
       const body: Record<string, unknown> = {
         learning_timeline_days: Number(form.learning_timeline_days) || 90,
         risk_threshold_percent: Number(form.risk_threshold_percent) || 30,
-        slack_routing: form.slack_routing || 'channel_only',
       };
       if (form.start_date)       body.start_date       = form.start_date;
       if (form.end_date)         body.end_date         = form.end_date;
-      if (form.slack_channel_id !== undefined) body.slack_channel_id = form.slack_channel_id || null;
       if (form.csm_owner_email  !== undefined) body.csm_owner_email  = form.csm_owner_email  || null;
 
       const res = await fetch(`/api/companies/${slug}`, {
@@ -96,7 +90,7 @@ export default function CompanySettingsPage(props: { params: Promise<{ slug: str
       <div className="page-header" style={{ marginBottom: '1.5rem' }}>
         <h1 className="page-title">Company Settings</h1>
         <p className="page-subtitle" style={{ marginTop: '0.25rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-          Configure program dates, alert thresholds, and Slack notifications.
+          Configure program dates and alert thresholds.
         </p>
       </div>
 
@@ -117,37 +111,6 @@ export default function CompanySettingsPage(props: { params: Promise<{ slug: str
                 'Total program length in days. Default: 90. Scales milestone benchmarks.')}
               {textField('At-Risk Threshold (%)', 'risk_threshold_percent', 'number',
                 'Alert fires when this % of learners are at-risk or not started. Default: 30.')}
-            </div>
-          </div>
-
-          {/* Slack Notifications */}
-          <div className="card">
-            <p className="section-title" style={{ marginBottom: '0.375rem' }}>Slack Notifications</p>
-            <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
-              Alerts are sent when a milestone check triggers. Requires <code>SLACK_BOT_TOKEN</code> in environment variables.
-            </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {textField('Slack Channel ID', 'slack_channel_id', 'text',
-                'The channel to post alerts to (e.g. C0XXXXXXXXX). Leave blank to use the default channel.')}
-              {textField('CSM Owner Email', 'csm_owner_email', 'email',
-                "CSM's email address for direct Slack DMs. Used when routing is set to DM or Both.")}
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
-                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                  Alert Routing
-                </label>
-                <select
-                  value={form.slack_routing ?? 'channel_only'}
-                  onChange={(e) => setForm(f => ({ ...f, slack_routing: e.target.value as 'channel_only' | 'dm_only' | 'both' }))}
-                >
-                  <option value="channel_only">Channel only</option>
-                  <option value="dm_only">CSM DM only</option>
-                  <option value="both">Both channel and CSM DM</option>
-                </select>
-                <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.125rem' }}>
-                  DM routing requires CSM Owner Email to be set.
-                </p>
-              </div>
             </div>
           </div>
 

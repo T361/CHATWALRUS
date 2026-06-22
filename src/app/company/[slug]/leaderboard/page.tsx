@@ -11,7 +11,6 @@ const POINT_LEGEND = [
   { icon: '✅', label: 'Quiz',            pts: 25  },
   { icon: '🏆', label: 'Course',          pts: 100 },
   { icon: '📝', label: 'Assignment',      pts: 20  },
-  { icon: '📊', label: 'Survey',          pts: 15  },
   { icon: '🔥', label: '7d Streak',       pts: 50  },
   { icon: '⚡', label: '30d Streak',      pts: 200 },
   { icon: '⏰', label: 'On Pace',         pts: 30  },
