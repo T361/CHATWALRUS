@@ -1,6 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { notFound } from 'next/navigation';
 import CompanyShell from '@/components/layout/CompanyShell';
+import Link from 'next/link';
 import { normalizeRole } from '@/lib/learners/directory';
 
 type CourseRow = {
@@ -93,6 +94,39 @@ async function getCourseData(companyId: string): Promise<CourseRow[]> {
   });
 }
 
+function SortLink({
+  field,
+  label,
+  sortBy,
+  sortDir,
+  slug,
+  filter,
+}: {
+  field: string;
+  label: string;
+  sortBy: string;
+  sortDir: string;
+  slug: string;
+  filter: string;
+}) {
+  const isActive = sortBy === field;
+  const nextDir = isActive && sortDir === 'asc' ? 'desc' : 'asc';
+  return (
+    <Link
+      href={`/company/${slug}/courses?filter=${filter}&sort_by=${field}&sort_dir=${nextDir}`}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: '0.25rem',
+        color: isActive ? 'var(--primary)' : 'var(--text-secondary)',
+        fontWeight: isActive ? 700 : 600,
+        textDecoration: 'none', fontSize: '0.8125rem', whiteSpace: 'nowrap',
+      }}
+    >
+      {label}
+      {isActive ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ' ↕'}
+    </Link>
+  );
+}
+
 export default async function CoursesPage(props: {
   params: Promise<{ slug: string }>;
   searchParams: Promise<{ sort_by?: string; sort_dir?: string; filter?: 'enrolled' | 'all' }>;
@@ -141,6 +175,10 @@ export default async function CoursesPage(props: {
         aVal = a.company_completions;
         bVal = b.company_completions;
         break;
+      case 'all_companies':
+        aVal = a.total_enrollments_all_companies;
+        bVal = b.total_enrollments_all_companies;
+        break;
       default:
         return 0;
     }
@@ -150,6 +188,8 @@ export default async function CoursesPage(props: {
     }
     return sortDir === 'asc' ? (aVal as number) - (bVal as number) : (bVal as number) - (aVal as number);
   });
+
+  const sortLinkProps = { sortBy, sortDir, slug: params.slug, filter };
 
   return (
     <CompanyShell slug={params.slug}>
@@ -178,36 +218,6 @@ export default async function CoursesPage(props: {
         </a>
       </div>
 
-      {/* Sort Controls */}
-      <div style={{ marginBottom: '1rem', display: 'flex', gap: '0.5rem', fontSize: '0.875rem' }}>
-        <span style={{ color: 'var(--text-muted)' }}>Sort by:</span>
-        {[
-          { key: 'name', label: 'Name' },
-          { key: 'enrollment', label: 'Enrolled' },
-          { key: 'progress', label: 'Progress' },
-          { key: 'completed', label: 'Completed' },
-        ].map(({ key, label }) => {
-          const isActive = sortBy === key;
-          const nextDir = isActive && sortDir === 'asc' ? 'desc' : 'asc';
-          return (
-            <a
-              key={key}
-              href={`/company/${params.slug}/courses?filter=${filter}&sort_by=${key}&sort_dir=${nextDir}`}
-              style={{
-                padding: '0.25rem 0.5rem',
-                borderRadius: '4px',
-                background: isActive ? 'var(--primary-glow)' : 'transparent',
-                color: isActive ? 'var(--primary)' : 'var(--text-secondary)',
-                textDecoration: 'none',
-                fontWeight: isActive ? 600 : 400,
-              }}
-            >
-              {label} {isActive && (sortDir === 'asc' ? '↑' : '↓')}
-            </a>
-          );
-        })}
-      </div>
-
       {/* Courses Table */}
       {sorted.length === 0 ? (
         <div className="empty-state card">
@@ -215,93 +225,106 @@ export default async function CoursesPage(props: {
         </div>
       ) : (
         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Course Name</th>
-                <th>Lessons</th>
-                <th>Enrolled</th>
-                <th>Avg Progress</th>
-                <th>Completed</th>
-                <th>Roles</th>
-                <th>All Companies</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sorted.map(course => {
-                const roleEntries = Object.entries(course.role_breakdown)
-                  .sort((a, b) => b[1] - a[1]);
-                return (
-                <tr key={course.id}>
-                  <td style={{ fontWeight: 500 }}>{course.name}</td>
-                  <td>{course.total_lessons}</td>
-                  <td>
-                    <span
-                      className="badge"
-                      style={{
-                        background: course.company_enrollment > 0 ? 'var(--primary-glow)' : 'var(--surface)',
-                        color: course.company_enrollment > 0 ? 'var(--primary)' : 'var(--text-muted)',
-                      }}
-                    >
-                      {course.company_enrollment}
-                    </span>
-                  </td>
-                  <td>
-                    {course.company_enrollment > 0 ? (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <div style={{ flex: 1, height: '6px', background: 'var(--surface)', borderRadius: '3px', overflow: 'hidden' }}>
-                          <div style={{ width: `${course.company_avg_progress}%`, height: '100%', background: 'var(--primary)' }} />
-                        </div>
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', minWidth: '35px' }}>
-                          {course.company_avg_progress}%
-                        </span>
-                      </div>
-                    ) : (
-                      <span style={{ color: 'var(--text-muted)' }}>—</span>
-                    )}
-                  </td>
-                  <td>
-                    {course.company_enrollment > 0 ? (
-                      <span>
-                        {course.company_completions}
-                        <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}> / {course.company_enrollment}</span>
-                      </span>
-                    ) : (
-                      <span style={{ color: 'var(--text-muted)' }}>—</span>
-                    )}
-                  </td>
-                  <td>
-                    {roleEntries.length > 0 ? (
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
-                        {roleEntries.map(([role, count]) => (
-                          <span key={role} style={{
-                            display: 'inline-flex', alignItems: 'center', gap: '0.25rem',
-                            padding: '0.125rem 0.375rem',
-                            borderRadius: '9999px',
-                            background: 'var(--surface-raised)',
-                            border: '1px solid var(--border-muted)',
-                            fontSize: '0.6875rem',
-                            fontWeight: 500,
-                            color: 'var(--text-secondary)',
-                            whiteSpace: 'nowrap',
-                          }}>
-                            {role}
-                            <span style={{ fontWeight: 700, color: 'var(--text)', fontVariantNumeric: 'tabular-nums' }}>{count}</span>
-                          </span>
-                        ))}
-                      </div>
-                    ) : (
-                      <span style={{ color: 'var(--text-muted)' }}>—</span>
-                    )}
-                  </td>
-                  <td style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-                    {course.total_enrollments_all_companies.toLocaleString()}
-                  </td>
+          <div style={{ overflowX: 'auto' }}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th style={{ fontWeight: 700, cursor: 'pointer', background: sortBy === 'name' ? 'var(--surface)' : undefined }}>
+                    <SortLink field="name" label="Course Name" {...sortLinkProps} />
+                  </th>
+                  <th style={{ fontWeight: 700 }}>Lessons</th>
+                  <th style={{ fontWeight: 700, cursor: 'pointer', background: sortBy === 'enrollment' ? 'var(--surface)' : undefined }}>
+                    <SortLink field="enrollment" label="Enrolled" {...sortLinkProps} />
+                  </th>
+                  <th style={{ fontWeight: 700, cursor: 'pointer', background: sortBy === 'progress' ? 'var(--surface)' : undefined }}>
+                    <SortLink field="progress" label="Avg Progress" {...sortLinkProps} />
+                  </th>
+                  <th style={{ fontWeight: 700, cursor: 'pointer', background: sortBy === 'completed' ? 'var(--surface)' : undefined }}>
+                    <SortLink field="completed" label="Completed" {...sortLinkProps} />
+                  </th>
+                  <th style={{ fontWeight: 700 }}>Roles</th>
+                  <th style={{ fontWeight: 700, cursor: 'pointer', background: sortBy === 'all_companies' ? 'var(--surface)' : undefined }}>
+                    <SortLink field="all_companies" label="All Companies" {...sortLinkProps} />
+                  </th>
                 </tr>
-                );
-              })}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {sorted.map(course => {
+                  const roleEntries = Object.entries(course.role_breakdown)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 3);
+                  return (
+                  <tr key={course.id}>
+                    <td style={{ fontWeight: 500 }}>{course.name}</td>
+                    <td>{course.total_lessons}</td>
+                    <td>
+                      <span
+                        className="badge"
+                        style={{
+                          background: course.company_enrollment > 0 ? 'var(--primary-glow)' : 'var(--surface)',
+                          color: course.company_enrollment > 0 ? 'var(--primary)' : 'var(--text-muted)',
+                        }}
+                      >
+                        {course.company_enrollment}
+                      </span>
+                    </td>
+                    <td>
+                      {course.company_enrollment > 0 ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <div style={{ flex: 1, height: '6px', background: 'var(--surface)', borderRadius: '3px', overflow: 'hidden' }}>
+                            <div style={{ width: `${course.company_avg_progress}%`, height: '100%', background: 'var(--primary)' }} />
+                          </div>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', minWidth: '35px' }}>
+                            {course.company_avg_progress}%
+                          </span>
+                        </div>
+                      ) : (
+                        <span style={{ color: 'var(--text-muted)' }}>—</span>
+                      )}
+                    </td>
+                    <td>
+                      {course.company_enrollment > 0 ? (
+                        <span>
+                          {course.company_completions}
+                          <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}> / {course.company_enrollment}</span>
+                        </span>
+                      ) : (
+                        <span style={{ color: 'var(--text-muted)' }}>—</span>
+                      )}
+                    </td>
+                    <td>
+                      {roleEntries.length > 0 ? (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
+                          {roleEntries.map(([role, count]) => (
+                            <span key={role} style={{
+                              display: 'inline-flex', alignItems: 'center', gap: '0.25rem',
+                              padding: '0.125rem 0.375rem',
+                              borderRadius: '9999px',
+                              background: 'var(--surface-raised)',
+                              border: '1px solid var(--border-muted)',
+                              fontSize: '0.6875rem',
+                              fontWeight: 500,
+                              color: 'var(--text-secondary)',
+                              whiteSpace: 'nowrap',
+                            }}>
+                              {role}
+                              <span style={{ fontWeight: 700, color: 'var(--text)', fontVariantNumeric: 'tabular-nums' }}>{count}</span>
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span style={{ color: 'var(--text-muted)' }}>—</span>
+                      )}
+                    </td>
+                    <td style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
+                      {course.total_enrollments_all_companies.toLocaleString()}
+                    </td>
+                  </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </CompanyShell>
