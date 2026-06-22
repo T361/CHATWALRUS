@@ -64,7 +64,6 @@ export default async function WeeklyPage(
           { label: 'Course Completions', value: totals.course_completions },
           { label: 'Zoom Attendances', value: totals.zoom_attendances },
           { label: 'Assignments', value: totals.assignments_submitted },
-          { label: 'Surveys', value: totals.surveys_submitted },
         ].map(({ label, value, sub, color }) => (
           <div key={label} className="card card-sm kpi-card">
             <p className="kpi-label">{label}</p>
