@@ -30,7 +30,7 @@
     },
     {
       "path": "/api/admin/sync/weekly-rollups",
-      "schedule": "0 9 * * 1"
+      "schedule": "0 9 * * *"
     }
   ]
 }
