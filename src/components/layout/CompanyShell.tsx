@@ -2,7 +2,7 @@
 
 import { useContext } from 'react';
 import CompanyTopNav from './CompanyTopNav';
-import AdminSidebar from './AdminSidebar';
+import CompanySidebar from './CompanySidebar';
 import { AdminCompanyContext } from './AdminCompanyContext';
 
 export default function CompanyShell({
@@ -21,7 +21,7 @@ export default function CompanyShell({
       <CompanyTopNav slug={slug} companyName={companyName} />
       {isAdmin ? (
         <div className="company-admin-layout">
-          <AdminSidebar />
+          <CompanySidebar slug={slug} companyName={companyName} />
           <main className="company-admin-main">
             <div className="company-admin-content">{children}</div>
           </main>

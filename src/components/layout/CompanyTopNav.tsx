@@ -21,11 +21,11 @@ const NAV_ITEMS = [
 ];
 
 const ADMIN_LINKS = [
-  { href: '/',               label: 'Companies' },
-  { href: '/learners',       label: 'Learners' },
-  { href: '/courses',        label: 'Courses' },
-  { href: '/leaderboard',    label: 'Leaderboard' },
-  { href: '/admin/settings', label: 'Settings' },
+  { href: '/',               label: 'Companies',   exact: true },
+  { href: '/learners',       label: 'Learners',    exact: false },
+  { href: '/courses',        label: 'Courses',     exact: false },
+  { href: '/leaderboard',    label: 'Leaderboard', exact: false },
+  { href: '/admin/settings', label: 'Settings',    exact: false },
 ];
 
 function slugToName(slug: string) {
@@ -41,29 +41,6 @@ function IconSignOut({ size = 14 }: { size?: number }) {
   );
 }
 
-function IconMenu({ size = 20 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" style={{ flexShrink: 0 }}>
-      <path d="M3 5h14M3 10h14M3 15h14"/>
-    </svg>
-  );
-}
-
-function IconClose({ size = 20 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" style={{ flexShrink: 0 }}>
-      <path d="M4 4l12 12M16 4L4 16"/>
-    </svg>
-  );
-}
-
-function IconChevronLeft({ size = 14 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-      <path d="M13 4L6 10l7 6"/>
-    </svg>
-  );
-}
 
 export default function CompanyTopNav({
   slug,
@@ -75,18 +52,22 @@ export default function CompanyTopNav({
   const pathname = usePathname();
   const isAdmin = useContext(AdminCompanyContext);
   const [signingOut, setSigningOut] = useState(false);
-  const [adminDrawerOpen, setAdminDrawerOpen] = useState(false);
 
   const displayName = companyName || slugToName(slug);
 
-  function href(key: string) {
+  function companyHref(key: string) {
     return key ? `/company/${slug}/${key}` : `/company/${slug}`;
   }
 
-  function isActive(key: string, exact?: boolean) {
-    const h = href(key);
+  function isCompanyNavActive(key: string, exact?: boolean) {
+    const h = companyHref(key);
     if (exact) return pathname === h;
     return pathname === h || pathname.startsWith(h + '/');
+  }
+
+  function isAdminNavActive(href: string, exact?: boolean) {
+    if (exact) return pathname === href;
+    return pathname.startsWith(href);
   }
 
   async function handleSignOut() {
@@ -111,8 +92,11 @@ export default function CompanyTopNav({
         overflow: 'hidden',
       }}>
 
-        {/* Logo + company name */}
-        <Link href={`/company/${slug}`} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', textDecoration: 'none', flexShrink: 0 }}>
+        {/* Brand */}
+        <Link
+          href={isAdmin ? '/' : `/company/${slug}`}
+          style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', textDecoration: 'none', flexShrink: 0 }}
+        >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/chatwalrus_logo.jpeg"
@@ -122,10 +106,10 @@ export default function CompanyTopNav({
           />
           <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
             <span style={{ fontWeight: 700, fontSize: '0.8125rem', color: 'var(--text)', letterSpacing: '-0.01em' }}>
-              {displayName}
+              {isAdmin ? 'ChatWalrus' : displayName}
             </span>
             <span style={{ fontSize: '0.625rem', color: 'var(--text-muted)', fontWeight: 500, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-              CSM
+              {isAdmin ? 'Admin' : 'CSM'}
             </span>
           </div>
         </Link>
@@ -133,7 +117,7 @@ export default function CompanyTopNav({
         {/* Separator */}
         <div style={{ width: 1, height: 18, background: 'var(--border)', flexShrink: 0 }} />
 
-        {/* Page links — scrollable */}
+        {/* Nav links — scrollable */}
         <div style={{
           display: 'flex',
           flex: 1,
@@ -144,30 +128,59 @@ export default function CompanyTopNav({
           alignItems: 'center',
         }}>
           <div className="company-top-nav-links" style={{ display: 'flex', gap: '2px', alignItems: 'center', flexWrap: 'nowrap' }}>
-            {NAV_ITEMS.map(({ key, label, exact }) => {
-              const active = isActive(key, exact);
-              return (
-                <Link
-                  key={key}
-                  href={href(key)}
-                  style={{
-                    display: 'inline-flex', alignItems: 'center',
-                    padding: '0.375rem 0.75rem',
-                    borderRadius: 'var(--radius)',
-                    fontSize: '0.875rem',
-                    fontWeight: active ? 700 : 500,
-                    color: active ? 'var(--text)' : 'var(--text-secondary)',
-                    background: active ? 'var(--surface)' : 'transparent',
-                    textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0,
-                    transition: 'all 120ms', opacity: active ? 1 : 0.85,
-                  }}
-                  onMouseEnter={(e) => { if (!active) { e.currentTarget.style.background = 'var(--surface-raised)'; e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.opacity = '1'; }}}
-                  onMouseLeave={(e) => { if (!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-secondary)'; e.currentTarget.style.opacity = '0.85'; }}}
-                >
-                  {label}
-                </Link>
-              );
-            })}
+            {isAdmin ? (
+              /* Admin: show global admin links */
+              ADMIN_LINKS.map(({ href: adminHref, label, exact }) => {
+                const active = isAdminNavActive(adminHref, exact);
+                return (
+                  <Link
+                    key={adminHref}
+                    href={adminHref}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center',
+                      padding: '0.375rem 0.75rem',
+                      borderRadius: 'var(--radius)',
+                      fontSize: '0.875rem',
+                      fontWeight: active ? 700 : 500,
+                      color: active ? 'var(--text)' : 'var(--text-secondary)',
+                      background: active ? 'var(--surface)' : 'transparent',
+                      textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0,
+                      transition: 'all 120ms', opacity: active ? 1 : 0.85,
+                    }}
+                    onMouseEnter={(e) => { if (!active) { e.currentTarget.style.background = 'var(--surface-raised)'; e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.opacity = '1'; }}}
+                    onMouseLeave={(e) => { if (!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-secondary)'; e.currentTarget.style.opacity = '0.85'; }}}
+                  >
+                    {label}
+                  </Link>
+                );
+              })
+            ) : (
+              /* Company user: show company-specific links */
+              NAV_ITEMS.map(({ key, label, exact }) => {
+                const active = isCompanyNavActive(key, exact);
+                return (
+                  <Link
+                    key={key}
+                    href={companyHref(key)}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center',
+                      padding: '0.375rem 0.75rem',
+                      borderRadius: 'var(--radius)',
+                      fontSize: '0.875rem',
+                      fontWeight: active ? 700 : 500,
+                      color: active ? 'var(--text)' : 'var(--text-secondary)',
+                      background: active ? 'var(--surface)' : 'transparent',
+                      textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0,
+                      transition: 'all 120ms', opacity: active ? 1 : 0.85,
+                    }}
+                    onMouseEnter={(e) => { if (!active) { e.currentTarget.style.background = 'var(--surface-raised)'; e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.opacity = '1'; }}}
+                    onMouseLeave={(e) => { if (!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-secondary)'; e.currentTarget.style.opacity = '0.85'; }}}
+                  >
+                    {label}
+                  </Link>
+                );
+              })
+            )}
           </div>
         </div>
 
@@ -175,24 +188,6 @@ export default function CompanyTopNav({
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', flexShrink: 0 }}>
           <ThemeToggle />
           <div style={{ width: 1, height: 18, background: 'var(--border)' }} />
-
-          {/* Admin: mobile hamburger to access admin nav */}
-          {isAdmin && (
-            <button
-              onClick={() => setAdminDrawerOpen((v) => !v)}
-              className="company-nav-admin-hamburger"
-              title="Admin navigation"
-              style={{
-                display: 'none', alignItems: 'center', justifyContent: 'center',
-                width: 32, height: 32, borderRadius: 'var(--radius)',
-                background: 'transparent', border: 'none',
-                color: 'var(--text-secondary)', cursor: 'pointer',
-              }}
-            >
-              {adminDrawerOpen ? <IconClose size={18} /> : <IconMenu size={18} />}
-            </button>
-          )}
-
           <button
             onClick={handleSignOut}
             disabled={signingOut}
@@ -214,52 +209,9 @@ export default function CompanyTopNav({
         </div>
       </nav>
 
-      {/* Admin mobile drawer — shows admin nav links on mobile */}
-      {isAdmin && adminDrawerOpen && (
-        <div className="company-nav-admin-drawer" style={{
-          position: 'fixed', inset: '54px 0 0 0', zIndex: 49,
-          background: 'var(--bg-raised)', borderTop: '1px solid var(--border)',
-          display: 'flex', flexDirection: 'column', padding: '1rem', gap: '2px', overflowY: 'auto',
-        }}>
-          <div style={{ fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)', padding: '0 0.5rem 0.5rem' }}>
-            Admin
-          </div>
-          {ADMIN_LINKS.map(({ href: adminHref, label }) => (
-            <Link
-              key={adminHref}
-              href={adminHref}
-              onClick={() => setAdminDrawerOpen(false)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '0.75rem',
-                padding: '0.875rem 1rem', borderRadius: 'var(--radius)',
-                fontSize: '1rem', fontWeight: 500, color: 'var(--text)',
-                background: 'transparent', textDecoration: 'none',
-              }}
-            >
-              {label}
-            </Link>
-          ))}
-          <div style={{ height: 1, background: 'var(--border)', margin: '0.5rem 0' }} />
-          <Link
-            href={`/company/${slug}`}
-            onClick={() => setAdminDrawerOpen(false)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: '0.5rem',
-              padding: '0.875rem 1rem', borderRadius: 'var(--radius)',
-              fontSize: '0.875rem', fontWeight: 500, color: 'var(--text-secondary)',
-              background: 'transparent', textDecoration: 'none',
-            }}
-          >
-            <IconChevronLeft size={14} />
-            Back to {displayName}
-          </Link>
-        </div>
-      )}
-
       <style>{`
         .company-top-nav-links::-webkit-scrollbar { display: none; }
         @media (min-width: 640px) { .company-nav-signout-label { display: inline !important; } }
-        @media (max-width: 767px) { .company-nav-admin-hamburger { display: flex !important; } }
       `}</style>
     </header>
   );

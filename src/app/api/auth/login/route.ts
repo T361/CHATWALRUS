@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Admin auth not configured' }, { status: 503 });
     }
 
-    let body: { passcode?: unknown };
+    let body: { passcode?: unknown; mode?: unknown };
     try {
       body = await req.json();
     } catch {
@@ -32,18 +32,22 @@ export async function POST(req: NextRequest) {
     }
 
     const passcode = typeof body.passcode === 'string' ? body.passcode : '';
+    const mode = body.mode === 'admin' ? 'admin' : body.mode === 'company' ? 'company' : 'admin';
 
     if (!passcode) {
       return NextResponse.json({ error: 'Passcode required' }, { status: 400 });
     }
 
-    // 1. Check if it's the admin passcode
-    if (verifyAdminPasscode(passcode)) {
+    // 1. Admin mode: only accept the admin passcode
+    if (mode === 'admin') {
+      if (!verifyAdminPasscode(passcode)) {
+        recordFailedAttempt(req);
+        return NextResponse.json({ error: 'Invalid passcode' }, { status: 401 });
+      }
       const sessionToken = createAdminSessionToken();
       if (!sessionToken) {
         return NextResponse.json({ error: 'Admin auth not configured' }, { status: 503 });
       }
-
       clearRateLimit(req);
       const response = NextResponse.json({
         authenticated: true,
@@ -55,7 +59,7 @@ export async function POST(req: NextRequest) {
       return response;
     }
 
-    // 2. Check if it's a company passcode in the database
+    // 2. Company mode: only check company passcodes in the database
     const db = createAdminClient();
     if (!db) {
       return NextResponse.json({ error: 'Database not configured' }, { status: 503 });

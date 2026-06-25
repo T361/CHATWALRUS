@@ -610,12 +610,12 @@ a { color: inherit; text-decoration: none; }
   overflow: hidden;
 }
 
-/* Override admin-sidebar positioning for the company context —
+/* Override CompanySidebar positioning for the admin-company context —
    no sticky needed; the container itself constrains the height */
-.company-admin-layout .admin-sidebar {
-  position: relative;
-  top: auto;
-  height: 100%;
+.company-admin-layout .company-sidebar-desktop {
+  position: relative !important;
+  top: auto !important;
+  height: 100% !important;
   flex-shrink: 0;
   overflow-y: auto;
 }

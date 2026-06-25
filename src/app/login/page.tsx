@@ -46,7 +46,7 @@ function LoginForm() {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ passcode }),
+        body: JSON.stringify({ passcode, mode }),
       });
       const data = await res.json();
       if (!res.ok) {
