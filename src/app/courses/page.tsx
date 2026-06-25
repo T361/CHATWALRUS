@@ -286,23 +286,17 @@ export default async function GlobalCoursesPage(props: {
                             </span>
                           ) : <span style={{ color: 'var(--text-muted)' }}>—</span>
                         ) : (
-                          /* All roles — show top 3 badges */
-                          Object.keys(course.role_breakdown).length > 0 ? (
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
-                              {Object.entries(course.role_breakdown)
-                                .sort((a, b) => b[1] - a[1])
-                                .slice(0, 3)
-                                .map(([r, count]) => (
-                                  <span key={r} style={{
-                                    display: 'inline-flex', alignItems: 'center', gap: '0.25rem',
-                                    padding: '0.125rem 0.375rem', borderRadius: 9999,
-                                    background: 'var(--surface-raised)', border: '1px solid var(--border-muted)',
-                                    fontSize: '0.6875rem', fontWeight: 500, color: 'var(--text-secondary)', whiteSpace: 'nowrap',
-                                  }}>
-                                    {r} <span style={{ fontWeight: 700, color: 'var(--text)', fontVariantNumeric: 'tabular-nums' }}>{count}</span>
-                                  </span>
-                                ))}
-                            </div>
+                          /* All roles — show total enrolled count */
+                          course.enrolled > 0 ? (
+                            <span style={{
+                              display: 'inline-flex', alignItems: 'center',
+                              padding: '0.125rem 0.5rem', borderRadius: 9999,
+                              background: 'color-mix(in srgb, var(--primary) 12%, transparent)',
+                              color: 'var(--primary)', fontWeight: 700,
+                              fontSize: '0.8125rem', fontVariantNumeric: 'tabular-nums',
+                            }}>
+                              {course.enrolled}
+                            </span>
                           ) : <span style={{ color: 'var(--text-muted)' }}>—</span>
                         )}
                       </td>

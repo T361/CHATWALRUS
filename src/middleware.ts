@@ -102,6 +102,10 @@ export async function middleware(req: NextRequest) {
     // Pages: redirect to login
     const loginUrl = new URL('/login', req.url);
     loginUrl.searchParams.set('redirect', pathname);
+    // Admin paths → land on admin tab; company paths → land on company tab
+    if (!pathname.startsWith('/company/')) {
+      loginUrl.searchParams.set('mode', 'admin');
+    }
     const response = NextResponse.redirect(loginUrl);
     response.cookies.delete(ADMIN_SESSION_COOKIE);
     return response;
