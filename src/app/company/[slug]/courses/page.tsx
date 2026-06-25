@@ -168,8 +168,8 @@ export default async function CoursesPage(props: {
   }
 
   // Sort
-  const sortBy = searchParams.sort_by || 'name';
-  const sortDir = searchParams.sort_dir || 'asc';
+  const sortBy = searchParams.sort_by || 'enrollment';
+  const sortDir = searchParams.sort_dir || 'desc';
   const sorted = [...filteredCourses].sort((a, b) => {
     let aVal: number | string = 0;
     let bVal: number | string = 0;
@@ -214,7 +214,7 @@ export default async function CoursesPage(props: {
   }
 
   return (
-    <CompanyShell slug={params.slug}>
+    <CompanyShell slug={params.slug} companyName={company.name}>
       <div className="page-header" style={{ marginBottom: '1.5rem' }}>
         <div>
           <h1 className="page-title">ChatWalrus Course Catalog</h1>

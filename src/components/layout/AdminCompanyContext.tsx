@@ -2,7 +2,8 @@
 
 import React from 'react';
 
-export const AdminCompanyContext = React.createContext(false);
+// null = context not yet resolved (prevents flash before hydration)
+export const AdminCompanyContext = React.createContext<boolean | null>(null);
 
 export function AdminCompanyProvider({
   isAdmin,

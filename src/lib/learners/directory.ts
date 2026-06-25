@@ -331,7 +331,7 @@ async function queryLearnerDirectoryTable(
   const ascending = sortDir === 'asc';
 
   // Validate sortBy against allowed columns
-  const allowedSortColumns = ['full_name', 'email', 'department', 'title', 'courses_enrolled', 'avg_progress', 'last_active_at'];
+  const allowedSortColumns = ['full_name', 'email', 'department', 'title', 'courses_enrolled', 'avg_progress', 'last_active_at', 'live_sessions_last_30_days'];
   const sortColumn = allowedSortColumns.includes(sortBy) ? sortBy : 'full_name';
 
   const countQuery = applyDirectoryQueryFilters(

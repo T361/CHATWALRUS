@@ -16,6 +16,9 @@ export default function CompanyShell({
 }) {
   const isAdmin = useContext(AdminCompanyContext);
 
+  // null = context not yet hydrated — render nothing to prevent flash
+  if (isAdmin === null) return null;
+
   return (
     <div className="app-shell-top">
       <CompanyTopNav slug={slug} companyName={companyName} />
