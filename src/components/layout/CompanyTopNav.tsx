@@ -50,7 +50,8 @@ export default function CompanyTopNav({
   companyName?: string;
 }) {
   const pathname = usePathname();
-  const isAdmin = useContext(AdminCompanyContext);
+  const isAdminCtx = useContext(AdminCompanyContext);
+  const isAdmin = isAdminCtx === true;
   const [signingOut, setSigningOut] = useState(false);
 
   const displayName = companyName || slugToName(slug);

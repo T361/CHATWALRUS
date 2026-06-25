@@ -471,7 +471,7 @@ export default function LearnerDirectory({
                 <th style={{ fontWeight: 700 }}>Status</th>
                 <SortableHeader column="courses_enrolled">Courses</SortableHeader>
                 <SortableHeader column="last_active_at">Last Active</SortableHeader>
-                <th style={{ textAlign: 'center', fontWeight: 700 }}>Sessions</th>
+                <SortableHeader column="live_sessions_last_30_days">Sessions</SortableHeader>
               </tr>
             </thead>
             <tbody>
@@ -523,7 +523,7 @@ export default function LearnerDirectory({
                     <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                       {row.last_active_at ? new Date(row.last_active_at).toLocaleDateString() : '—'}
                     </td>
-                    <td className="tabular" style={{ textAlign: 'center', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+                    <td className="tabular" style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
                       {row.live_sessions_last_30_days}
                     </td>
                   </tr>
