@@ -15,20 +15,49 @@ interface Company {
 }
 
 type FilterState = 'all' | 'active' | 'inactive';
+type SortState = 'name' | 'engagement_desc' | 'engagement_asc' | 'learners_desc' | 'at_risk_desc';
+
+const SORT_OPTIONS: { value: SortState; label: string }[] = [
+  { value: 'name',            label: 'Name' },
+  { value: 'engagement_desc', label: 'Highest Engagement' },
+  { value: 'engagement_asc',  label: 'Lowest Engagement' },
+  { value: 'learners_desc',   label: 'Most Learners' },
+  { value: 'at_risk_desc',    label: 'Most At-Risk' },
+];
 
 export default function CompanySearch({ companies }: { companies: Company[] }) {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<FilterState>('all');
+  const [sort, setSort] = useState<SortState>('name');
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return companies.filter((c) => {
+    const result = companies.filter((c) => {
       if (filter === 'active' && !c.is_active) return false;
       if (filter === 'inactive' && c.is_active) return false;
       if (!q) return true;
       return c.name.toLowerCase().includes(q) || c.slug.includes(q);
     });
-  }, [companies, query, filter]);
+
+    return [...result].sort((a, b) => {
+      switch (sort) {
+        case 'engagement_desc':
+          return (b.avg_progress ?? -1) - (a.avg_progress ?? -1);
+        case 'engagement_asc':
+          // Push nulls to end
+          if (a.avg_progress == null && b.avg_progress == null) return 0;
+          if (a.avg_progress == null) return 1;
+          if (b.avg_progress == null) return -1;
+          return a.avg_progress - b.avg_progress;
+        case 'learners_desc':
+          return (b.learner_count ?? 0) - (a.learner_count ?? 0);
+        case 'at_risk_desc':
+          return (b.at_risk_count ?? 0) - (a.at_risk_count ?? 0);
+        default:
+          return a.name.localeCompare(b.name);
+      }
+    });
+  }, [companies, query, filter, sort]);
 
   const activeCount   = companies.filter((c) => c.is_active).length;
   const inactiveCount = companies.filter((c) => !c.is_active).length;
@@ -77,6 +106,25 @@ export default function CompanySearch({ companies }: { companies: Company[] }) {
             );
           })}
         </div>
+
+        <select
+          value={sort}
+          onChange={(e) => setSort(e.target.value as SortState)}
+          style={{
+            height: '2.25rem', padding: '0 2rem 0 0.75rem',
+            background: 'var(--surface-raised)', border: '1px solid var(--border)',
+            borderRadius: '0.5rem', fontSize: '0.8125rem', color: 'var(--text)',
+            cursor: 'pointer', appearance: 'none',
+            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")`,
+            backgroundRepeat: 'no-repeat',
+            backgroundPosition: 'right 0.5rem center',
+            flexShrink: 0,
+          }}
+        >
+          {SORT_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
 
         {query && (
           <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
