@@ -57,7 +57,7 @@ const syncButtons = [
   { type: 'progress',       label: 'Import Progress',          sub: 'Enrollment + completion data',                                                  endpoint: '/api/admin/sync/progress' },
   { type: 'assignments',    label: 'Import Assignments',        sub: 'Submissions from Thinkific',                                                   endpoint: '/api/admin/sync/assignments' },
   { type: 'zoom',           label: 'Sync Zoom Attendance',     sub: 'Meetings + webinars attendance — requires Zoom credentials',                    endpoint: '/api/admin/sync/zoom' },
-  { type: 'lesson-progress',label: 'Sync Lesson Progress',     sub: 'Lesson-level completion from Thinkific (slow — runs incrementally)',             endpoint: '/api/admin/sync/lesson-progress' },
+  { type: 'lesson-progress',label: 'Sync Lesson Progress',     sub: 'Lesson-level completion from Thinkific — runs in 20-enrollment chunks, safe on all plans', endpoint: '/api/admin/sync/lesson-progress' },
   { type: 'learners-rollups',label: 'Backfill Learner Rollups',sub: 'Populate learner directory rollups for already-synced learners',                 endpoint: '/api/admin/sync/learners-rollups' },
   { type: 'weekly-rollups', label: 'Backfill Weekly Rollups',  sub: 'Populate current-week weekly report rollups for active companies',               endpoint: '/api/admin/sync/weekly-rollups' },
   { type: 'snapshots',      label: 'Create Daily Snapshots',   sub: 'Progress snapshots for trend charts',                                           endpoint: '/api/admin/sync/snapshots' },
@@ -209,7 +209,7 @@ export default function AdminSettingsPage() {
     { type: 'progress',        endpoint: '/api/admin/sync/progress' },
     { type: 'assignments',     endpoint: '/api/admin/sync/assignments' },
     { type: 'zoom',            endpoint: '/api/admin/sync/zoom' },
-    { type: 'lesson-progress', endpoint: '/api/admin/sync/lesson-progress' },
+    // lesson-progress handled separately via runLessonProgressChunked
     { type: 'learners-rollups',endpoint: '/api/admin/sync/learners-rollups' },
     { type: 'weekly-rollups',  endpoint: '/api/admin/sync/weekly-rollups' },
     { type: 'snapshots',       endpoint: '/api/admin/sync/snapshots' },
@@ -217,12 +217,64 @@ export default function AdminSettingsPage() {
     { type: 'milestones',      endpoint: '/api/jobs/run-milestones' },
   ];
 
+  // Lesson progress runs in 20-enrollment chunks so it works on Vercel Hobby (60s limit).
+  // Each GET call processes 20 enrollments, returns nextOffset + done flag.
+  async function runLessonProgressChunked(): Promise<boolean> {
+    if (settingsStatus?.auth.role !== 'admin') return false;
+    setLoading((prev) => ({ ...prev, 'lesson-progress': true }));
+    let offset = 0;
+    let totalEnrollments = 0;
+    let totalRecords = 0;
+    try {
+      while (true) {
+        setSyncStatus((prev) => ({
+          ...prev,
+          'lesson-progress': totalEnrollments
+            ? `Syncing… ${offset}/${totalEnrollments} enrollments (${totalRecords} records written)`
+            : 'Syncing… starting',
+        }));
+        const res = await fetch(
+          `/api/admin/sync/lesson-progress?offset=${offset}&limit=20`,
+          { credentials: 'same-origin' }
+        );
+        const text = await res.text();
+        let data: { status: string; total?: number; nextOffset?: number; done?: boolean; recordsProcessed?: number; errorMessage?: string } = { status: 'error' };
+        try { data = JSON.parse(text); } catch {
+          setSyncStatus((prev) => ({ ...prev, 'lesson-progress': `Error: ${text.slice(0, 100)}` }));
+          setLoading((prev) => ({ ...prev, 'lesson-progress': false }));
+          return false;
+        }
+        if (data.status === 'error') {
+          setSyncStatus((prev) => ({ ...prev, 'lesson-progress': `Error: ${data.errorMessage ?? 'Unknown'}` }));
+          setLoading((prev) => ({ ...prev, 'lesson-progress': false }));
+          return false;
+        }
+        totalEnrollments = data.total ?? totalEnrollments;
+        totalRecords += data.recordsProcessed ?? 0;
+        offset = data.nextOffset ?? offset;
+        if (data.done) break;
+      }
+      setSyncStatus((prev) => ({
+        ...prev,
+        'lesson-progress': `Done · ${totalRecords} records · ${totalEnrollments} enrollments`,
+      }));
+      setLoading((prev) => ({ ...prev, 'lesson-progress': false }));
+      return true;
+    } catch (err) {
+      setSyncStatus((prev) => ({ ...prev, 'lesson-progress': `Network error: ${String(err)}` }));
+      setLoading((prev) => ({ ...prev, 'lesson-progress': false }));
+      return false;
+    }
+  }
+
   async function syncAll() {
     if (settingsStatus?.auth.role !== 'admin') return;
     setSyncAllRunning(true);
     for (const step of SYNC_ALL_STEPS) {
       await runSync(step.type, step.endpoint);
     }
+    // Lesson progress chunked — runs after other steps complete
+    await runLessonProgressChunked();
     setSyncAllRunning(false);
   }
 
@@ -285,7 +337,7 @@ export default function AdminSettingsPage() {
               <button
                 className="btn btn-secondary btn-sm"
                 disabled={loading[btn.type]}
-                onClick={() => runSync(btn.type, btn.endpoint)}
+                onClick={() => btn.type === 'lesson-progress' ? runLessonProgressChunked() : runSync(btn.type, btn.endpoint)}
                 style={{ flexShrink: 0 }}
               >
                 {loading[btn.type] ? <><span className="spinner" />Syncing</> : 'Run'}
