@@ -49,20 +49,21 @@ interface SettingsStatusResponse {
 }
 
 const syncButtons = [
-  { type: 'core',           label: 'Import Core Data',         sub: 'Courses + Users + Enrollments — auto-creates all companies',                    endpoint: '/api/admin/sync/core' },
+  { type: 'courses',        label: 'Sync Courses',             sub: 'Course catalog + lessons from Thinkific',                                        endpoint: '/api/admin/sync/courses' },
+  { type: 'users',          label: 'Sync Users',               sub: 'Learner accounts from Thinkific',                                                endpoint: '/api/admin/sync/users' },
   { type: 'groups',         label: 'Sync Thinkific Groups',    sub: 'Canonical company list from Thinkific Groups + learner→company assignments',    endpoint: '/api/admin/sync/groups' },
   { type: 'orders',         label: 'Sync Orders',              sub: 'Enrollment purchase history from Thinkific',                                    endpoint: '/api/admin/sync/orders' },
   { type: 'start-dates',    label: 'Auto-detect Start Dates',  sub: 'Infers program start date from earliest enrollment per company',                endpoint: '/api/admin/sync/start-dates' },
   { type: 'progress',       label: 'Import Progress',          sub: 'Enrollment + completion data',                                                  endpoint: '/api/admin/sync/progress' },
   { type: 'assignments',    label: 'Import Assignments',        sub: 'Submissions from Thinkific',                                                   endpoint: '/api/admin/sync/assignments' },
-{ type: 'zoom',           label: 'Sync Zoom Attendance',     sub: 'Meetings + webinars attendance — requires Zoom credentials',                    endpoint: '/api/admin/sync/zoom' },
+  { type: 'zoom',           label: 'Sync Zoom Attendance',     sub: 'Meetings + webinars attendance — requires Zoom credentials',                    endpoint: '/api/admin/sync/zoom' },
   { type: 'lesson-progress',label: 'Sync Lesson Progress',     sub: 'Lesson-level completion from Thinkific (slow — runs incrementally)',             endpoint: '/api/admin/sync/lesson-progress' },
   { type: 'learners-rollups',label: 'Backfill Learner Rollups',sub: 'Populate learner directory rollups for already-synced learners',                 endpoint: '/api/admin/sync/learners-rollups' },
   { type: 'weekly-rollups', label: 'Backfill Weekly Rollups',  sub: 'Populate current-week weekly report rollups for active companies',               endpoint: '/api/admin/sync/weekly-rollups' },
   { type: 'snapshots',      label: 'Create Daily Snapshots',   sub: 'Progress snapshots for trend charts',                                           endpoint: '/api/admin/sync/snapshots' },
   { type: 'gamification',   label: 'Recalculate Points',       sub: 'Recalculate all learner points + badges from recorded activity',                endpoint: '/api/admin/sync/gamification' },
   { type: 'milestones',     label: 'Run Milestone Checks',     sub: 'Learner statuses + risk alerts',                                                endpoint: '/api/jobs/run-milestones' },
-  { type: 'full',           label: 'Full Sync',                sub: 'Import all data from Thinkific',                                                endpoint: '/api/admin/sync/full' },
+  { type: 'core',           label: 'Import Core Data (legacy)',sub: 'Old combined sync — use individual buttons above instead',                       endpoint: '/api/admin/sync/core' },
 ];
 
 function StatusDot({ ok, dim }: { ok: boolean; dim?: boolean }) {
@@ -108,6 +109,7 @@ export default function AdminSettingsPage() {
   const [companiesMap,  setCompaniesMap]  = useState<Record<string, string>>({});
   const [passcodesLoading, setPasscodesLoading] = useState(false);
   const [probesLoading, setProbesLoading] = useState(false);
+  const [syncAllRunning, setSyncAllRunning] = useState(false);
 
   async function loadSettingsStatus(includeProbes = false) {
     const startedAt = performance.now();
@@ -164,30 +166,64 @@ export default function AdminSettingsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settingsStatus?.auth.authenticated]);
 
-  async function runSync(type: string, endpoint: string) {
+  async function runSync(type: string, endpoint: string): Promise<boolean> {
     if (settingsStatus?.auth.role !== 'admin') {
       setSyncStatus((prev) => ({ ...prev, [type]: 'Login required' }));
-      return;
+      return false;
     }
     setLoading((prev) => ({ ...prev, [type]: true }));
     setSyncStatus((prev) => ({ ...prev, [type]: 'Running...' }));
+    let success = false;
     try {
       const res = await fetch(endpoint, { method: 'POST', credentials: 'same-origin' });
-      const data = await res.json();
+      const text = await res.text();
+      let data: Record<string, unknown> = {};
+      try { data = JSON.parse(text) as Record<string, unknown>; } catch {
+        setSyncStatus((prev) => ({ ...prev, [type]: `Error (${res.status}): ${text.slice(0, 120)}` }));
+        setLoading((prev) => ({ ...prev, [type]: false }));
+        return false;
+      }
       let msg = '';
       if      (res.status === 401)                       msg = 'Login required';
-      else if (res.status === 503)                       msg = data.error || 'Server config missing';
+      else if (res.status === 503)                       msg = String(data.error || 'Server config missing');
       else if (type === 'weekly-rollups' && data.status === 'success') msg = `Done · ${data.rollup_companies ?? 0}/${data.active_companies ?? 0} companies`;
-      else if (data.status === 'success')                msg = `Done · ${data.records_processed ?? 0} records`;
-      else if (data.status === 'partial')                msg = `Partial · ${data.records_processed ?? 0} records`;
-      else if (data.status === 'skipped' || data.status === 'unavailable') msg = `Skipped · ${data.message || 'Unavailable'}`;
-      else                                               msg = data.error || data.message || 'Failed';
+      else if (data.status === 'success')                { msg = `Done · ${data.records_processed ?? 0} records`; success = true; }
+      else if (data.status === 'partial')                { msg = `Partial · ${data.records_processed ?? 0} records`; success = true; }
+      else if (data.status === 'skipped' || data.status === 'unavailable') { msg = `Skipped · ${String(data.message || 'Unavailable')}`; success = true; }
+      else                                               msg = String(data.error || data.message || 'Failed');
       setSyncStatus((prev) => ({ ...prev, [type]: msg }));
       if (res.status === 401) await loadSettingsStatus();
     } catch (err) {
-      setSyncStatus((prev) => ({ ...prev, [type]: `Request failed: ${String(err)}` }));
+      setSyncStatus((prev) => ({ ...prev, [type]: `Network error: ${String(err)}` }));
     }
     setLoading((prev) => ({ ...prev, [type]: false }));
+    return success;
+  }
+
+  const SYNC_ALL_STEPS = [
+    { type: 'courses',         endpoint: '/api/admin/sync/courses' },
+    { type: 'users',           endpoint: '/api/admin/sync/users' },
+    { type: 'groups',          endpoint: '/api/admin/sync/groups' },
+    { type: 'orders',          endpoint: '/api/admin/sync/orders' },
+    { type: 'start-dates',     endpoint: '/api/admin/sync/start-dates' },
+    { type: 'progress',        endpoint: '/api/admin/sync/progress' },
+    { type: 'assignments',     endpoint: '/api/admin/sync/assignments' },
+    { type: 'zoom',            endpoint: '/api/admin/sync/zoom' },
+    { type: 'lesson-progress', endpoint: '/api/admin/sync/lesson-progress' },
+    { type: 'learners-rollups',endpoint: '/api/admin/sync/learners-rollups' },
+    { type: 'weekly-rollups',  endpoint: '/api/admin/sync/weekly-rollups' },
+    { type: 'snapshots',       endpoint: '/api/admin/sync/snapshots' },
+    { type: 'gamification',    endpoint: '/api/admin/sync/gamification' },
+    { type: 'milestones',      endpoint: '/api/jobs/run-milestones' },
+  ];
+
+  async function syncAll() {
+    if (settingsStatus?.auth.role !== 'admin') return;
+    setSyncAllRunning(true);
+    for (const step of SYNC_ALL_STEPS) {
+      await runSync(step.type, step.endpoint);
+    }
+    setSyncAllRunning(false);
   }
 
   const isAdmin = settingsStatus?.auth.role === 'admin';
@@ -220,7 +256,16 @@ export default function AdminSettingsPage() {
 
       {/* Sync Card */}
       <div className="card" style={{ marginBottom: '1rem' }}>
-        <h2 style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text)', marginBottom: '1rem' }}>Data Sync</h2>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+          <h2 style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text)' }}>Data Sync</h2>
+          <button
+            className="btn btn-primary btn-sm"
+            disabled={syncAllRunning}
+            onClick={() => { void syncAll(); }}
+          >
+            {syncAllRunning ? <><span className="spinner" />Syncing All…</> : 'Sync Everything'}
+          </button>
+        </div>
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           {syncButtons.map((btn, i) => (
             <div

@@ -2,6 +2,8 @@
   "functions": {
     "src/app/api/admin/sync/progress/route.ts":          { "maxDuration": 300 },
     "src/app/api/admin/sync/full/route.ts":              { "maxDuration": 300 },
+    "src/app/api/admin/sync/courses/route.ts":           { "maxDuration": 300 },
+    "src/app/api/admin/sync/users/route.ts":             { "maxDuration": 300 },
     "src/app/api/admin/sync/core/route.ts":              { "maxDuration": 300 },
     "src/app/api/admin/sync/zoom/route.ts":              { "maxDuration": 300 },
     "src/app/api/admin/sync/lesson-progress/route.ts":   { "maxDuration": 300 },
