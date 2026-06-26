@@ -208,8 +208,7 @@ export default function AdminSettingsPage() {
     { type: 'start-dates',     endpoint: '/api/admin/sync/start-dates' },
     { type: 'progress',        endpoint: '/api/admin/sync/progress' },
     { type: 'assignments',     endpoint: '/api/admin/sync/assignments' },
-    { type: 'zoom',            endpoint: '/api/admin/sync/zoom' },
-    // lesson-progress handled separately via runLessonProgressChunked
+    // zoom + lesson-progress handled separately via chunked runners
     { type: 'learners-rollups',endpoint: '/api/admin/sync/learners-rollups' },
     { type: 'weekly-rollups',  endpoint: '/api/admin/sync/weekly-rollups' },
     { type: 'snapshots',       endpoint: '/api/admin/sync/snapshots' },
@@ -217,55 +216,63 @@ export default function AdminSettingsPage() {
     { type: 'milestones',      endpoint: '/api/jobs/run-milestones' },
   ];
 
-  // Lesson progress runs in 20-enrollment chunks so it works on Vercel Hobby (60s limit).
-  // Each GET call processes 20 enrollments, returns nextOffset + done flag.
-  async function runLessonProgressChunked(): Promise<boolean> {
+  async function runChunked(
+    type: string,
+    endpoint: string,
+    opts: { limit: number; label: string; doneLabel: (total: number, records: number) => string }
+  ): Promise<boolean> {
     if (settingsStatus?.auth.role !== 'admin') return false;
-    setLoading((prev) => ({ ...prev, 'lesson-progress': true }));
+    setLoading((prev) => ({ ...prev, [type]: true }));
     let offset = 0;
-    let totalEnrollments = 0;
+    let totalItems = 0;
     let totalRecords = 0;
     try {
       while (true) {
         setSyncStatus((prev) => ({
           ...prev,
-          'lesson-progress': totalEnrollments
-            ? `Syncing… ${offset}/${totalEnrollments} enrollments (${totalRecords} records written)`
+          [type]: totalItems
+            ? `Syncing… ${Math.min(offset, totalItems)}/${totalItems} ${opts.label}`
             : 'Syncing… starting',
         }));
-        const res = await fetch(
-          `/api/admin/sync/lesson-progress?offset=${offset}&limit=20`,
-          { credentials: 'same-origin' }
-        );
+        const res = await fetch(`${endpoint}?offset=${offset}&limit=${opts.limit}`, { credentials: 'same-origin' });
         const text = await res.text();
-        let data: { status: string; total?: number; nextOffset?: number; done?: boolean; recordsProcessed?: number; errorMessage?: string } = { status: 'error' };
+        let data: { status: string; total?: number; totalSessions?: number; nextOffset?: number; done?: boolean; recordsProcessed?: number; errorMessage?: string } = { status: 'error' };
         try { data = JSON.parse(text); } catch {
-          setSyncStatus((prev) => ({ ...prev, 'lesson-progress': `Error: ${text.slice(0, 100)}` }));
-          setLoading((prev) => ({ ...prev, 'lesson-progress': false }));
+          setSyncStatus((prev) => ({ ...prev, [type]: `Error: ${text.slice(0, 120)}` }));
+          setLoading((prev) => ({ ...prev, [type]: false }));
           return false;
         }
         if (data.status === 'error') {
-          setSyncStatus((prev) => ({ ...prev, 'lesson-progress': `Error: ${data.errorMessage ?? 'Unknown'}` }));
-          setLoading((prev) => ({ ...prev, 'lesson-progress': false }));
+          setSyncStatus((prev) => ({ ...prev, [type]: `Error: ${data.errorMessage ?? 'Unknown'}` }));
+          setLoading((prev) => ({ ...prev, [type]: false }));
           return false;
         }
-        totalEnrollments = data.total ?? totalEnrollments;
+        totalItems = data.total ?? data.totalSessions ?? totalItems;
         totalRecords += data.recordsProcessed ?? 0;
         offset = data.nextOffset ?? offset;
         if (data.done) break;
       }
-      setSyncStatus((prev) => ({
-        ...prev,
-        'lesson-progress': `Done · ${totalRecords} records · ${totalEnrollments} enrollments`,
-      }));
-      setLoading((prev) => ({ ...prev, 'lesson-progress': false }));
+      setSyncStatus((prev) => ({ ...prev, [type]: opts.doneLabel(totalItems, totalRecords) }));
+      setLoading((prev) => ({ ...prev, [type]: false }));
       return true;
     } catch (err) {
-      setSyncStatus((prev) => ({ ...prev, 'lesson-progress': `Network error: ${String(err)}` }));
-      setLoading((prev) => ({ ...prev, 'lesson-progress': false }));
+      setSyncStatus((prev) => ({ ...prev, [type]: `Network error: ${String(err)}` }));
+      setLoading((prev) => ({ ...prev, [type]: false }));
       return false;
     }
   }
+
+  const runLessonProgressChunked = () => runChunked(
+    'lesson-progress',
+    '/api/admin/sync/lesson-progress',
+    { limit: 20, label: 'enrollments', doneLabel: (t, r) => `Done · ${r} records · ${t} enrollments` }
+  );
+
+  const runZoomChunked = () => runChunked(
+    'zoom',
+    '/api/admin/sync/zoom',
+    { limit: 5, label: 'sessions', doneLabel: (t, r) => `Done · ${r} attendance records · ${t} sessions` }
+  );
 
   async function syncAll() {
     if (settingsStatus?.auth.role !== 'admin') return;
@@ -273,7 +280,7 @@ export default function AdminSettingsPage() {
     for (const step of SYNC_ALL_STEPS) {
       await runSync(step.type, step.endpoint);
     }
-    // Lesson progress chunked — runs after other steps complete
+    await runZoomChunked();
     await runLessonProgressChunked();
     setSyncAllRunning(false);
   }
@@ -337,7 +344,11 @@ export default function AdminSettingsPage() {
               <button
                 className="btn btn-secondary btn-sm"
                 disabled={loading[btn.type]}
-                onClick={() => btn.type === 'lesson-progress' ? runLessonProgressChunked() : runSync(btn.type, btn.endpoint)}
+                onClick={() => {
+                  if (btn.type === 'lesson-progress') return runLessonProgressChunked();
+                  if (btn.type === 'zoom') return runZoomChunked();
+                  return runSync(btn.type, btn.endpoint);
+                }}
                 style={{ flexShrink: 0 }}
               >
                 {loading[btn.type] ? <><span className="spinner" />Syncing</> : 'Run'}

@@ -58,10 +58,14 @@ export async function syncCourses(): Promise<SyncResult> {
       count += courseRecords.length;
     }
 
-    // Sync lessons for every course
+    // Sync lessons in parallel batches of 10 — keeps total under 60s on Vercel Hobby
+    // (136 courses / 10 = 14 batches × ~2s each ≈ 28s)
     let lessonCount = 0;
-    for (const course of courses) {
-      lessonCount += await syncCourseLessons(String(course.id));
+    const LESSON_CONCURRENCY = 10;
+    for (let i = 0; i < courses.length; i += LESSON_CONCURRENCY) {
+      const batch = courses.slice(i, i + LESSON_CONCURRENCY);
+      const counts = await Promise.all(batch.map(c => syncCourseLessons(String(c.id))));
+      lessonCount += counts.reduce((a, b) => a + b, 0);
     }
     console.log(`[SyncCourses] ${count} courses, ${lessonCount} lessons synced`);
 

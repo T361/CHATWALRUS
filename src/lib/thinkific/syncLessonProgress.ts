@@ -51,8 +51,9 @@ export type LessonProgressChunkResult = {
   errorMessage?: string;
 };
 
-// Processes a slice of enrollments — safe for 60-second Vercel Hobby limit.
-// Each chunk handles ~20 enrollments (~25s). The client loops until done=true.
+// Processes a page of enrollments — safe for 60-second Vercel Hobby limit.
+// Uses direct DB range(offset, offset+limit-1) — no in-memory full load of 66k rows.
+// Each chunk handles ~20 enrollments (~25s). Client loops until done=true.
 export async function syncLessonProgressChunk(opts: {
   offset: number;
   limit: number;
@@ -64,65 +65,69 @@ export async function syncLessonProgressChunk(opts: {
   const db = createAdminClient();
 
   try {
-    // 1. Load lesson map (DB only — fast)
-    const lessonMap = new Map<string, { id: string; lesson_type: string | null; is_video: boolean }>();
-    for (let off = 0; ; off += 1000) {
-      const { data } = await db.from('lessons').select('id, thinkific_lesson_id, lesson_type, is_video').range(off, off + 999);
-      if (!data || data.length === 0) break;
-      for (const l of data) lessonMap.set(String(l.thinkific_lesson_id), { id: l.id, lesson_type: l.lesson_type, is_video: l.is_video });
-      if (data.length < 1000) break;
-    }
-
-    // 2. Last successful sync time
-    const { data: lastLog } = await db.from('sync_logs').select('completed_at').eq('sync_type', 'lesson_progress').eq('status', 'success').order('completed_at', { ascending: false }).limit(1).single();
-    const lastSyncAt: string | null = lastLog?.completed_at ?? null;
-
-    // 3. Learners that already have progress
-    const learnersWithProgress = new Set<string>();
-    for (let off = 0; ; off += 1000) {
-      const { data } = await db.from('lesson_progress').select('learner_id').range(off, off + 999);
-      if (!data || data.length === 0) break;
-      data.forEach(r => learnersWithProgress.add(r.learner_id));
-      if (data.length < 1000) break;
-    }
-
-    // 4. Build full toSync list (same logic as syncLessonProgress), sorted stably
-    type RawEnrollment = { thinkific_enrollment_id: string; learner_id: string; company_id: string; course_id: string; progress_percent: number; updated_at: string | null; learners: { thinkific_user_id: string } | null; courses: { thinkific_course_id: string } | null; };
-    const toSync: EnrollmentToSync[] = [];
-    for (let off = 0; ; off += 1000) {
-      const { data } = await db.from('enrollments').select('thinkific_enrollment_id, learner_id, company_id, course_id, progress_percent, updated_at, learners(thinkific_user_id), courses(thinkific_course_id)').eq('is_active', true).order('thinkific_enrollment_id').range(off, off + 999);
-      if (!data || data.length === 0) break;
-      for (const e of data as unknown as RawEnrollment[]) {
-        if (!e.learners?.thinkific_user_id || !e.courses?.thinkific_course_id) continue;
-        const pct = safeNumber(e.progress_percent);
-        const neverSynced = !learnersWithProgress.has(e.learner_id);
-        const recentlyUpdated = lastSyncAt && e.updated_at && e.updated_at > lastSyncAt;
-        const incomplete = pct < 100;
-        if (neverSynced || recentlyUpdated || incomplete) {
-          toSync.push({ thinkific_enrollment_id: e.thinkific_enrollment_id, learner_id: e.learner_id, company_id: e.company_id, course_id: e.course_id, thinkific_user_id: e.learners.thinkific_user_id, thinkific_course_id: e.courses.thinkific_course_id, progress_percent: pct, updated_at: e.updated_at });
+    // 1. Lesson map + total enrollment count — both fast, run in parallel
+    const [lessonMap, totalResult] = await Promise.all([
+      (async () => {
+        const map = new Map<string, { id: string; lesson_type: string | null; is_video: boolean }>();
+        for (let off = 0; ; off += 1000) {
+          const { data } = await db.from('lessons').select('id, thinkific_lesson_id, lesson_type, is_video').range(off, off + 999);
+          if (!data || data.length === 0) break;
+          for (const l of data) map.set(String(l.thinkific_lesson_id), { id: l.id, lesson_type: l.lesson_type, is_video: l.is_video });
+          if (data.length < 1000) break;
         }
-      }
-      if (data.length < 1000) break;
+        return map;
+      })(),
+      db.from('enrollments').select('*', { count: 'exact', head: true }).eq('is_active', true),
+    ]);
+
+    const total = totalResult.count ?? 0;
+
+    if (lessonMap.size === 0) {
+      return { status: 'error', recordsProcessed: 0, total, nextOffset: opts.offset, done: false, errorMessage: 'No lessons in DB — run Sync Courses first' };
     }
 
-    const total = toSync.length;
-    const chunk = toSync.slice(opts.offset, opts.offset + opts.limit);
+    // 2. Fetch only this page of enrollments — O(limit) not O(total)
+    type RawEnrollment = {
+      thinkific_enrollment_id: string;
+      learner_id: string;
+      company_id: string;
+      course_id: string;
+      updated_at: string | null;
+      learners: { thinkific_user_id: string } | null;
+      courses: { thinkific_course_id: string } | null;
+    };
+
+    const { data: pageData } = await db
+      .from('enrollments')
+      .select('thinkific_enrollment_id, learner_id, company_id, course_id, updated_at, learners(thinkific_user_id), courses(thinkific_course_id)')
+      .eq('is_active', true)
+      .order('thinkific_enrollment_id')
+      .range(opts.offset, opts.offset + opts.limit - 1);
+
+    const chunk = (pageData || []) as unknown as RawEnrollment[];
+    const done = chunk.length < opts.limit;
     const nextOffset = opts.offset + opts.limit;
-    const done = nextOffset >= total || chunk.length === 0;
 
     if (chunk.length === 0) {
+      if (opts.offset === 0) {
+        await db.from('sync_logs').insert({ sync_type: 'lesson_progress', status: 'success', records_processed: 0, completed_at: new Date().toISOString() });
+      }
       return { status: 'success', recordsProcessed: 0, total, nextOffset: opts.offset, done: true };
     }
 
-    // 5. Process the chunk with bounded concurrency
+    // 3. Process chunk with bounded concurrency
     let recordsProcessed = 0;
     const pendingQuizzes: Array<Record<string, unknown>> = [];
 
     for (let ci = 0; ci < chunk.length; ci += CONCURRENCY) {
       const slice = chunk.slice(ci, ci + CONCURRENCY);
       await Promise.all(slice.map(async (enrollment) => {
+        if (!enrollment.learners?.thinkific_user_id || !enrollment.courses?.thinkific_course_id) return;
         try {
-          const progressItems = await thinkificPaginate<ThinkificProgressItem>('/course_progress', { course_id: enrollment.thinkific_course_id, user_id: enrollment.thinkific_user_id });
+          const progressItems = await thinkificPaginate<ThinkificProgressItem>('/course_progress', {
+            course_id: enrollment.courses.thinkific_course_id,
+            user_id: enrollment.learners.thinkific_user_id,
+          });
           const lessonRows: Array<Record<string, unknown>> = [];
           for (const item of progressItems) {
             const lesson = lessonMap.get(String(item.content_id));
@@ -145,7 +150,6 @@ export async function syncLessonProgressChunk(opts: {
 
     if (pendingQuizzes.length > 0) await flushQuizBatch(db, pendingQuizzes);
 
-    // Mark sync complete only when last chunk finishes
     if (done) {
       await db.from('sync_logs').insert({ sync_type: 'lesson_progress', status: 'success', records_processed: recordsProcessed, completed_at: new Date().toISOString() });
     }
