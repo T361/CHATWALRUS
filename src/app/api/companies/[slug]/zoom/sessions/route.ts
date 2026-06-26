@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAdminOrCron } from '@/lib/auth/guards';
+import { requireCompanyOrAdmin } from '@/lib/auth/guards';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCompanySessionLists } from '@/lib/zoom/analytics';
 
@@ -7,10 +7,9 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ slug: string }> },
 ) {
-  const authError = requireAdminOrCron(req);
-  if (authError) return authError;
-
   const { slug } = await params;
+  const authError = requireCompanyOrAdmin(req, slug);
+  if (authError) return authError;
   const db = createAdminClient();
   const { data: company } = await db.from('companies').select('id, name').eq('slug', slug).single();
   if (!company) {

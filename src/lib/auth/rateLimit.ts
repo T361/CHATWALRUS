@@ -50,3 +50,7 @@ export function recordFailedAttempt(req: Request): void {
 export function clearRateLimit(req: Request): void {
   buckets.delete(getIp(req));
 }
+
+export function resetAllRateLimits(): void {
+  buckets.clear();
+}

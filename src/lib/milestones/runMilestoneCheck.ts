@@ -161,11 +161,11 @@ export async function runMilestoneCheck(
       const totalLessons = learnerEnrollments.reduce(
         (sum, e) => sum + (courseTotalLessons.get(e.course_id) ?? 0), 0
       );
-      avgProgress = totalLessons > 0 ? (completedLessons / totalLessons) * 100 : 0;
+      avgProgress = totalLessons > 0 ? Math.min(100, Math.max(0, (completedLessons / totalLessons) * 100)) : 0;
     } else {
       const progressValues = enrollmentsByLearner.get(learner.id) || [];
       avgProgress = progressValues.length > 0
-        ? progressValues.reduce((sum, v) => sum + v, 0) / progressValues.length
+        ? Math.min(100, Math.max(0, progressValues.reduce((sum, v) => sum + v, 0) / progressValues.length))
         : 0;
     }
 

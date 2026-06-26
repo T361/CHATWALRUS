@@ -81,10 +81,15 @@ export function requireAdmin(req: NextRequest): AuthGuardResult {
 }
 
 /**
- * Checks if the request is allowed via CRON_SECRET or an Admin Session.
+ * Checks if the request is allowed via CRON_SECRET or an Admin session.
+ * Company-role sessions are explicitly rejected — use requireCompanyOrAdmin for slug-scoped routes.
  */
 export function requireAdminOrCron(req: NextRequest): AuthGuardResult {
-  if (getAdminSession(req)) return null;
+  const session = getAdminSession(req);
+  if (session) {
+    if (session.role !== 'admin') return unauthorizedJson('Admin access required');
+    return null;
+  }
 
   const token = getBearerToken(req);
   if (!token) return unauthorizedJson();
@@ -94,4 +99,17 @@ export function requireAdminOrCron(req: NextRequest): AuthGuardResult {
   if (!verifySecret(token, cronSecret)) return unauthorizedJson();
 
   return null;
+}
+
+/**
+ * Checks if the request is allowed for a specific company slug.
+ * Admin sessions are always allowed. Company sessions are allowed only when
+ * session.companySlug matches the requested slug. Cron is not allowed.
+ */
+export function requireCompanyOrAdmin(req: NextRequest, slug: string): AuthGuardResult {
+  const session = getAdminSession(req);
+  if (!session) return unauthorizedJson();
+  if (session.role === 'admin') return null;
+  if (session.role === 'company' && session.companySlug === slug) return null;
+  return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 }

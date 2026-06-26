@@ -1,16 +1,15 @@
 export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAdminOrCron } from '@/lib/auth/guards';
+import { requireCompanyOrAdmin } from '@/lib/auth/guards';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ slug: string }> },
 ) {
-  const authError = requireAdminOrCron(req);
-  if (authError) return authError;
-
   const { slug } = await params;
+  const authError = requireCompanyOrAdmin(req, slug);
+  if (authError) return authError;
   const db = createAdminClient();
 
   const { data: company } = await db.from('companies').select('id').eq('slug', slug).single();
@@ -31,10 +30,9 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ slug: string }> },
 ) {
-  const authError = requireAdminOrCron(req);
-  if (authError) return authError;
-
   const { slug } = await params;
+  const authError = requireCompanyOrAdmin(req, slug);
+  if (authError) return authError;
   const db = createAdminClient();
 
   const { data: company } = await db.from('companies').select('id').eq('slug', slug).single();
@@ -66,10 +64,9 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ slug: string }> },
 ) {
-  const authError = requireAdminOrCron(req);
-  if (authError) return authError;
-
   const { slug } = await params;
+  const authError = requireCompanyOrAdmin(req, slug);
+  if (authError) return authError;
   const { searchParams } = new URL(req.url);
   const id = searchParams.get('id');
   if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 });

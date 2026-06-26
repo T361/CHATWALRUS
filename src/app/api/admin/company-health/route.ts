@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminSession } from '@/lib/auth/session';
+import { requireAdmin } from '@/lib/auth/guards';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 export async function GET(req: NextRequest) {
-  const session = getAdminSession(req);
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const authError = requireAdmin(req);
+  if (authError) return authError;
 
   const db = createAdminClient();
   if (!db) {
@@ -31,16 +29,17 @@ export async function GET(req: NextRequest) {
     lessonProgressRes,
     zoomRes,
   ] = await Promise.all([
-    db.from('learners').select('company_id').in('company_id', companyIds).eq('is_active', true),
-    db.from('enrollments').select('company_id').in('company_id', companyIds).eq('is_active', true),
+    db.from('learners').select('company_id').in('company_id', companyIds).eq('is_active', true).limit(50000),
+    db.from('enrollments').select('company_id').in('company_id', companyIds).eq('is_active', true).limit(50000),
     db
       .from('weekly_company_rollups')
       .select('company_id, week_start')
       .in('company_id', companyIds)
-      .order('week_start', { ascending: false }),
-    db.from('learner_directory_rollups').select('company_id').in('company_id', companyIds),
-    db.from('lesson_progress').select('company_id').in('company_id', companyIds),
-    db.from('zoom_attendance').select('company_id').in('company_id', companyIds),
+      .order('week_start', { ascending: false })
+      .limit(10000),
+    db.from('learner_directory_rollups').select('company_id').in('company_id', companyIds).limit(50000),
+    db.from('lesson_progress').select('company_id').in('company_id', companyIds).limit(50000),
+    db.from('zoom_attendance').select('company_id').in('company_id', companyIds).limit(50000),
   ]);
 
   // Count per company

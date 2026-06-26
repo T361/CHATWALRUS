@@ -118,17 +118,25 @@ export async function getCompanyZoomAnalytics(
       const periodStart = from.toISOString();
       const periodEnd = now.toISOString();
 
-      const [{ count: activeLearners }, { data: attendanceRows, error }] = await Promise.all([
-        db.from('learners').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('is_active', true),
-        db.from('zoom_attendance')
+      const { count: activeLearners } = await db
+        .from('learners').select('id', { count: 'exact', head: true })
+        .eq('company_id', companyId).eq('is_active', true);
+
+      // Paginate to avoid Supabase 1000-row default cap
+      const attendanceRows: Array<{ learner_id: string | null; join_time: string | null; duration_minutes: number | null; zoom_session_id: string | null }> = [];
+      for (let off = 0; ; off += 1000) {
+        const { data, error } = await db.from('zoom_attendance')
           .select('learner_id, join_time, duration_minutes, zoom_session_id')
           .eq('company_id', companyId)
           .eq('attended', true)
           .gte('join_time', periodStart)
-          .order('join_time', { ascending: false }),
-      ]);
-
-      if (error) throw error;
+          .order('join_time', { ascending: false })
+          .range(off, off + 999);
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        attendanceRows.push(...data);
+        if (data.length < 1000) break;
+      }
 
       const uniqueLearners = new Set<string>();
       const trends = new Map<string, {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSession, isAdminAuthConfigured } from '@/lib/auth/session';
+import { requireAdmin } from '@/lib/auth/guards';
 import { isThinkificConfigured } from '@/lib/thinkific/client';
 import { isZoomConfigured } from '@/lib/zoom/client';
 import { createAdminClient, isAdminConfigured as isSupabaseAdminConfigured } from '@/lib/supabase/admin';
@@ -229,10 +230,9 @@ async function getSurveyDataHealth() {
 
 export async function GET(req: NextRequest) {
   return withServerTiming('admin.settings.status', async () => {
-    const session = getAdminSession(req);
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const authError = requireAdmin(req);
+    if (authError) return authError;
+    const session = getAdminSession(req)!;
 
     const includeProbes = req.nextUrl.searchParams.get('include_probes') === '1';
 

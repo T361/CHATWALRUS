@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAdminOrCron } from '@/lib/auth/guards';
+import { requireCompanyOrAdmin } from '@/lib/auth/guards';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { toCSV, csvResponse } from '@/lib/exports/csv';
 
@@ -7,9 +7,9 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
-  const authError = requireAdminOrCron(req);
-  if (authError) return authError;
   const { slug } = await params;
+  const authError = requireCompanyOrAdmin(req, slug);
+  if (authError) return authError;
   const db = createAdminClient();
   if (!db) return NextResponse.json({ error: 'DB not configured' }, { status: 503 });
 

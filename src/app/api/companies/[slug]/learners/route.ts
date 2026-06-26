@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAdminOrCron } from '@/lib/auth/guards';
+import { requireCompanyOrAdmin } from '@/lib/auth/guards';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getLearnerDirectory } from '@/lib/learners/directory';
 import { withServerTiming } from '@/lib/perf';
@@ -9,9 +9,9 @@ export async function GET(
   { params }: { params: Promise<{ slug: string }> }
 ) {
   return withServerTiming('company.learners.route', async () => {
-    const authError = requireAdminOrCron(req);
-    if (authError) return authError;
     const { slug } = await params;
+    const authError = requireCompanyOrAdmin(req, slug);
+    if (authError) return authError;
     const db = createAdminClient();
     if (!db) return NextResponse.json({ error: 'DB not configured' }, { status: 503 });
 

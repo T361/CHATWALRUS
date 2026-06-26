@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAdminOrCron } from '@/lib/auth/guards';
+import { requireCompanyOrAdmin } from '@/lib/auth/guards';
 import { withServerTiming } from '@/lib/perf';
 import { getWeeklyReportResultByCompanySlug } from '@/lib/weekly/rollups';
 
@@ -9,10 +9,9 @@ export async function GET(
   { params }: { params: Promise<{ slug: string }> },
 ) {
   return withServerTiming('weekly.route.get', async () => {
-    const authError = requireAdminOrCron(req);
-    if (authError) return authError;
-
     const { slug } = await params;
+    const authError = requireCompanyOrAdmin(req, slug);
+    if (authError) return authError;
     const result = await getWeeklyReportResultByCompanySlug(slug);
     if (!result.report) {
       return NextResponse.json(

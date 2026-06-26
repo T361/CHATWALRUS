@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { NextRequest } from 'next/server';
+import { resetAllRateLimits } from '@/lib/auth/rateLimit';
 
 // ---- Mock all external dependencies before importing the route ----
 
@@ -56,6 +57,7 @@ describe('POST /api/auth/login', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    resetAllRateLimits();
     // By default, auth is configured
     mockIsAdminAuthConfigured.mockReturnValue(true);
     mockVerifyAdminPasscode.mockReturnValue(false);
@@ -63,6 +65,7 @@ describe('POST /api/auth/login', () => {
 
   afterEach(() => {
     vi.clearAllMocks();
+    resetAllRateLimits();
   });
 
   // ---- Auth not configured ----
@@ -166,7 +169,7 @@ describe('POST /api/auth/login', () => {
     mockVerifyAdminPasscode.mockReturnValue(false);
     mockCreateAdminClient.mockReturnValue(null as never);
 
-    const req = makeRequest({ passcode: 'company-passcode' });
+    const req = makeRequest({ passcode: 'company-passcode', mode: 'company' });
     const res = await POST(req);
     expect(res.status).toBe(503);
     const body = await res.json();
@@ -207,7 +210,7 @@ describe('POST /api/auth/login', () => {
     const dbMock = makeDbMock({ data: { id: '1', role: 'company', company_id: null }, error: null });
     mockCreateAdminClient.mockReturnValue(dbMock as never);
 
-    const req = makeRequest({ passcode: 'company-no-company' });
+    const req = makeRequest({ passcode: 'company-no-company', mode: 'company' });
     const res = await POST(req);
     expect(res.status).toBe(401);
     const body = await res.json();
@@ -246,7 +249,7 @@ describe('POST /api/auth/login', () => {
       session: { role: 'company', issuedAt: 1000, expiresAt: 2000, companyId: 'cid-123', companySlug: 'acme-corp' },
     });
 
-    const req = makeRequest({ passcode: 'company-passcode' });
+    const req = makeRequest({ passcode: 'company-passcode', mode: 'company' });
     const res = await POST(req);
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -279,7 +282,7 @@ describe('POST /api/auth/login', () => {
       session: { role: 'company', issuedAt: 1000, expiresAt: 2000, companyId: 'cid-456', companySlug: 'beta-co' },
     });
 
-    const req = makeRequest({ passcode: 'company-passcode' });
+    const req = makeRequest({ passcode: 'company-passcode', mode: 'company' });
     await POST(req);
 
     expect(mockCreateCompanySessionToken).toHaveBeenCalledWith('cid-456', 'beta-co', '1');
@@ -304,7 +307,7 @@ describe('POST /api/auth/login', () => {
     mockCreateAdminClient.mockReturnValue(dbMock as never);
     mockCreateCompanySessionToken.mockReturnValue(null);
 
-    const req = makeRequest({ passcode: 'company-passcode' });
+    const req = makeRequest({ passcode: 'company-passcode', mode: 'company' });
     const res = await POST(req);
     expect(res.status).toBe(503);
     const body = await res.json();
@@ -341,7 +344,7 @@ describe('POST /api/auth/login', () => {
       session: { role: 'company', issuedAt: 1000, expiresAt: 2000, companyId: 'cid-001', companySlug: 'widget-co' },
     });
 
-    const req = makeRequest({ passcode: 'company-passcode' });
+    const req = makeRequest({ passcode: 'company-passcode', mode: 'company' });
     const res = await POST(req);
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -366,7 +369,7 @@ describe('POST /api/auth/login', () => {
 
     mockCreateAdminClient.mockReturnValue(dbMock as never);
 
-    const req = makeRequest({ passcode: 'company-passcode' });
+    const req = makeRequest({ passcode: 'company-passcode', mode: 'company' });
     const res = await POST(req);
     expect(res.status).toBe(401);
     const body = await res.json();
