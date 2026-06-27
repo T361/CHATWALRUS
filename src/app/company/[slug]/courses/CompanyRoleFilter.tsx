@@ -1,5 +1,7 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
+
 export function CompanyRoleFilter({
   role,
   roles,
@@ -15,6 +17,7 @@ export function CompanyRoleFilter({
   sortBy: string;
   sortDir: string;
 }) {
+  const router = useRouter();
   return (
     <select
       value={role}
@@ -24,7 +27,7 @@ export function CompanyRoleFilter({
         params.set('sort_by', sortBy);
         params.set('sort_dir', sortDir);
         if (e.target.value) params.set('role', e.target.value);
-        window.location.assign(`/company/${slug}/courses?` + params.toString());
+        router.push(`/company/${slug}/courses?` + params.toString());
       }}
       style={{
         fontSize: '0.75rem',

@@ -326,8 +326,12 @@ export default function LearnerDirectory({
 
     return (
       <th
+        role="columnheader"
+        aria-sort={isSorted ? (isAsc ? 'ascending' : 'descending') : 'none'}
+        tabIndex={0}
         onClick={() => toggleSort(column)}
-        title={`Click to sort by ${children} ${isSorted ? (sortDir === 'asc' ? '(descending)' : '(ascending)') : '(ascending)'}`}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSort(column); } }}
+        title={`Sort by ${String(children)} ${isSorted ? (sortDir === 'asc' ? '(descending)' : '(ascending)') : '(ascending)'}`}
         style={{
           cursor: 'pointer',
           userSelect: 'none',

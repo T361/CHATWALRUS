@@ -328,10 +328,15 @@ export async function runAllMilestoneChecks(): Promise<MilestoneCheckResult[]> {
     return [];
   }
 
-  const settled = await Promise.all(
-    companies.map((company) => runMilestoneCheck(company as Company))
-  );
-  const results = settled.filter((r): r is MilestoneCheckResult => r !== null);
+  // Process in batches of 10 to avoid saturating the Supabase connection pool
+  const allResults: Array<MilestoneCheckResult | null> = [];
+  const BATCH_SIZE = 10;
+  for (let i = 0; i < companies.length; i += BATCH_SIZE) {
+    const batch = companies.slice(i, i + BATCH_SIZE);
+    const settled = await Promise.all(batch.map((company) => runMilestoneCheck(company as Company)));
+    allResults.push(...settled);
+  }
+  const results = allResults.filter((r): r is MilestoneCheckResult => r !== null);
   if (results.length > 0) {
     const companyIds = results.map((result) => result.companyId);
     await refreshCompanySummaryRollups(companyIds);

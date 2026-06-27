@@ -3,6 +3,7 @@
 import PageShell from '@/components/layout/PageShell';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import React from 'react';
 
 interface LeaderboardRow {
@@ -32,14 +33,16 @@ const POINT_LEGEND = [
 
 function RankLimitInput({ limit }: { limit: number }) {
   const [val, setVal] = React.useState(String(limit));
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
   React.useEffect(() => { setVal(String(limit)); }, [limit]);
 
   function apply(v: string) {
     const n = Math.min(500, Math.max(10, parseInt(v, 10) || 100));
-    const p = new URLSearchParams(window.location.search);
+    const p = new URLSearchParams(searchParams.toString());
     p.set('limit', String(n));
-    window.location.assign('/leaderboard?' + p.toString());
+    router.push('/leaderboard?' + p.toString());
   }
 
   return (
@@ -76,10 +79,8 @@ function RankLimitInput({ limit }: { limit: number }) {
   );
 }
 
-function getLimitFromSearch(): number {
-  if (typeof window === 'undefined') return 100;
-  const p = new URLSearchParams(window.location.search);
-  const v = parseInt(p.get('limit') ?? '100', 10);
+function getLimitFromSearch(searchParams: URLSearchParams): number {
+  const v = parseInt(searchParams.get('limit') ?? '100', 10);
   if (isNaN(v) || v < 10) return 10;
   if (v > 500) return 500;
   return v;
@@ -92,34 +93,44 @@ export default function GlobalLeaderboardPage() {
   const [search,  setSearch]  = useState('');
   const [showLegend, setShowLegend] = useState(false);
   const [limit, setLimit] = useState(100);
+  const [loadError, setLoadError] = useState('');
   const didInit = useRef(false);
 
   const load = useCallback(async (lim: number) => {
     setLoading(true);
-    const res = await fetch(`/api/leaderboard/global?limit=${lim}`);
-    const d   = await res.json();
-    const lb  = d.leaderboard ?? [];
+    setLoadError('');
+    try {
+      const res = await fetch(`/api/leaderboard/global?limit=${lim}`);
+      if (!res.ok) throw new Error(`Server error ${res.status}`);
+      const d   = await res.json();
+      const lb  = d.leaderboard ?? [];
 
-    if (lb.length === 0 && !d.error) {
-      setSeeding(true);
-      await fetch('/api/admin/sync/gamification', { method: 'POST' });
-      setSeeding(false);
-      const res2 = await fetch(`/api/leaderboard/global?limit=${lim}`);
-      const d2   = await res2.json();
-      setRows(d2.leaderboard ?? []);
-    } else {
-      setRows(lb);
+      if (lb.length === 0 && !d.error) {
+        setSeeding(true);
+        await fetch('/api/admin/sync/gamification', { method: 'POST' });
+        setSeeding(false);
+        const res2 = await fetch(`/api/leaderboard/global?limit=${lim}`);
+        const d2   = await res2.json();
+        setRows(d2.leaderboard ?? []);
+      } else {
+        setRows(lb);
+      }
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load leaderboard');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, []);
+
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     if (didInit.current) return;
     didInit.current = true;
-    const lim = getLimitFromSearch();
+    const lim = getLimitFromSearch(searchParams);
     setLimit(lim);
     load(lim);
-  }, [load]);
+  }, [load, searchParams]);
 
   const filtered = rows.filter((r) => {
     const q = search.toLowerCase();
@@ -205,6 +216,8 @@ export default function GlobalLeaderboardPage() {
             {seeding ? 'Calculating points from all activity — first run takes ~10 seconds…' : 'Loading leaderboard…'}
           </p>
         </div>
+      ) : loadError ? (
+        <div className="card" style={{ padding: '1rem', color: 'var(--danger)', fontSize: '0.875rem' }}>{loadError}</div>
       ) : filtered.length === 0 ? (
         <div className="empty-state card">
           <h3>{rows.length === 0 ? 'No data yet' : 'No results'}</h3>

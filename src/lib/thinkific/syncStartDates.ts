@@ -37,39 +37,29 @@ export async function syncStartDates(): Promise<SyncResult> {
 
     console.log(`[SyncStartDates] ${companiesWithoutDate.length} companies need start_date inference`);
 
-    for (const company of companiesWithoutDate) {
-      // Find the earliest enrollment timestamp for any learner in this company
-      // Uses activated_at first (when learner actually enrolled), then started_at
-      const { data: earliest } = await db
+    // Batch: fetch the earliest enrollment date per company in one query
+    const companyIds = companiesWithoutDate.map((c) => c.id);
+    const earliestByCompany = new Map<string, string>();
+
+    for (let offset = 0; ; offset += 1000) {
+      const { data } = await db
         .from('enrollments')
-        .select('activated_at, started_at')
-        .eq('company_id', company.id)
+        .select('company_id, activated_at, started_at')
+        .in('company_id', companyIds)
         .eq('is_active', true)
-        .not('activated_at', 'is', null)
-        .order('activated_at', { ascending: true })
-        .limit(1);
-
-      let inferredDate: string | null = null;
-
-      if (earliest && earliest.length > 0) {
-        inferredDate = earliest[0].activated_at || earliest[0].started_at || null;
+        .range(offset, offset + 999);
+      if (!data || data.length === 0) break;
+      for (const e of data) {
+        const ts = e.activated_at || e.started_at;
+        if (!ts) continue;
+        const existing = earliestByCompany.get(e.company_id);
+        if (!existing || ts < existing) earliestByCompany.set(e.company_id, ts);
       }
+      if (data.length < 1000) break;
+    }
 
-      // Fallback: use started_at if no activated_at exists
-      if (!inferredDate) {
-        const { data: fallback } = await db
-          .from('enrollments')
-          .select('started_at')
-          .eq('company_id', company.id)
-          .eq('is_active', true)
-          .not('started_at', 'is', null)
-          .order('started_at', { ascending: true })
-          .limit(1);
-
-        if (fallback && fallback.length > 0) {
-          inferredDate = fallback[0].started_at || null;
-        }
-      }
+    for (const company of companiesWithoutDate) {
+      const inferredDate = earliestByCompany.get(company.id) ?? null;
 
       if (!inferredDate) {
         console.log(`[SyncStartDates] No enrollment data for ${company.name} — skipping`);

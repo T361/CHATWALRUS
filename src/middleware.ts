@@ -4,8 +4,7 @@ import { getAdminSessionEdge, ADMIN_SESSION_COOKIE } from '@/lib/auth/session-ed
 // Routes that don't require authentication at middleware level.
 // NOTE: individual route handlers still run their own guards (requireAdminOrCron).
 const PUBLIC_PATHS = [
-  '/login',            // new dedicated login page
-  '/admin/settings',   // legacy login page (still accessible)
+  '/login',
   '/api/auth/login',
   '/api/auth/logout',
   '/api/auth/session',

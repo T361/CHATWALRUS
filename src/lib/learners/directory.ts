@@ -304,8 +304,11 @@ function applyDirectoryQueryFilters(
     }
   }
   if (filters.q) {
-    const q = filters.q.replace(/,/g, ' ');
-    nextQuery = nextQuery.or(`full_name.ilike.%${q}%,email.ilike.%${q}%`);
+    // Strip characters that could extend PostgREST filter grammar (commas, parens, dots)
+    const q = filters.q.replace(/[^a-zA-Z0-9 @._-]/g, '').trim();
+    if (q) {
+      nextQuery = nextQuery.or(`full_name.ilike.%${q}%,email.ilike.%${q}%`);
+    }
   }
   return nextQuery;
 }
@@ -482,7 +485,7 @@ export async function getLearnerDirectoryMeta(companyId?: string | null): Promis
           .from('companies')
           .select('name')
           .eq('id', companyId)
-          .single();
+          .maybeSingle();
         if (error) throw error;
         companyName = company?.name;
       }

@@ -52,9 +52,12 @@ function LoginForm() {
       if (!res.ok) {
         setError(data.error || 'Invalid passcode');
       } else {
-        // API response includes a redirect field; honour any ?redirect= param too
+        // Validate redirect is an internal path (no open redirect to external URLs)
         const redirectParam = searchParams.get('redirect');
-        const destination   = redirectParam || data.redirect || (mode === 'admin' ? '/admin/settings' : '/');
+        const rawDest = redirectParam || data.redirect || (mode === 'admin' ? '/admin/settings' : '/');
+        const destination = typeof rawDest === 'string' && rawDest.startsWith('/') && !rawDest.startsWith('//')
+          ? rawDest
+          : (mode === 'admin' ? '/admin/settings' : '/');
         router.push(destination);
       }
     } catch {
@@ -106,56 +109,58 @@ function LoginForm() {
           ))}
         </div>
 
-        {/* Passcode field */}
-        <div style={{ marginBottom: '1rem' }}>
-          <label style={{
-            display: 'block', fontSize: '0.75rem', fontWeight: 700,
-            letterSpacing: '0.08em', textTransform: 'uppercase',
-            color: 'var(--text-muted)', marginBottom: '0.625rem',
-          }}>
-            {isCompany ? 'Company Passcode' : 'Admin Passcode'}
-          </label>
-          <div style={{ position: 'relative' }}>
-            <input
-              type={showPassword ? 'text' : 'password'}
-              value={passcode}
-              onChange={(e) => setPasscode(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && login()}
-              placeholder={isCompany ? 'Enter your company passcode' : 'Enter admin passcode'}
-              autoFocus
-              style={{ width: '100%', paddingRight: '2.75rem', fontSize: '1rem', padding: '0.75rem 2.75rem 0.75rem 0.875rem', height: 'auto' }}
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword(v => !v)}
-              style={{
-                position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)',
-                background: 'none', border: 'none', cursor: 'pointer',
-                color: 'var(--text-muted)', padding: '0.25rem', lineHeight: 1, display: 'flex',
-              }}
-              aria-label={showPassword ? 'Hide' : 'Show'}
-            >
-              {showPassword ? <EyeOffIcon /> : <EyeIcon />}
-            </button>
+        {/* Passcode field + submit — wrapped in <form> so Enter key works */}
+        <form onSubmit={(e) => { e.preventDefault(); login(); }}>
+          <div style={{ marginBottom: '1rem' }}>
+            <label htmlFor="passcode-input" style={{
+              display: 'block', fontSize: '0.75rem', fontWeight: 700,
+              letterSpacing: '0.08em', textTransform: 'uppercase',
+              color: 'var(--text-muted)', marginBottom: '0.625rem',
+            }}>
+              {isCompany ? 'Company Passcode' : 'Admin Passcode'}
+            </label>
+            <div style={{ position: 'relative' }}>
+              <input
+                id="passcode-input"
+                type={showPassword ? 'text' : 'password'}
+                value={passcode}
+                onChange={(e) => setPasscode(e.target.value)}
+                placeholder={isCompany ? 'Enter your company passcode' : 'Enter admin passcode'}
+                autoFocus
+                style={{ width: '100%', paddingRight: '2.75rem', fontSize: '1rem', padding: '0.75rem 2.75rem 0.75rem 0.875rem', height: 'auto' }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(v => !v)}
+                style={{
+                  position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)',
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  color: 'var(--text-muted)', padding: '0.25rem', lineHeight: 1, display: 'flex',
+                }}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+              </button>
+            </div>
           </div>
-        </div>
 
-        {/* Error */}
-        {error && (
-          <p style={{ fontSize: '0.8125rem', color: 'var(--danger)', margin: '0 0 0.875rem' }}>
-            {error}
-          </p>
-        )}
+          {/* Error */}
+          {error && (
+            <p style={{ fontSize: '0.8125rem', color: 'var(--danger)', margin: '0 0 0.875rem' }}>
+              {error}
+            </p>
+          )}
 
-        {/* Submit */}
-        <button
-          className="btn btn-primary"
-          disabled={loading || !passcode}
-          onClick={login}
-          style={{ width: '100%', padding: '0.875rem', fontSize: '1rem', fontWeight: 700, marginTop: '0.25rem' }}
-        >
-          {loading ? 'Verifying...' : 'Log In'}
-        </button>
+          {/* Submit */}
+          <button
+            type="submit"
+            className="btn btn-primary"
+            disabled={loading || !passcode}
+            style={{ width: '100%', padding: '0.875rem', fontSize: '1rem', fontWeight: 700, marginTop: '0.25rem' }}
+          >
+            {loading ? 'Verifying...' : 'Log In'}
+          </button>
+        </form>
 
         {/* Hint */}
         <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', textAlign: 'center', marginTop: '1.25rem' }}>

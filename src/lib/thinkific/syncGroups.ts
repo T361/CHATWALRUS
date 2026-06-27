@@ -6,6 +6,7 @@
 import { thinkificPaginate, thinkificGet, isThinkificConfigured } from './client';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { runSync, type SyncResult } from './syncCore';
+import { generateSlug } from '@/lib/utils/slug';
 
 interface ThinkificGroup {
   id: number;
@@ -13,15 +14,6 @@ interface ThinkificGroup {
   token: string;
   created_at: string;
   updated_at: string;
-}
-
-function toSlug(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^\w\s-]/g, '')
-    .replace(/[\s_]+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
 }
 
 export async function syncGroups(): Promise<SyncResult> {
@@ -51,40 +43,37 @@ export async function syncGroups(): Promise<SyncResult> {
       if (data.length < 1000) break;
     }
 
+    type ExistingUpdate = { id: string; thinkific_group_id: number; thinkific_group_token: string; is_active: boolean };
+    type NewInsert = { name: string; slug: string; thinkific_group_id: number; thinkific_group_token: string; is_active: boolean; learning_timeline_days: number };
+    const existingUpdates: ExistingUpdate[] = [];
+    const newInserts: NewInsert[] = [];
+
     for (const group of groups) {
-      const slug = toSlug(group.name);
+      const slug = generateSlug(group.name);
       if (!slug) continue;
 
       const existing = slugMap.get(slug);
 
       if (existing) {
-        // Update existing company with the group ID if not already set
         if (!existing.thinkific_group_id) {
-          await db
-            .from('companies')
-            .update({
-              thinkific_group_id: group.id,
-              thinkific_group_token: group.token,
-              is_active: true,
-            })
-            .eq('id', existing.id);
+          existingUpdates.push({ id: existing.id, thinkific_group_id: group.id, thinkific_group_token: group.token, is_active: true });
         }
       } else {
-        // Create new company from the group
-        const { error } = await db.from('companies').upsert(
-          {
-            name: group.name,
-            slug,
-            thinkific_group_id: group.id,
-            thinkific_group_token: group.token,
-            is_active: true,
-            learning_timeline_days: 365,
-          },
-          { onConflict: 'thinkific_group_id' }
-        );
-        if (error) console.warn(`[SyncGroups] Failed to upsert company for group "${group.name}":`, error.message);
+        newInserts.push({ name: group.name, slug, thinkific_group_id: group.id, thinkific_group_token: group.token, is_active: true, learning_timeline_days: 365 });
       }
       count++;
+    }
+
+    // Batch-update existing companies that are missing thinkific_group_id
+    for (let i = 0; i < existingUpdates.length; i += 100) {
+      const { error } = await db.from('companies').upsert(existingUpdates.slice(i, i + 100), { onConflict: 'id' });
+      if (error) console.warn(`[SyncGroups] Existing update batch error:`, error.message);
+    }
+
+    // Batch-insert new companies from Thinkific groups
+    for (let i = 0; i < newInserts.length; i += 100) {
+      const { error } = await db.from('companies').upsert(newInserts.slice(i, i + 100), { onConflict: 'thinkific_group_id' });
+      if (error) console.warn(`[SyncGroups] New insert batch error:`, error.message);
     }
 
     // NOTE: Thinkific's /group_users endpoint is not available on all plans.

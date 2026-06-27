@@ -1,41 +1,25 @@
-export const maxDuration = 300;
 import { NextRequest, NextResponse } from 'next/server';
 import { requireCronSecret } from '@/lib/auth/guards';
-import { syncLessonProgress } from '@/lib/thinkific/syncLessonProgress';
-import { createSyncLog, updateSyncLog } from '@/lib/thinkific/syncCore';
+
+// Thinkific v1 API has no lesson-level progress endpoint (/course_progress returns 404).
+// This cron route is kept as a no-op so vercel.json doesn't break if the entry is restored.
+// Vercel sends GET for cron jobs — both methods return the same unavailable response.
+export async function GET(req: NextRequest) {
+  const authError = requireCronSecret(req);
+  if (authError) return authError;
+  return NextResponse.json({
+    status: 'unavailable',
+    message: 'Thinkific v1 API has no lesson-level progress endpoint. Remove this cron from vercel.json.',
+    records_processed: 0,
+  });
+}
 
 export async function POST(req: NextRequest) {
   const authError = requireCronSecret(req);
   if (authError) return authError;
-
-  const logId = await createSyncLog('lesson_progress_cron', 'running');
-
-  try {
-    const result = await syncLessonProgress();
-
-    if (logId) {
-      await updateSyncLog(logId, {
-        status: result.status,
-        records_processed: result.recordsProcessed,
-        error_message: result.errorMessage,
-      });
-    }
-
-    return NextResponse.json({
-      status: result.status,
-      records_processed: result.recordsProcessed,
-      sync_log_id: logId,
-    });
-  } catch (error) {
-    if (logId) {
-      await updateSyncLog(logId, {
-        status: 'failed',
-        error_message: error instanceof Error ? error.message : String(error),
-      });
-    }
-    return NextResponse.json(
-      { status: 'failed', error: error instanceof Error ? error.message : String(error) },
-      { status: 500 }
-    );
-  }
+  return NextResponse.json({
+    status: 'unavailable',
+    message: 'Thinkific v1 API has no lesson-level progress endpoint. Remove this cron from vercel.json.',
+    records_processed: 0,
+  });
 }

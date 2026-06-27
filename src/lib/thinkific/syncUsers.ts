@@ -6,6 +6,7 @@ import { thinkificPaginate, isThinkificConfigured } from './client';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { runSync, type SyncResult } from './syncCore';
 import { buildFullName } from '@/lib/utils/normalize';
+import { generateSlug } from '@/lib/utils/slug';
 
 interface ThinkificUser {
   id: number;
@@ -15,15 +16,6 @@ interface ThinkificUser {
   roles: string[];
   last_sign_in_at: string | null;
   custom_profile_fields?: Array<{ label: string; value: string }>;
-}
-
-function toSlug(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^\w\s-]/g, '')
-    .replace(/[\s_]+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
 }
 
 /**
@@ -71,7 +63,7 @@ export async function syncUsers(): Promise<SyncResult> {
 
       if (companyField?.value) {
         const nameKey = companyField.value.trim().toLowerCase();
-        const slug = toSlug(companyField.value);
+        const slug = generateSlug(companyField.value);
         if (companyByName.has(nameKey) || companyBySlug.has(slug)) {
           matched = true;
         } else if (slug) {
@@ -86,7 +78,7 @@ export async function syncUsers(): Promise<SyncResult> {
         const domain = user.email.split('@')[1].toLowerCase();
         if (!genericDomains.has(domain)) {
           const domainBase = domain.split('.')[0];
-          const slug = toSlug(domainBase);
+          const slug = generateSlug(domainBase);
           if (!companyBySlug.has(slug)) {
             // Try partial match against existing slugs
             let partialMatch = false;
@@ -148,7 +140,7 @@ export async function syncUsers(): Promise<SyncResult> {
       // Match by custom field first
       if (companyField?.value) {
         const nameKey = companyField.value.trim().toLowerCase();
-        const slug = toSlug(companyField.value);
+        const slug = generateSlug(companyField.value);
         companyId = companyByName.get(nameKey) ?? companyBySlug.get(slug) ?? null;
       }
 
@@ -157,7 +149,7 @@ export async function syncUsers(): Promise<SyncResult> {
         const domain = user.email.split('@')[1].toLowerCase();
         if (!genericDomains.has(domain)) {
           const domainBase = domain.split('.')[0];
-          const slug = toSlug(domainBase);
+          const slug = generateSlug(domainBase);
           companyId = companyBySlug.get(slug) ?? null;
           if (!companyId) {
             for (const [existingSlug, id] of companyBySlug) {

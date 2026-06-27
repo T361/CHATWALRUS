@@ -68,15 +68,7 @@ export async function recalculateAllPoints(): Promise<number> {
   const db = createAdminClient();
   let processed = 0;
 
-  // Aggregate all events per learner
-  const { data: events, error } = await db
-    .from('points_events')
-    .select('learner_id, company_id, event_type, points_earned');
-
-  if (error) throw new Error(`[Gamification] Failed to fetch events: ${error.message}`);
-  if (!events || events.length === 0) return 0;
-
-  // Build per-learner totals
+  // Build per-learner totals — paginate points_events to avoid 1000-row Supabase cap
   type LearnerTotals = {
     company_id: string | null;
     total: number;
@@ -91,31 +83,45 @@ export async function recalculateAllPoints(): Promise<number> {
   };
 
   const totals = new Map<string, LearnerTotals>();
+  let hasEvents = false;
 
-  for (const ev of events) {
-    const lid = ev.learner_id;
-    if (!totals.has(lid)) {
-      totals.set(lid, {
-        company_id: ev.company_id,
-        total: 0, zoom: 0, lesson: 0, quiz: 0,
-        course: 0, assignment: 0, survey: 0, streak: 0, sessions: 0,
-      });
-    }
-    const t = totals.get(lid)!;
-    t.total += ev.points_earned;
+  for (let pageOffset = 0; ; pageOffset += 1000) {
+    const { data: events, error } = await db
+      .from('points_events')
+      .select('learner_id, company_id, event_type, points_earned')
+      .range(pageOffset, pageOffset + 999);
+    if (error) throw new Error(`[Gamification] Failed to fetch events: ${error.message}`);
+    if (!events || events.length === 0) break;
+    hasEvents = true;
 
-    switch (ev.event_type as PointEventType) {
-      case 'zoom_session':     t.zoom       += ev.points_earned; t.sessions++; break;
-      case 'lesson_complete':  t.lesson     += ev.points_earned; break;
-      case 'quiz_pass':        t.quiz       += ev.points_earned; break;
-      case 'course_complete':  t.course     += ev.points_earned; break;
-      case 'assignment':       t.assignment += ev.points_earned; break;
-      case 'survey':           t.survey     += ev.points_earned; break;
-      case 'streak_7':
-      case 'streak_30':
-      case 'on_pace':          t.streak     += ev.points_earned; break;
+    for (const ev of events) {
+      const lid = ev.learner_id;
+      if (!totals.has(lid)) {
+        totals.set(lid, {
+          company_id: ev.company_id,
+          total: 0, zoom: 0, lesson: 0, quiz: 0,
+          course: 0, assignment: 0, survey: 0, streak: 0, sessions: 0,
+        });
+      }
+      const t = totals.get(lid)!;
+      t.total += ev.points_earned;
+
+      switch (ev.event_type as PointEventType) {
+        case 'zoom_session':     t.zoom       += ev.points_earned; t.sessions++; break;
+        case 'lesson_complete':  t.lesson     += ev.points_earned; break;
+        case 'quiz_pass':        t.quiz       += ev.points_earned; break;
+        case 'course_complete':  t.course     += ev.points_earned; break;
+        case 'assignment':       t.assignment += ev.points_earned; break;
+        case 'survey':           t.survey     += ev.points_earned; break;
+        case 'streak_7':
+        case 'streak_30':
+        case 'on_pace':          t.streak     += ev.points_earned; break;
+      }
     }
+    if (events.length < 1000) break;
   }
+
+  if (!hasEvents) return 0;
 
   // Upsert learner_points in batches
   const rows = Array.from(totals.entries()).map(([learner_id, t]) => ({

@@ -60,18 +60,34 @@ export async function awardAchievements(): Promise<number> {
     if (data.length < 1000) break;
   }
 
-  // Count completed courses per learner
+  // Count completed courses per learner — progress_percent = 100 is the completion signal
   const courseCompletions = new Map<string, number>();
   for (let offset = 0; ; offset += 1000) {
     const { data } = await db
       .from('enrollments')
       .select('learner_id')
-      .eq('is_completed', true)
+      .eq('progress_percent', 100)
       .not('learner_id', 'is', null)
       .range(offset, offset + 999);
     if (!data || data.length === 0) break;
     for (const r of data) {
       if (r.learner_id) courseCompletions.set(r.learner_id, (courseCompletions.get(r.learner_id) ?? 0) + 1);
+    }
+    if (data.length < 1000) break;
+  }
+
+  // Count completed lessons per learner from lesson_progress table
+  const lessonCompletions = new Map<string, number>();
+  for (let offset = 0; ; offset += 1000) {
+    const { data } = await db
+      .from('lesson_progress')
+      .select('learner_id')
+      .eq('completed', true)
+      .not('learner_id', 'is', null)
+      .range(offset, offset + 999);
+    if (!data || data.length === 0) break;
+    for (const r of data) {
+      if (r.learner_id) lessonCompletions.set(r.learner_id, (lessonCompletions.get(r.learner_id) ?? 0) + 1);
     }
     if (data.length < 1000) break;
   }
@@ -125,8 +141,7 @@ export async function awardAchievements(): Promise<number> {
           qualifies = (courseCompletions.get(learnerId) ?? 0) >= ach.criteria_value;
           break;
         case 'lessons_complete':
-          // Proxy: any lesson completion in points events
-          qualifies = pts.total_points > 0;
+          qualifies = (lessonCompletions.get(learnerId) ?? 0) >= ach.criteria_value;
           break;
         case 'quiz_passes':
           qualifies = (quizPasses.get(learnerId) ?? 0) >= ach.criteria_value;

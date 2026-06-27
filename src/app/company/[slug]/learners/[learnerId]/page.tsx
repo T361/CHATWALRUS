@@ -54,11 +54,11 @@ export default async function LearnerDetailPage(
     { data: companyRank },
   ] = await Promise.all([
     db.from('enrollments').select('*, courses(name, id)').eq('learner_id', learnerId).order('started_at', { ascending: true }),
-    db.from('learner_status_snapshots').select('status, completion_percent, benchmark_percent, snapshot_date').eq('learner_id', learnerId).order('snapshot_date', { ascending: false }).limit(1).single(),
+    db.from('learner_status_snapshots').select('status, completion_percent, benchmark_percent, snapshot_date').eq('learner_id', learnerId).order('snapshot_date', { ascending: false }).limit(1).maybeSingle(),
     db.from('quizzes').select('*, courses(name)').eq('learner_id', learnerId).order('attempted_at', { ascending: false }),
     db.from('assignments').select('*, courses(name)').eq('learner_id', learnerId).order('submitted_at', { ascending: false }),
     db.from('zoom_attendance').select('id, zoom_session_id, learner_id, company_id, attendee_name, attendee_email, join_time, leave_time, duration_minutes, attended, created_at, zoom_sessions(topic, session_type, host_email, start_time, end_time)').eq('learner_id', learnerId).order('join_time', { ascending: false }),
-    db.from('learner_points').select('total_points, zoom_attendance_points, lesson_completion_points, quiz_points, course_completion_points, assignment_points, streak_bonus_points, sessions_attended').eq('learner_id', learnerId).single(),
+    db.from('learner_points').select('total_points, zoom_attendance_points, lesson_completion_points, quiz_points, course_completion_points, assignment_points, streak_bonus_points, sessions_attended').eq('learner_id', learnerId).maybeSingle(),
     db.from('learner_points').select('learner_id').eq('company_id', company.id).gte('total_points', 0).order('total_points', { ascending: false }),
   ]);
 

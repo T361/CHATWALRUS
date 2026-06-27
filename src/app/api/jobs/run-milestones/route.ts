@@ -26,6 +26,7 @@ export async function POST(req: NextRequest) {
     const results = await runAllMilestoneChecks();
     return NextResponse.json({
       status: 'success',
+      records_processed: results.length,
       companies_checked: results.length,
       results: results.map((r) => ({
         companyId: r.companyId,

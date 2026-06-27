@@ -69,13 +69,21 @@ export async function syncSurveys(): Promise<SyncResult> {
       (courses || []).map((course) => [String(course.thinkific_course_id), course.id]),
     );
 
-    const { data: allLearners, error: learnersError } = await db
-      .from('learners')
-      .select('id, thinkific_user_id, company_id');
-    if (learnersError) throw learnersError;
+    // Paginate learners — Supabase server-side cap is 1,000 rows per request
+    const allLearnerRows: Array<{ id: string; thinkific_user_id: string | null; company_id: string | null }> = [];
+    for (let offset = 0; ; offset += 1000) {
+      const { data, error: pageErr } = await db
+        .from('learners')
+        .select('id, thinkific_user_id, company_id')
+        .range(offset, offset + 999);
+      if (pageErr) throw pageErr;
+      if (!data || data.length === 0) break;
+      allLearnerRows.push(...data);
+      if (data.length < 1000) break;
+    }
 
     const learnerMap = new Map(
-      (allLearners || [])
+      allLearnerRows
         .filter((learner) => learner.thinkific_user_id)
         .map((learner) => [
           String(learner.thinkific_user_id),

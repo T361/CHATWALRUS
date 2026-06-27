@@ -64,6 +64,18 @@ export async function syncZoomAttendance(): Promise<SyncResult> {
     const fromDate = new Date();
     fromDate.setDate(fromDate.getDate() - 30);
 
+    // Pre-load all learner emails into a map — eliminates N+1 per participant
+    const learnerByEmail = new Map<string, { id: string; company_id: string | null }>();
+    for (let offset = 0; ; offset += 1000) {
+      const { data } = await db.from('learners').select('id, email, company_id').range(offset, offset + 999);
+      if (!data || data.length === 0) break;
+      for (const l of data) {
+        if (l.email) learnerByEmail.set(l.email.trim().toLowerCase(), { id: l.id, company_id: l.company_id });
+      }
+      if (data.length < 1000) break;
+    }
+    console.log(`[ZoomSync] Pre-loaded ${learnerByEmail.size} learner emails`);
+
     const users = await zoomGetAllPages<{ users: ZoomUser[] }>(
       '/users',
       { page_size: '300', status: 'active' },
@@ -143,14 +155,8 @@ export async function syncZoomAttendance(): Promise<SyncResult> {
                 p.join_time || 'unknown-join-time',
               ].join(':');
 
-              const { data: learner } = attendeeEmail
-                ? await db
-                    .from('learners')
-                    .select('id, company_id')
-                    .eq('email', attendeeEmail)
-                    .limit(1)
-                    .single()
-                : { data: null };
+              // O(1) map lookup — no DB query per participant
+              const learner = attendeeEmail ? (learnerByEmail.get(attendeeEmail) ?? null) : null;
 
               const { error: attendanceError } = await db.from('zoom_attendance').upsert({
                 zoom_session_id: session.id,
@@ -186,7 +192,7 @@ export async function syncZoomAttendance(): Promise<SyncResult> {
     // Silently skips if the scope is not yet granted — returns 0 new records
     // rather than throwing an error so the rest of the sync still succeeds.
     try {
-      const webinarCount = await syncWebinarAttendance(db, fromDate);
+      const webinarCount = await syncWebinarAttendance(db, fromDate, learnerByEmail);
       count += webinarCount;
     } catch (err) {
       console.warn('[ZoomSync] Webinar sync skipped (scope not granted or error):', err);
@@ -199,6 +205,7 @@ export async function syncZoomAttendance(): Promise<SyncResult> {
 async function syncWebinarAttendance(
   db: ReturnType<typeof import('@/lib/supabase/admin').createAdminClient>,
   fromDate: Date,
+  learnerByEmail?: Map<string, { id: string; company_id: string | null }>,
 ): Promise<number> {
   let count = 0;
 
@@ -253,9 +260,7 @@ async function syncWebinarAttendance(
             const attendeeIdentity = attendeeEmail || `participant:${(p.id || p.name || '').trim().toLowerCase()}`;
             const dedupeKey = [session.id, attendeeIdentity, p.join_time || 'unknown-join-time'].join(':');
 
-            const { data: learner } = attendeeEmail
-              ? await db.from('learners').select('id, company_id').eq('email', attendeeEmail).limit(1).single()
-              : { data: null };
+            const learner = attendeeEmail ? (learnerByEmail?.get(attendeeEmail) ?? null) : null;
 
             await db.from('zoom_attendance').upsert({
               zoom_session_id: session.id,
@@ -334,6 +339,17 @@ export async function syncZoomAttendanceChunk(opts: {
       }
     }
 
+    // Pre-load learner email map for the chunk — eliminates N+1 per participant
+    const chunkLearnerByEmail = new Map<string, { id: string; company_id: string | null }>();
+    for (let offset = 0; ; offset += 1000) {
+      const { data } = await db.from('learners').select('id, email, company_id').range(offset, offset + 999);
+      if (!data || data.length === 0) break;
+      for (const l of data) {
+        if (l.email) chunkLearnerByEmail.set(l.email.trim().toLowerCase(), { id: l.id, company_id: l.company_id });
+      }
+      if (data.length < 1000) break;
+    }
+
     // Count total sessions
     const { count: totalSessions } = await db
       .from('zoom_sessions')
@@ -379,9 +395,7 @@ export async function syncZoomAttendanceChunk(opts: {
               const attendeeIdentity = attendeeEmail || `participant:${(p.id || p.name || '').trim().toLowerCase()}`;
               const dedupeKey = [session.id, attendeeIdentity, p.join_time || 'unknown-join-time'].join(':');
 
-              const { data: learner } = attendeeEmail
-                ? await db.from('learners').select('id, company_id').eq('email', attendeeEmail).limit(1).single()
-                : { data: null };
+              const learner = attendeeEmail ? (chunkLearnerByEmail.get(attendeeEmail) ?? null) : null;
 
               await db.from('zoom_attendance').upsert({
                 zoom_session_id: session.id,

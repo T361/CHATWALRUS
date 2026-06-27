@@ -49,12 +49,20 @@ export default function InterventionsPage() {
     note: '', intervention_type: 'note', follow_up_date: '', csm_email: '',
   });
   const [error, setError] = useState('');
+  const [loadError, setLoadError] = useState('');
 
   async function load() {
-    const res = await fetch(`/api/companies/${slug}/interventions`);
-    const d = await res.json();
-    setItems(d.interventions ?? []);
-    setLoading(false);
+    try {
+      const res = await fetch(`/api/companies/${slug}/interventions`);
+      if (!res.ok) throw new Error(`Server error ${res.status}`);
+      const d = await res.json();
+      setItems(d.interventions ?? []);
+      setLoadError('');
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load entries');
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -88,8 +96,13 @@ export default function InterventionsPage() {
   }
 
   async function deleteEntry(id: string) {
-    await fetch(`/api/companies/${slug}/interventions?id=${id}`, { method: 'DELETE' });
-    setItems((prev) => prev.filter((i) => i.id !== id));
+    const res = await fetch(`/api/companies/${slug}/interventions?id=${id}`, { method: 'DELETE' });
+    if (res.ok) {
+      setItems((prev) => prev.filter((i) => i.id !== id));
+    } else {
+      const d = await res.json().catch(() => ({}));
+      setError(d.error ?? 'Failed to delete entry');
+    }
   }
 
   return (
@@ -175,6 +188,8 @@ export default function InterventionsPage() {
       {/* Timeline */}
       {loading ? (
         <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Loading…</div>
+      ) : loadError ? (
+        <div className="card" style={{ color: 'var(--danger)', fontSize: '0.875rem', padding: '1rem' }}>{loadError}</div>
       ) : items.length === 0 ? (
         <div className="empty-state card">
           <h3>No entries yet</h3>

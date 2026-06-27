@@ -37,24 +37,31 @@ export default function CompanyLeaderboardPage() {
   const [search, setSearch]   = useState('');
 
   const [seeding, setSeeding] = useState(false);
+  const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
     async function load() {
-      const res = await fetch(`/api/companies/${slug}/leaderboard`);
-      const d   = await res.json();
-      setCompanyName(d.company_name ?? slug);
-      const lb = d.leaderboard ?? [];
-      if (lb.length === 0 && !d.error) {
-        setSeeding(true);
-        await fetch('/api/admin/sync/gamification', { method: 'POST' });
-        setSeeding(false);
-        const res2 = await fetch(`/api/companies/${slug}/leaderboard`);
-        const d2   = await res2.json();
-        setRows(d2.leaderboard ?? []);
-      } else {
-        setRows(lb);
+      try {
+        const res = await fetch(`/api/companies/${slug}/leaderboard`);
+        if (!res.ok) throw new Error(`Server error ${res.status}`);
+        const d   = await res.json();
+        setCompanyName(d.company_name ?? slug);
+        const lb = d.leaderboard ?? [];
+        if (lb.length === 0 && !d.error) {
+          setSeeding(true);
+          await fetch('/api/admin/sync/gamification', { method: 'POST' });
+          setSeeding(false);
+          const res2 = await fetch(`/api/companies/${slug}/leaderboard`);
+          const d2   = await res2.json();
+          setRows(d2.leaderboard ?? []);
+        } else {
+          setRows(lb);
+        }
+      } catch (err) {
+        setLoadError(err instanceof Error ? err.message : 'Failed to load leaderboard');
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
     load();
   }, [slug]);
@@ -100,6 +107,8 @@ export default function CompanyLeaderboardPage() {
             {seeding ? 'Calculating points — first run takes ~10 seconds…' : 'Loading…'}
           </p>
         </div>
+      ) : loadError ? (
+        <div className="card" style={{ padding: '1rem', color: 'var(--danger)', fontSize: '0.875rem' }}>{loadError}</div>
       ) : filtered.length === 0 ? (
         <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem', padding: '2rem 0', textAlign: 'center' }}>
           {rows.length === 0 ? 'No points data yet. Activity (lessons, sessions, quizzes) must be synced first.' : 'No results.'}

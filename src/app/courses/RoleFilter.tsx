@@ -1,13 +1,18 @@
 'use client';
 
+import { useRouter, useSearchParams } from 'next/navigation';
+
 export function RoleFilter({ role, roles }: { role: string; roles: string[] }) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
   return (
     <select
       value={role}
       onChange={e => {
-        const p = new URLSearchParams(window.location.search);
+        const p = new URLSearchParams(searchParams.toString());
         if (e.target.value) p.set('role', e.target.value); else p.delete('role');
-        window.location.assign('/courses?' + p.toString());
+        router.push('/courses?' + p.toString());
       }}
       style={{
         fontSize: '0.75rem',

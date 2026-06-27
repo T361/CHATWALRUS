@@ -16,6 +16,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       status: 'success',
+      records_processed: learnersRecalculated,
       learners_recalculated: learnersRecalculated,
       achievements_awarded: achievementsAwarded,
       snapshot_rows: snapshotCount,

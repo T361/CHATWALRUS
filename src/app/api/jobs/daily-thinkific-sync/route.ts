@@ -1,4 +1,3 @@
-export const maxDuration = 300;
 import { NextRequest, NextResponse } from 'next/server';
 import { syncCourses } from '@/lib/thinkific/syncCourses';
 import { syncUsers } from '@/lib/thinkific/syncUsers';
@@ -9,7 +8,6 @@ import { createDailySnapshots } from '@/lib/snapshots/createDailySnapshots';
 import { createSyncLog, summarizeSyncResults, updateSyncLog, type SyncResult } from '@/lib/thinkific/syncCore';
 import { requireCronSecret } from '@/lib/auth/guards';
 import { isAdminConfigured, createAdminClient } from '@/lib/supabase/admin';
-import { runAllMilestoneChecks } from '@/lib/milestones/runMilestoneCheck';
 import { syncSurveys } from '@/lib/thinkific/syncSurveys';
 import { syncStartDates } from '@/lib/thinkific/syncStartDates';
 import { createAlert } from '@/lib/alerts/createAlert';
@@ -20,10 +18,20 @@ import { invalidateDashboardCaches } from '@/lib/cache/invalidation';
 import { refreshLearnerDirectoryRollups } from '@/lib/learners/rollups';
 import { refreshCompanyWeeklyRollups } from '@/lib/weekly/rollups';
 
+// Vercel sends GET for cron jobs — both GET and POST run the same sync.
+export async function GET(req: NextRequest) {
+  const authError = requireCronSecret(req);
+  if (authError) return authError;
+  return runDailySync();
+}
+
 export async function POST(req: NextRequest) {
   const authError = requireCronSecret(req);
   if (authError) return authError;
+  return runDailySync();
+}
 
+async function runDailySync(): Promise<NextResponse> {
   const logId = await createSyncLog('daily-thinkific-sync', 'running');
 
   try {
@@ -37,11 +45,9 @@ export async function POST(req: NextRequest) {
     const surveys = await syncSurveys();
     results.surveys = surveys;
 
-    // Auto-detect start dates for companies that don't have one yet
     const startDates = await syncStartDates();
     results.start_dates = startDates;
 
-    // Daily snapshots — runs after enrollment sync so progress_percent is current
     const snapshotCount = await createDailySnapshots();
     results.snapshots = {
       syncType: 'snapshots',
@@ -50,7 +56,6 @@ export async function POST(req: NextRequest) {
       errorMessage: isAdminConfigured() ? undefined : 'Supabase admin not configured',
     };
 
-    // ── Never-started alert: flag learners enrolled 7+ days with no activity ──
     const neverStartedCount = await checkNeverStartedLearners();
     results.never_started_check = {
       syncType: 'never_started_check',
@@ -58,15 +63,9 @@ export async function POST(req: NextRequest) {
       recordsProcessed: neverStartedCount,
     };
 
-    // Milestone checks — runs after snapshots so status is fresh
-    const milestoneResults = await runAllMilestoneChecks();
-    results.milestones = {
-      syncType: 'milestones',
-      status: 'success',
-      recordsProcessed: milestoneResults.length,
-    };
+    // Milestones removed from daily sync — handled by the dedicated run-milestones cron (07:00)
+    // to avoid double-alerting companies.
 
-    // Gamification — seed events from activity, recalculate totals, award badges, snapshot ranks
     await seedPointsFromActivity();
     const gamificationLearners = await recalculateAllPoints();
     const achievementsAwarded = await awardAchievements();
@@ -96,7 +95,6 @@ export async function POST(req: NextRequest) {
       results,
       records_processed: summary.recordsProcessed,
       snapshots_created: snapshotCount,
-      milestones_run: milestoneResults.length,
       sync_log_id: logId,
     }, { status: summary.status === 'failed' ? 500 : 200 });
   } catch (error) {
@@ -114,11 +112,6 @@ export async function POST(req: NextRequest) {
   }
 }
 
-/**
- * Check for learners who were enrolled 7+ days ago but have never logged in
- * or shown any activity. Creates a 'never_started' alert per company (deduped).
- * Brief requirement: "Not Started fires immediately — does not wait for the 30-day check."
- */
 async function checkNeverStartedLearners(): Promise<number> {
   if (!isAdminConfigured()) return 0;
   const db = createAdminClient();
@@ -126,8 +119,6 @@ async function checkNeverStartedLearners(): Promise<number> {
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-  // Find active learners enrolled for 7+ days with no login and no activity
-  // Proxy: check enrollments older than 7 days for learners with no last_active_at
   const neverStartedByCompany = new Map<string, number>();
 
   for (let offset = 0; ; offset += 1000) {
