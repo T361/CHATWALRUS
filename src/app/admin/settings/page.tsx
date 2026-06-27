@@ -57,7 +57,7 @@ const syncButtons = [
   { type: 'progress',       label: 'Import Progress',          sub: 'Enrollment + completion data',                                                  endpoint: '/api/admin/sync/progress' },
   { type: 'assignments',    label: 'Import Assignments',        sub: 'Submissions from Thinkific',                                                   endpoint: '/api/admin/sync/assignments' },
   { type: 'zoom',           label: 'Sync Zoom Attendance',     sub: 'Meetings + webinars attendance — requires Zoom credentials',                    endpoint: '/api/admin/sync/zoom' },
-  { type: 'lesson-progress',label: 'Sync Lesson Progress',     sub: 'Lesson-level completion from Thinkific — runs in 20-enrollment chunks, safe on all plans', endpoint: '/api/admin/sync/lesson-progress' },
+  { type: 'lesson-progress',label: 'Sync Lesson Progress',     sub: 'Not available — Thinkific v1 API has no lesson-level progress endpoint', endpoint: '' },
   { type: 'learners-rollups',label: 'Backfill Learner Rollups',sub: 'Populate learner directory rollups for already-synced learners',                 endpoint: '/api/admin/sync/learners-rollups' },
   { type: 'weekly-rollups', label: 'Backfill Weekly Rollups',  sub: 'Populate current-week weekly report rollups for active companies',               endpoint: '/api/admin/sync/weekly-rollups' },
   { type: 'snapshots',      label: 'Create Daily Snapshots',   sub: 'Progress snapshots for trend charts',                                           endpoint: '/api/admin/sync/snapshots' },
@@ -262,11 +262,10 @@ export default function AdminSettingsPage() {
     }
   }
 
-  const runLessonProgressChunked = () => runChunked(
-    'lesson-progress',
-    '/api/admin/sync/lesson-progress',
-    { limit: 20, label: 'enrollments', doneLabel: (t, r) => `Done · ${r} records · ${t} enrollments` }
-  );
+  const runLessonProgressChunked = () => {
+    setSyncStatus((prev) => ({ ...prev, 'lesson-progress': 'Not available — Thinkific v1 API has no lesson-level progress endpoint' }));
+    return Promise.resolve(false);
+  };
 
   const runZoomChunked = () => runChunked(
     'zoom',
@@ -281,7 +280,6 @@ export default function AdminSettingsPage() {
       await runSync(step.type, step.endpoint);
     }
     await runZoomChunked();
-    await runLessonProgressChunked();
     setSyncAllRunning(false);
   }
 

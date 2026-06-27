@@ -1,21 +1,21 @@
 export const maxDuration = 300;
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminOrCron } from '@/lib/auth/guards';
-import { syncLessonProgress, syncLessonProgressChunk } from '@/lib/thinkific/syncLessonProgress';
+import { syncLessonProgress } from '@/lib/thinkific/syncLessonProgress';
 
-// Chunked GET — safe for Vercel Hobby 60s limit.
-// Client calls GET ?offset=0&limit=20, then ?offset=next_offset until done=true.
+// Thinkific v1 API has no lesson-level progress endpoint.
+// GET returns unavailable immediately so callers get a clear signal.
 export async function GET(req: NextRequest) {
   const authError = requireAdminOrCron(req);
   if (authError) return authError;
-  const offset = parseInt(req.nextUrl.searchParams.get('offset') ?? '0', 10) || 0;
-  const limit  = parseInt(req.nextUrl.searchParams.get('limit')  ?? '20', 10) || 20;
-  try {
-    const result = await syncLessonProgressChunk({ offset, limit });
-    return NextResponse.json(result);
-  } catch (error) {
-    return NextResponse.json({ status: 'error', error: error instanceof Error ? error.message : String(error) }, { status: 500 });
-  }
+  return NextResponse.json({
+    status: 'unavailable',
+    message: 'Thinkific v1 API has no lesson-level progress endpoint (/course_progress returns 404). This feature requires a Thinkific partner/private API.',
+    recordsProcessed: 0,
+    total: 0,
+    nextOffset: 0,
+    done: true,
+  });
 }
 
 // Full POST — only works on Vercel Pro (300s) or local dev
