@@ -1,7 +1,7 @@
 'use client';
 
 import PageShell from '@/components/layout/PageShell';
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import React from 'react';
@@ -86,7 +86,7 @@ function getLimitFromSearch(searchParams: URLSearchParams): number {
   return v;
 }
 
-export default function GlobalLeaderboardPage() {
+function GlobalLeaderboardContent() {
   const [rows,    setRows]    = useState<LeaderboardRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [seeding, setSeeding] = useState(false);
@@ -334,5 +334,13 @@ export default function GlobalLeaderboardPage() {
         </>
       )}
     </PageShell>
+  );
+}
+
+export default function GlobalLeaderboardPage() {
+  return (
+    <Suspense fallback={<PageShell><div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>Loading…</div></PageShell>}>
+      <GlobalLeaderboardContent />
+    </Suspense>
   );
 }
