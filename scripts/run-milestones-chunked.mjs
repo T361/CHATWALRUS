@@ -16,19 +16,22 @@ function fetch(url, opts = {}) {
       path: u.pathname + u.search,
       method: 'GET',
       headers: opts.headers || {},
+      timeout: 280000, // 280s — just under Vercel's 300s max
     };
     const req = https.request(options, (res) => {
       let data = '';
+      res.setTimeout(280000);
       res.on('data', (chunk) => data += chunk);
       res.on('end', () => resolve({ status: res.statusCode, json: () => JSON.parse(data), text: () => data }));
     });
+    req.on('timeout', () => { req.destroy(new Error('Request timeout')); });
     req.on('error', reject);
     req.end();
   });
 }
 
 async function main() {
-  let offset = 0;
+  let offset = parseInt(process.argv[2] || '0', 10);
   let totalChecked = 0;
   let chunk = 0;
 

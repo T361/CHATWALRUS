@@ -6,7 +6,7 @@ import https from 'https';
 
 const CRON_SECRET = process.env.CRON_SECRET;
 const BASE = 'https://chatwalrus.vercel.app';
-const LIMIT = 5;
+const LIMIT = 1;
 
 function fetch(url, opts = {}) {
   return new Promise((resolve, reject) => {
@@ -14,21 +14,24 @@ function fetch(url, opts = {}) {
     const options = {
       hostname: u.hostname,
       path: u.pathname + u.search,
-      method: opts.method || 'GET',
+      method: 'GET',
       headers: opts.headers || {},
+      timeout: 110000, // 110s socket timeout
     };
     const req = https.request(options, (res) => {
       let data = '';
+      res.setTimeout(110000);
       res.on('data', (chunk) => data += chunk);
       res.on('end', () => resolve({ status: res.statusCode, json: () => JSON.parse(data), text: () => data }));
     });
+    req.on('timeout', () => { req.destroy(new Error('Request timeout after 110s')); });
     req.on('error', reject);
     req.end();
   });
 }
 
 async function main() {
-  let offset = 0;
+  let offset = parseInt(process.argv[2] || '0', 10);
   let totalRecords = 0;
   let chunk = 0;
 
