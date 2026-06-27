@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
 
   const { data: passcodes, error } = await db
     .from('passcodes')
-    .select('id, role, company_id, description, status, created_at')
+    .select('id, code, role, company_id, description, status, created_at')
     .order('created_at', { ascending: false });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
