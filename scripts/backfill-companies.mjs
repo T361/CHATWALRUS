@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Backfill company_id for all learners based on email domain matching
 
-const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdlcnFoY2lrZmtveWtnYWRvYWFoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MTExMTg4OSwiZXhwIjoyMDk2Njg3ODg5fQ.SMGXNnSUgLRHeWxxoEYNkcfUc7BmNTt-TivrN6Db11U';
+const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const BASE = 'https://gerqhcikfkoykgadoaah.supabase.co/rest/v1';
 
 const headers = {
