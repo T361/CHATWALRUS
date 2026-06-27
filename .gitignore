@@ -44,3 +44,4 @@ next-env.d.ts
 supabase/.temp
 scripts/passcodes-data.json
 scripts/migrate-passcodes.mjs
+scripts/sync-lesson-progress-state.json

@@ -16,8 +16,10 @@ const THINKIFIC_API_KEY = process.env.THINKIFIC_API_KEY;
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://gerqhcikfkoykgadoaah.supabase.co';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const THINKIFIC_BASE = 'https://api.thinkific.com/api/public/v1';
-const CONCURRENCY = 3;
+const CONCURRENCY = 6;
 const STATE_FILE = 'scripts/sync-lesson-progress-state.json';
+// Only sync enrollments with progress > 0 — saves ~80% of API calls
+const PROGRESS_ONLY = true;
 
 const RESUME = process.argv.includes('--resume');
 
@@ -157,7 +159,8 @@ async function main() {
     WHERE e.is_active = true
       AND l.thinkific_user_id IS NOT NULL
       AND c.thinkific_course_id IS NOT NULL
-    ORDER BY e.thinkific_enrollment_id
+      ${PROGRESS_ONLY ? 'AND e.progress_percent > 0' : ''}
+    ORDER BY e.progress_percent DESC, e.thinkific_enrollment_id
   `);
   console.log(`   ${enrollmentsData.length} enrollments to process`);
 
