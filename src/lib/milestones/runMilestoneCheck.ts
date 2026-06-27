@@ -341,3 +341,52 @@ export async function runAllMilestoneChecks(): Promise<MilestoneCheckResult[]> {
   }
   return results;
 }
+
+export type MilestoneChunkResult = {
+  status: 'success' | 'error';
+  companiesChecked: number;
+  total: number;
+  nextOffset: number;
+  done: boolean;
+  errorMessage?: string;
+};
+
+export async function runMilestoneChecksChunk(opts: {
+  offset: number;
+  limit: number;
+}): Promise<MilestoneChunkResult> {
+  if (!isAdminConfigured()) {
+    return { status: 'error', companiesChecked: 0, total: 0, nextOffset: 0, done: true, errorMessage: 'Admin not configured' };
+  }
+
+  const db = createAdminClient();
+  const { data: companies, error } = await db
+    .from('companies')
+    .select('*')
+    .eq('is_active', true)
+    .order('name');
+
+  if (error || !companies) {
+    return { status: 'error', companiesChecked: 0, total: 0, nextOffset: opts.offset, done: false, errorMessage: error?.message };
+  }
+
+  const total = companies.length;
+  const chunk = companies.slice(opts.offset, opts.offset + opts.limit) as Company[];
+  const nextOffset = opts.offset + opts.limit;
+  const done = nextOffset >= total || chunk.length === 0;
+
+  const settled = await Promise.all(chunk.map((c) => runMilestoneCheck(c)));
+  const results = settled.filter((r): r is MilestoneCheckResult => r !== null);
+
+  if (results.length > 0) {
+    const companyIds = results.map((r) => r.companyId);
+    await refreshCompanySummaryRollups(companyIds);
+    if (done) {
+      await refreshLearnerDirectoryRollups();
+      await refreshCompanyWeeklyRollups();
+      invalidateDashboardCaches();
+    }
+  }
+
+  return { status: 'success', companiesChecked: results.length, total, nextOffset, done };
+}
