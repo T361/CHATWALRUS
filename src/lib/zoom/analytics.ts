@@ -68,34 +68,55 @@ export async function getCompanySessionLists(
 
       if (error) throw error;
 
+      // Per-session attendee dedup map: session_id → (email|name → best row)
+      const sessionAttendeeKeys = new Map<string, Map<string, CompanySessionAttendee>>();
       const sessions = new Map<string, CompanySessionListItem>();
+
       for (const row of data || []) {
         const session = Array.isArray(row.zoom_sessions) ? row.zoom_sessions[0] : row.zoom_sessions;
         if (!session?.id) continue;
-        const existing: CompanySessionListItem = sessions.get(session.id) || {
-          session_id: session.id,
-          zoom_meeting_id: session.zoom_meeting_id ?? null,
-          topic: session.topic ?? null,
-          host_email: session.host_email ?? null,
-          start_time: session.start_time ?? null,
-          end_time: session.end_time ?? null,
-          duration_minutes: session.duration_minutes ?? null,
-          session_type: session.session_type ?? null,
-          attendee_count: 0,
-          attendees: [],
-        };
-        existing.attendees.push({
-          attendance_id: row.id,
-          learner_id: row.learner_id,
-          attendee_name: row.attendee_name,
-          attendee_email: row.attendee_email,
-          join_time: row.join_time,
-          leave_time: row.leave_time,
-          duration_minutes: row.duration_minutes,
-          attended: row.attended,
-        });
-        existing.attendee_count = existing.attendees.length;
-        sessions.set(session.id, existing);
+
+        if (!sessions.has(session.id)) {
+          sessions.set(session.id, {
+            session_id: session.id,
+            zoom_meeting_id: session.zoom_meeting_id ?? null,
+            topic: session.topic ?? null,
+            host_email: session.host_email ?? null,
+            start_time: session.start_time ?? null,
+            end_time: session.end_time ?? null,
+            duration_minutes: session.duration_minutes ?? null,
+            session_type: session.session_type ?? null,
+            attendee_count: 0,
+            attendees: [],
+          });
+          sessionAttendeeKeys.set(session.id, new Map());
+        }
+
+        // Deduplicate by email (or name if no email) — keep row with longest duration
+        const dedupeKey = (row.attendee_email || '').trim().toLowerCase() || `name:${(row.attendee_name || '').trim().toLowerCase()}`;
+        const attendeeMap = sessionAttendeeKeys.get(session.id)!;
+        const existing = attendeeMap.get(dedupeKey);
+        const thisDuration = row.duration_minutes ?? 0;
+        const existingDuration = existing?.duration_minutes ?? -1;
+
+        if (!existing || thisDuration > existingDuration) {
+          attendeeMap.set(dedupeKey, {
+            attendance_id: row.id,
+            learner_id: row.learner_id,
+            attendee_name: row.attendee_name,
+            attendee_email: row.attendee_email,
+            join_time: row.join_time,
+            leave_time: row.leave_time,
+            duration_minutes: row.duration_minutes,
+            attended: row.attended,
+          });
+        }
+      }
+
+      for (const [sessionId, attendeeMap] of sessionAttendeeKeys) {
+        const s = sessions.get(sessionId)!;
+        s.attendees = Array.from(attendeeMap.values());
+        s.attendee_count = s.attendees.length;
       }
 
       return Array.from(sessions.values())

@@ -20,7 +20,7 @@ export async function getCompanyCardRows(): Promise<CompanyCardRow[]> {
     return withServerTiming('companies.cards.load', async () => {
       const db = createAdminClient();
       const [{ data: companies, error: companiesError }, { data: rollups, error: rollupsError }] = await Promise.all([
-        db.from('companies').select('id, name, slug, start_date, is_active').order('name'),
+        db.from('companies').select('id, name, slug, start_date, is_active').eq('is_active', true).order('name'),
         db.from('company_summary_rollups').select('company_id, learner_count, avg_progress, at_risk_count'),
       ]);
 
