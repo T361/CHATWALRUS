@@ -212,7 +212,7 @@ export default function AdminSettingsPage() {
     { type: 'learners-rollups',endpoint: '/api/admin/sync/learners-rollups' },
     { type: 'weekly-rollups',  endpoint: '/api/admin/sync/weekly-rollups' },
     { type: 'snapshots',       endpoint: '/api/admin/sync/snapshots' },
-    { type: 'gamification',    endpoint: '/api/admin/sync/gamification' },
+    // gamification handled separately via runGamificationSteps
     { type: 'milestones',      endpoint: '/api/jobs/run-milestones' },
   ];
 
@@ -273,6 +273,41 @@ export default function AdminSettingsPage() {
     { limit: 5, label: 'sessions', doneLabel: (t, r) => `Done · ${r} attendance records · ${t} sessions` }
   );
 
+  // Gamification runs as 4 sequential steps so each stays under Vercel Hobby's 60s limit
+  async function runGamificationSteps(): Promise<boolean> {
+    if (settingsStatus?.auth.role !== 'admin') return false;
+    setLoading((prev) => ({ ...prev, gamification: true }));
+    const steps = [
+      { label: 'Seeding points from activity…',   param: 'seed'          },
+      { label: 'Recalculating learner totals…',   param: 'recalculate'   },
+      { label: 'Awarding achievements…',          param: 'achievements'  },
+      { label: 'Snapshotting leaderboard…',       param: 'snapshot'      },
+    ];
+    let totalRecords = 0;
+    try {
+      for (const s of steps) {
+        setSyncStatus((prev) => ({ ...prev, gamification: s.label }));
+        const res = await fetch(`/api/admin/sync/gamification?step=${s.param}`, {
+          method: 'POST', credentials: 'same-origin',
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.status === 'error') {
+          setSyncStatus((prev) => ({ ...prev, gamification: `Error at ${s.param}: ${data.error ?? res.status}` }));
+          setLoading((prev) => ({ ...prev, gamification: false }));
+          return false;
+        }
+        totalRecords += Number(data.records_processed ?? 0);
+      }
+      setSyncStatus((prev) => ({ ...prev, gamification: `Done · ${totalRecords} records` }));
+      return true;
+    } catch (err) {
+      setSyncStatus((prev) => ({ ...prev, gamification: `Network error: ${String(err)}` }));
+      return false;
+    } finally {
+      setLoading((prev) => ({ ...prev, gamification: false }));
+    }
+  }
+
   async function syncAll() {
     if (settingsStatus?.auth.role !== 'admin') return;
     setSyncAllRunning(true);
@@ -280,6 +315,7 @@ export default function AdminSettingsPage() {
       await runSync(step.type, step.endpoint);
     }
     await runZoomChunked();
+    await runGamificationSteps();
     setSyncAllRunning(false);
   }
 
@@ -345,6 +381,7 @@ export default function AdminSettingsPage() {
                 onClick={() => {
                   if (btn.type === 'lesson-progress') return runLessonProgressChunked();
                   if (btn.type === 'zoom') return runZoomChunked();
+                  if (btn.type === 'gamification') return runGamificationSteps();
                   return runSync(btn.type, btn.endpoint);
                 }}
                 style={{ flexShrink: 0 }}
