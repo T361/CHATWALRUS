@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireCompanyOrAdmin } from '@/lib/auth/guards';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { jsonResponse } from '@/lib/exports/json';
+import { jsonResponse, exportDateStamp } from '@/lib/exports/json';
 
 export async function GET(
   req: NextRequest,
@@ -51,6 +51,6 @@ export async function GET(
       milestones: milestones || [],
       exported_at: new Date().toISOString(),
     },
-    `${slug}-full-export.json`
+    `${slug}-full-export-${exportDateStamp()}.json`
   );
 }

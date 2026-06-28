@@ -1,10 +1,3 @@
-// =============================================================================
-// JSON Export Utility
-// =============================================================================
-
-/**
- * Create a Response object for JSON download.
- */
 export function jsonResponse(data: unknown, filename: string): Response {
   return new Response(JSON.stringify(data, null, 2), {
     headers: {
@@ -12,4 +5,9 @@ export function jsonResponse(data: unknown, filename: string): Response {
       'Content-Disposition': `attachment; filename="${filename}"`,
     },
   });
+}
+
+// "2026-06-28"
+export function exportDateStamp(): string {
+  return new Date().toISOString().slice(0, 10);
 }

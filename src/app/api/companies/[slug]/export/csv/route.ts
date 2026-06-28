@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireCompanyOrAdmin } from '@/lib/auth/guards';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { toCSV, csvResponse } from '@/lib/exports/csv';
+import { exportDateStamp } from '@/lib/exports/json';
 
 export async function GET(
   req: NextRequest,
@@ -17,6 +18,7 @@ export async function GET(
   if (!company) return NextResponse.json({ error: 'Company not found' }, { status: 404 });
 
   const type = req.nextUrl.searchParams.get('type') || 'learners';
+  const date = exportDateStamp();
 
   if (type === 'assessments') {
     const rows: Record<string, unknown>[] = [];
@@ -26,7 +28,7 @@ export async function GET(
       rows.push(...data);
       if (data.length < 1000) break;
     }
-    return csvResponse(toCSV(rows), `${slug}-assessments.csv`);
+    return csvResponse(toCSV(rows), `${slug}-assessments-${date}.csv`);
   }
 
   if (type === 'surveys') {
@@ -37,7 +39,7 @@ export async function GET(
       rows.push(...data);
       if (data.length < 1000) break;
     }
-    return csvResponse(toCSV(rows), `${slug}-surveys.csv`);
+    return csvResponse(toCSV(rows), `${slug}-surveys-${date}.csv`);
   }
 
   if (type === 'attendance') {
@@ -48,7 +50,7 @@ export async function GET(
       rows.push(...data);
       if (data.length < 1000) break;
     }
-    return csvResponse(toCSV(rows), `${slug}-attendance.csv`);
+    return csvResponse(toCSV(rows), `${slug}-attendance-${date}.csv`);
   }
 
   // Default: learner progress — join latest status snapshot
@@ -90,16 +92,16 @@ export async function GET(
   const rows = learners.map((l) => {
     const snap = snapshotMap.get(l.id as string);
     return {
-      full_name: l.full_name,
-      email: l.email,
-      title: l.title,
-      department: l.department,
-      status: snap?.status ?? 'not_started',
-      completion_percent: snap?.completion_percent ?? 0,
-      benchmark_percent: snap?.benchmark_percent ?? 0,
-      last_active_at: l.last_active_at,
+      'Name':                l.full_name,
+      'Email':               l.email,
+      'Title':               l.title,
+      'Department':          l.department,
+      'Status':              snap?.status ?? 'not_started',
+      'Completion %':        snap?.completion_percent ?? 0,
+      'Benchmark %':         snap?.benchmark_percent ?? 0,
+      'Last Active':         l.last_active_at,
     };
   });
 
-  return csvResponse(toCSV(rows), `${slug}-learners.csv`);
+  return csvResponse(toCSV(rows, undefined, false), `${slug}-learners-${date}.csv`);
 }

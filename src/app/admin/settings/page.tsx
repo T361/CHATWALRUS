@@ -4,6 +4,7 @@ import PageShell from '@/components/layout/PageShell';
 import PasscodeTable from '@/components/admin/PasscodeTable';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { getSyncSnapshot, saveSyncSnapshot } from '@/lib/sync-state';
 import type { Passcode } from '@/types/alert';
 import { logClientTiming } from '@/lib/perf-client';
 
@@ -100,8 +101,8 @@ function IntegrationRow({ label, configured, connected, detail, message }: {
 
 export default function AdminSettingsPage() {
   const router = useRouter();
-  const [syncStatus,    setSyncStatus]    = useState<Record<string, string>>({});
-  const [loading,       setLoading]       = useState<Record<string, boolean>>({});
+  const [syncStatus,    setSyncStatus]    = useState<Record<string, string>>(() => getSyncSnapshot().syncStatus);
+  const [loading,       setLoading]       = useState<Record<string, boolean>>(() => getSyncSnapshot().loading);
   const [settingsStatus,setSettingsStatus]= useState<SettingsStatusResponse | null>(null);
   const [statusError,   setStatusError]   = useState<string | null>(null);
   const [statusLoaded,  setStatusLoaded]  = useState(false);
@@ -110,6 +111,11 @@ export default function AdminSettingsPage() {
   const [passcodesLoading, setPasscodesLoading] = useState(false);
   const [probesLoading, setProbesLoading] = useState(false);
   const [syncAllRunning, setSyncAllRunning] = useState(false);
+
+  // Persist sync state to module-level singleton so it survives route changes.
+  useEffect(() => {
+    saveSyncSnapshot({ syncStatus, loading, syncAllRunning });
+  });
 
   async function loadSettingsStatus(includeProbes = false) {
     const startedAt = performance.now();
