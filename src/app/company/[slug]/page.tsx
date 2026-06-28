@@ -204,24 +204,20 @@ export default async function CompanyDashboardPage(
       </div>
 
       {latestMilestone && (
-        <div className="card" style={{ marginBottom: '1.25rem', display: 'flex', gap: '2rem', alignItems: 'center', flexWrap: 'wrap' }}>
-          <div>
-            <p className="kpi-label">Avg Completion</p>
-            <p className="kpi-value tabular">{Number(latestMilestone.average_completion_percent).toFixed(1)}%</p>
-          </div>
-          <div>
-            <p className="kpi-label">Benchmark</p>
-            <p className="kpi-value tabular">{Number(latestMilestone.benchmark_percent).toFixed(1)}%</p>
-          </div>
-          <div>
-            <p className="kpi-label">At Risk %</p>
-            <p className="kpi-value tabular" style={{ color: Number(latestMilestone.at_risk_percent) > 20 ? 'var(--danger)' : 'var(--text)' }}>
-              {Number(latestMilestone.at_risk_percent).toFixed(1)}%
-            </p>
-          </div>
+        <div className="card" style={{ marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          {[
+            { label: 'Avg Completion', value: `${Number(latestMilestone.average_completion_percent).toFixed(1)}%`, color: undefined },
+            { label: 'Benchmark',      value: `${Number(latestMilestone.benchmark_percent).toFixed(1)}%`,          color: undefined },
+            { label: 'At Risk %',      value: `${Number(latestMilestone.at_risk_percent).toFixed(1)}%`,            color: Number(latestMilestone.at_risk_percent) > 20 ? 'var(--danger)' : undefined },
+          ].map(({ label, value, color }) => (
+            <div key={label} style={{ flex: 1, padding: '0.25rem 1rem', borderRight: '1px solid var(--border-muted)' }}>
+              <p className="kpi-label">{label}</p>
+              <p className="kpi-value tabular" style={color ? { color } : {}}>{value}</p>
+            </div>
+          ))}
           {latestMilestone.alert_triggered && (
-            <span style={{ marginLeft: 'auto', fontSize: '0.75rem', color: 'var(--warning)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--warning)', display: 'inline-block', boxShadow: '0 0 6px var(--warning)' }} />
+            <span style={{ paddingLeft: '1rem', fontSize: '0.75rem', color: 'var(--warning)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.375rem', whiteSpace: 'nowrap' }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--warning)', display: 'inline-block', boxShadow: '0 0 6px var(--warning)', flexShrink: 0 }} />
               Alert triggered
             </span>
           )}
