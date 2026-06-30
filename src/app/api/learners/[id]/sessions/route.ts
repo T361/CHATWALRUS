@@ -23,14 +23,19 @@ export async function GET(
     return NextResponse.json({ error: 'Learner not found' }, { status: 404 });
   }
 
-  const { data: attendance, error } = await db
-    .from('zoom_attendance')
-    .select('id, zoom_session_id, learner_id, company_id, attendee_name, attendee_email, join_time, leave_time, duration_minutes, attended, created_at, zoom_sessions(topic, session_type, host_email, start_time, end_time)')
-    .eq('learner_id', id)
-    .order('join_time', { ascending: false });
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const attendance: any[] = [];
+  for (let off = 0; ; off += 1000) {
+    const { data, error } = await db
+      .from('zoom_attendance')
+      .select('id, zoom_session_id, learner_id, company_id, attendee_name, attendee_email, join_time, leave_time, duration_minutes, attended, created_at, zoom_sessions(topic, session_type, host_email, start_time, end_time)')
+      .eq('learner_id', id)
+      .order('join_time', { ascending: false })
+      .range(off, off + 999);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (!data || data.length === 0) break;
+    attendance.push(...data);
+    if (data.length < 1000) break;
   }
 
   const sessions = (attendance || []).map((row) => {

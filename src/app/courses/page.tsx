@@ -23,33 +23,43 @@ type Company = { id: string; name: string; slug: string };
 async function getGlobalCourseData(companyId?: string): Promise<GlobalCourseRow[]> {
   const db = createAdminClient();
 
-  const [coursesRes, enrollRes, learnersRes] = await Promise.all([
-    db.from('courses').select('id, name, total_lessons').order('name'),
-    companyId
-      ? db.from('enrollments')
-          .select('course_id, progress_percent, completed_at, learner_id, company_id')
-          .eq('company_id', companyId)
-          .eq('is_active', true)
-      : db.from('enrollments')
-          .select('course_id, progress_percent, completed_at, learner_id, company_id')
-          .eq('is_active', true),
-    companyId
-      ? db.from('learners').select('id, title, department').eq('company_id', companyId).eq('is_active', true)
-      : db.from('learners').select('id, title, department').eq('is_active', true),
-  ]);
-
+  const coursesRes = await db.from('courses').select('id, name, total_lessons').order('name');
   if (coursesRes.error) throw coursesRes.error;
   if (!coursesRes.data?.length) return [];
 
+  // Paginate enrollments and learners to bypass 1000-row Supabase cap
+  type EnrollRow = { course_id: string; progress_percent: number; completed_at: string | null; learner_id: string; company_id: string };
+  type LearnerRow = { id: string; title: string | null; department: string | null };
+  const allEnrollments: EnrollRow[] = [];
+  const allLearners: LearnerRow[] = [];
+  for (let off = 0; ; off += 1000) {
+    let q = db.from('enrollments').select('course_id, progress_percent, completed_at, learner_id, company_id').eq('is_active', true).range(off, off + 999);
+    if (companyId) q = q.eq('company_id', companyId);
+    const { data, error } = await q;
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    allEnrollments.push(...(data as EnrollRow[]));
+    if (data.length < 1000) break;
+  }
+  for (let off = 0; ; off += 1000) {
+    let q = db.from('learners').select('id, title, department').eq('is_active', true).range(off, off + 999);
+    if (companyId) q = q.eq('company_id', companyId);
+    const { data, error } = await q;
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    allLearners.push(...(data as LearnerRow[]));
+    if (data.length < 1000) break;
+  }
+
   const learnerRoleMap = new Map<string, string>();
-  for (const l of (learnersRes.data || []) as Array<{ id: string; title: string | null; department: string | null }>) {
+  for (const l of allLearners) {
     learnerRoleMap.set(l.id, normalizeRole(l.title, l.department));
   }
 
   type Stats = { count: number; progress: number; completions: number; roles: Map<string, number>; companies: Set<string> };
   const statsMap = new Map<string, Stats>();
 
-  for (const e of (enrollRes.data || []) as Array<{ course_id: string; progress_percent: number; completed_at: string | null; learner_id: string; company_id: string }>) {
+  for (const e of allEnrollments) {
     const s = statsMap.get(e.course_id) || { count: 0, progress: 0, completions: 0, roles: new Map(), companies: new Set() };
     s.count++;
     s.progress += Number(e.progress_percent || 0);

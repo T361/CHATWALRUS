@@ -51,7 +51,6 @@ export default async function LearnerDetailPage(
     { data: assignments },
     { data: zoomSessions },
     { data: pointsRow },
-    { data: companyRank },
   ] = await Promise.all([
     db.from('enrollments').select('*, courses(name, id)').eq('learner_id', learnerId).order('started_at', { ascending: true }),
     db.from('learner_status_snapshots').select('status, completion_percent, benchmark_percent, snapshot_date').eq('learner_id', learnerId).order('snapshot_date', { ascending: false }).limit(1).maybeSingle(),
@@ -59,7 +58,6 @@ export default async function LearnerDetailPage(
     db.from('assignments').select('*, courses(name)').eq('learner_id', learnerId).order('submitted_at', { ascending: false }),
     db.from('zoom_attendance').select('id, zoom_session_id, learner_id, company_id, attendee_name, attendee_email, join_time, leave_time, duration_minutes, attended, created_at, zoom_sessions(topic, session_type, host_email, start_time, end_time)').eq('learner_id', learnerId).order('join_time', { ascending: false }),
     db.from('learner_points').select('total_points, zoom_attendance_points, lesson_completion_points, quiz_points, course_completion_points, assignment_points, streak_bonus_points, sessions_attended').eq('learner_id', learnerId).maybeSingle(),
-    db.from('learner_points').select('learner_id').eq('company_id', company.id).gte('total_points', 0).order('total_points', { ascending: false }),
   ]);
 
   const currentStatus     = (statusSnap?.status || 'not_started') as LearnerStatus;
@@ -67,8 +65,12 @@ export default async function LearnerDetailPage(
   const benchmark         = Number(statusSnap?.benchmark_percent ?? 0);
 
   const totalPoints = Number(pointsRow?.total_points ?? 0);
-  const companyRankIdx = companyRank?.findIndex((r) => r.learner_id === learnerId) ?? -1;
-  const rank = companyRankIdx >= 0 ? companyRankIdx + 1 : null;
+  // Count how many company learners have more points — avoids fetching all rows (fixes 1000-row cap)
+  const { count: higherCount } = await db.from('learner_points')
+    .select('learner_id', { count: 'exact', head: true })
+    .eq('company_id', company.id)
+    .gt('total_points', totalPoints);
+  const rank = pointsRow ? (higherCount ?? 0) + 1 : null;
 
   // Compute per-course quiz stats
   const quizByCourse = new Map<string, { scores: number[]; passed: number; total: number }>();

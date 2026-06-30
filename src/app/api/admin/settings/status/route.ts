@@ -116,36 +116,36 @@ async function probeThinkific(): Promise<ProbeResult> {
 
 async function getLearnerRollupHealth() {
   const db = createAdminClient();
-  const [activeLearnersResult, activeLearnerCompaniesResult] = await Promise.all([
-    db.from('learners').select('id', { count: 'exact', head: true }).eq('is_active', true),
-    db.from('learners').select('company_id').eq('is_active', true).not('company_id', 'is', null),
-  ]);
-
+  const activeLearnersResult = await db.from('learners').select('id', { count: 'exact', head: true }).eq('is_active', true);
   if (activeLearnersResult.error) throw activeLearnersResult.error;
-  if (activeLearnerCompaniesResult.error) throw activeLearnerCompaniesResult.error;
-
   const activeLearners = Number(activeLearnersResult.count ?? 0);
-  const companiesWithActiveLearners = new Set(
-    (activeLearnerCompaniesResult.data || [])
-      .map((row) => row.company_id)
-      .filter((value): value is string => !!value)
-  ).size;
+
+  // Paginate company_id fetch to bypass 1000-row cap
+  const activeLearnerCompanyIds = new Set<string>();
+  for (let off = 0; ; off += 1000) {
+    const { data, error } = await db.from('learners').select('company_id').eq('is_active', true).not('company_id', 'is', null).range(off, off + 999);
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    data.forEach(r => { if (r.company_id) activeLearnerCompanyIds.add(r.company_id); });
+    if (data.length < 1000) break;
+  }
+  const companiesWithActiveLearners = activeLearnerCompanyIds.size;
 
   try {
-    const [rollupRowsResult, rollupCompanyRowsResult] = await Promise.all([
-      db.from('learner_directory_rollups').select('learner_id', { count: 'exact', head: true }),
-      db.from('learner_directory_rollups').select('company_id').not('company_id', 'is', null),
-    ]);
-
+    const rollupRowsResult = await db.from('learner_directory_rollups').select('learner_id', { count: 'exact', head: true });
     if (rollupRowsResult.error) throw rollupRowsResult.error;
-    if (rollupCompanyRowsResult.error) throw rollupCompanyRowsResult.error;
-
     const rollupRows = Number(rollupRowsResult.count ?? 0);
-    const companiesWithRollupRows = new Set(
-      (rollupCompanyRowsResult.data || [])
-        .map((row) => row.company_id)
-        .filter((value): value is string => !!value)
-    ).size;
+
+    // Paginate rollup company_id fetch to bypass 1000-row cap
+    const rollupCompanyIds = new Set<string>();
+    for (let off = 0; ; off += 1000) {
+      const { data, error } = await db.from('learner_directory_rollups').select('company_id').not('company_id', 'is', null).range(off, off + 999);
+      if (error) throw error;
+      if (!data || data.length === 0) break;
+      data.forEach(r => { if (r.company_id) rollupCompanyIds.add(r.company_id); });
+      if (data.length < 1000) break;
+    }
+    const companiesWithRollupRows = rollupCompanyIds.size;
 
     const healthy = activeLearners === 0 || rollupRows >= activeLearners;
     let message: string | null = null;

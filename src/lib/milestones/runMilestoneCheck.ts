@@ -117,9 +117,9 @@ export async function runMilestoneCheck(
   }
   const hasLessonData = completedLessonsByLearner.size > 0;
 
-  // Bulk-fetch Zoom attendance counts for last 30 days
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  // Bulk-fetch Zoom attendance counts for last 90 days
+  const ninetyDaysAgo = new Date();
+  ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 
   const zoomAttendanceRows: Array<{ learner_id: string }> = [];
   for (let offset = 0; ; offset += 1000) {
@@ -128,7 +128,7 @@ export async function runMilestoneCheck(
       .select('learner_id')
       .eq('company_id', company.id)
       .eq('attended', true)
-      .gte('join_time', thirtyDaysAgo.toISOString())
+      .gte('join_time', ninetyDaysAgo.toISOString())
       .range(offset, offset + 999);
     if (!page || page.length === 0) break;
     zoomAttendanceRows.push(...page);
