@@ -62,7 +62,7 @@ export async function syncZoomAttendance(): Promise<SyncResult> {
     let count = 0;
 
     const fromDate = new Date();
-    fromDate.setDate(fromDate.getDate() - 30);
+    fromDate.setDate(fromDate.getDate() - 90);
 
     // Pre-load all learner emails into a map — eliminates N+1 per participant
     const learnerByEmail = new Map<string, { id: string; company_id: string | null }>();
@@ -306,7 +306,7 @@ export async function syncZoomAttendanceChunk(opts: {
     // Phase 1 (offset=0 only): discover sessions from Zoom API and upsert to zoom_sessions
     if (opts.offset === 0) {
       const fromDate = new Date();
-      fromDate.setDate(fromDate.getDate() - 30);
+      fromDate.setDate(fromDate.getDate() - 90);
 
       const users = await zoomGetAllPages<{ users: ZoomUser[] }>(
         '/users',

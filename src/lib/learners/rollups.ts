@@ -78,8 +78,8 @@ async function deleteStaleRollupRows(
 
 async function getLiveSessionCounts(companyIds?: string[]) {
   const db = createAdminClient();
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  const ninetyDaysAgo = new Date();
+  ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 
   const counts = new Map<string, number>();
 
@@ -91,7 +91,7 @@ async function getLiveSessionCounts(companyIds?: string[]) {
           .select('learner_id')
           .eq('company_id', companyId)
           .eq('attended', true)
-          .gte('join_time', thirtyDaysAgo.toISOString())
+          .gte('join_time', ninetyDaysAgo.toISOString())
           .range(offset, offset + 999);
         if (error) throw error;
         if (!data || data.length === 0) break;
@@ -110,7 +110,7 @@ async function getLiveSessionCounts(companyIds?: string[]) {
       .from('zoom_attendance')
       .select('learner_id')
       .eq('attended', true)
-      .gte('join_time', thirtyDaysAgo.toISOString())
+      .gte('join_time', ninetyDaysAgo.toISOString())
       .range(offset, offset + 999);
     if (error) throw error;
     if (!data || data.length === 0) break;

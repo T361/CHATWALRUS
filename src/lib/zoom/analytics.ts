@@ -59,20 +59,31 @@ export async function getCompanySessionLists(
   return readThroughTtlCache(`zoom:sessions:${companyId}:${limit}`, 60_000, async () => {
     return withServerTiming('zoom.company_sessions.load', async () => {
       const db = createAdminClient();
-      const { data, error } = await db
-        .from('zoom_attendance')
-        .select('id, learner_id, attendee_name, attendee_email, join_time, leave_time, duration_minutes, attended, zoom_sessions!inner(id, zoom_meeting_id, topic, host_email, start_time, end_time, duration_minutes, session_type)')
-        .eq('company_id', companyId)
-        .order('join_time', { ascending: false })
-        .limit(Math.max(limit * 50, 250));
 
-      if (error) throw error;
+      // Paginate to avoid the 1000-row PostgREST cap
+      const allRows: Array<{
+        id: string; learner_id: string | null; attendee_name: string | null; attendee_email: string | null;
+        join_time: string | null; leave_time: string | null; duration_minutes: number | null; attended: boolean;
+        zoom_sessions: { id: string; zoom_meeting_id: string | null; topic: string | null; host_email: string | null; start_time: string | null; end_time: string | null; duration_minutes: number | null; session_type: string | null } | { id: string; zoom_meeting_id: string | null; topic: string | null; host_email: string | null; start_time: string | null; end_time: string | null; duration_minutes: number | null; session_type: string | null }[];
+      }> = [];
+      for (let off = 0; ; off += 1000) {
+        const { data, error } = await db
+          .from('zoom_attendance')
+          .select('id, learner_id, attendee_name, attendee_email, join_time, leave_time, duration_minutes, attended, zoom_sessions!inner(id, zoom_meeting_id, topic, host_email, start_time, end_time, duration_minutes, session_type)')
+          .eq('company_id', companyId)
+          .order('join_time', { ascending: false })
+          .range(off, off + 999);
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        allRows.push(...(data as typeof allRows));
+        if (data.length < 1000) break;
+      }
 
       // Per-session attendee dedup map: session_id → (email|name → best row)
       const sessionAttendeeKeys = new Map<string, Map<string, CompanySessionAttendee>>();
       const sessions = new Map<string, CompanySessionListItem>();
 
-      for (const row of data || []) {
+      for (const row of allRows) {
         const session = Array.isArray(row.zoom_sessions) ? row.zoom_sessions[0] : row.zoom_sessions;
         if (!session?.id) continue;
 

@@ -62,7 +62,7 @@ export default function CompanySessionsPage() {
       try {
         const [analyticsRes, sessionsRes] = await Promise.all([
           fetch(`/api/companies/${slug}/zoom/analytics`, { cache: 'no-store' }),
-          fetch(`/api/companies/${slug}/zoom/sessions?limit=12`, { cache: 'no-store' }),
+          fetch(`/api/companies/${slug}/zoom/sessions?limit=100`, { cache: 'no-store' }),
         ]);
 
         const analyticsData = await analyticsRes.json();
