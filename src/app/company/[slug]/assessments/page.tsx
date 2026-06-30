@@ -101,20 +101,22 @@ export default function AssessmentsPage(props: { params: Promise<{ slug: string 
                 />
               </div>
 
-              <div className="card">
-                <p className="section-title">Assignment Summary</p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem', maxWidth: 360 }}>
-                  {[
-                    { label: 'Total tracked',   value: assignments.length },
-                    { label: 'Submitted',        value: submitted, color: 'var(--on-track)' },
-                    { label: 'Pending',          value: assignments.length - submitted, color: 'var(--warning)' },
-                    { label: 'Submission rate',  value: subRate !== null ? `${subRate}%` : '—' },
-                  ].map(({ label, value, color }) => (
-                    <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>{label}</span>
-                      <span className="tabular" style={{ fontWeight: 600, color: color || 'var(--text)' }}>{value}</span>
-                    </div>
-                  ))}
+              <div style={{ display: 'flex', justifyContent: 'center' }}>
+                <div className="card" style={{ width: '100%', maxWidth: 360 }}>
+                  <p className="section-title" style={{ textAlign: 'center' }}>Assignment Summary</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+                    {[
+                      { label: 'Total tracked',   value: assignments.length },
+                      { label: 'Submitted',        value: submitted, color: 'var(--on-track)' },
+                      { label: 'Pending',          value: assignments.length - submitted, color: 'var(--warning)' },
+                      { label: 'Submission rate',  value: subRate !== null ? `${subRate}%` : '—' },
+                    ].map(({ label, value, color }) => (
+                      <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>{label}</span>
+                        <span className="tabular" style={{ fontWeight: 600, color: color || 'var(--text)' }}>{value}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </>
