@@ -14,7 +14,7 @@ interface AssignmentRow {
 
 function KpiCard({ label, value, color }: { label: string; value: string | number; color?: string }) {
   return (
-    <div className="card card-sm kpi-card">
+    <div className="card card-sm" style={{ flex: 1 }}>
       <span className="kpi-label">{label}</span>
       <span className="kpi-value tabular" style={color ? { color } : {}}>{value}</span>
     </div>
@@ -91,7 +91,7 @@ export default function AssessmentsPage(props: { params: Promise<{ slug: string 
         <>
           {tab === 'overview' && (
             <>
-              <div className="kpi-grid" style={{ marginBottom: '1.5rem', gridTemplateColumns: 'repeat(3, 1fr)' }}>
+              <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem' }}>
                 <KpiCard label="Courses Tracked"    value={uniqueCourses} />
                 <KpiCard label="Assignments Tracked" value={assignments.length} />
                 <KpiCard
