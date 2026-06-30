@@ -210,18 +210,9 @@ export default async function CoursesPage(props: {
 
       {/* Filters */}
       <div style={{ marginBottom: '1.5rem', display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-        <a
-          href={filterHref('all')}
-          className={filter === 'all' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
-        >
-          All Courses ({courses.length})
-        </a>
-        <a
-          href={filterHref('enrolled')}
-          className={filter === 'enrolled' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
-        >
+        <span className="btn btn-primary btn-sm" style={{ cursor: 'default' }}>
           Enrolled Only ({courses.filter(c => c.company_enrollment > 0).length})
-        </a>
+        </span>
       </div>
 
       {/* Courses Table */}

@@ -91,7 +91,7 @@ export default function AssessmentsPage(props: { params: Promise<{ slug: string 
         <>
           {tab === 'overview' && (
             <>
-              <div className="kpi-grid" style={{ marginBottom: '1.5rem' }}>
+              <div className="kpi-grid" style={{ marginBottom: '1.5rem', gridTemplateColumns: 'repeat(3, 1fr)' }}>
                 <KpiCard label="Courses Tracked"    value={uniqueCourses} />
                 <KpiCard label="Assignments Tracked" value={assignments.length} />
                 <KpiCard
