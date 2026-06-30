@@ -14,7 +14,7 @@ interface AssignmentRow {
 
 function KpiCard({ label, value, color }: { label: string; value: string | number; color?: string }) {
   return (
-    <div className="card card-sm" style={{ flex: 1 }}>
+    <div className="card card-sm kpi-card" style={{ flex: 1 }}>
       <span className="kpi-label">{label}</span>
       <span className="kpi-value tabular" style={color ? { color } : {}}>{value}</span>
     </div>
