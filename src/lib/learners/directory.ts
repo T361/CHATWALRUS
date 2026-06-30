@@ -160,40 +160,45 @@ function buildRoleOptions(rows: Array<{ title: string | null; department: string
 async function getRoleOptionsWithCounts(companyId?: string | null): Promise<RoleFilterOption[]> {
   const db = createAdminClient();
 
-  // Try rollup table first
+  // Try rollup table first — paginate to bypass the 1000-row PostgREST cap
   try {
-    let query = db
-      .from('learner_directory_rollups')
-      .select('title, department');
-
-    if (companyId) {
-      query = query.eq('company_id', companyId);
+    const allRows: Array<{ title: string | null; department: string | null }> = [];
+    for (let off = 0; ; off += 1000) {
+      let query = db
+        .from('learner_directory_rollups')
+        .select('title, department')
+        .range(off, off + 999);
+      if (companyId) query = query.eq('company_id', companyId);
+      const { data, error } = await query;
+      if (error && !isMissingRelationError(error)) throw error;
+      if (!data || data.length === 0) break;
+      allRows.push(...(data as Array<{ title: string | null; department: string | null }>));
+      if (data.length < 1000) break;
     }
-
-    const { data, error } = await query;
-    if (error && !isMissingRelationError(error)) throw error;
-
-    if (data && data.length > 0) {
-      return buildRoleOptions(data as Array<{ title: string | null; department: string | null }>);
+    if (allRows.length > 0) {
+      return buildRoleOptions(allRows);
     }
   } catch (error) {
     if (!isMissingRelationError(error)) throw error;
   }
 
-  // Fallback to learners table
-  let query = db
-    .from('learners')
-    .select('title, department')
-    .eq('is_active', true);
-
-  if (companyId) {
-    query = query.eq('company_id', companyId);
+  // Fallback to learners table — also paginate
+  const allRows: Array<{ title: string | null; department: string | null }> = [];
+  for (let off = 0; ; off += 1000) {
+    let query = db
+      .from('learners')
+      .select('title, department')
+      .eq('is_active', true)
+      .range(off, off + 999);
+    if (companyId) query = query.eq('company_id', companyId);
+    const { data, error } = await query;
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    allRows.push(...(data as Array<{ title: string | null; department: string | null }>));
+    if (data.length < 1000) break;
   }
 
-  const { data, error } = await query;
-  if (error) throw error;
-
-  return buildRoleOptions((data || []) as Array<{ title: string | null; department: string | null }>);
+  return buildRoleOptions(allRows);
 }
 
 async function addLearnerCountsToCourses(
@@ -205,29 +210,31 @@ async function addLearnerCountsToCourses(
   const db = createAdminClient();
   const courseIds = courses.map(c => c.id);
 
-  // Try to get counts from rollups first
+  // Try to get counts from rollups first — paginate to bypass 1000-row cap
   try {
-    let query = db
-      .from('learner_directory_rollups')
-      .select('active_course_ids');
-
-    if (companyId) {
-      query = query.eq('company_id', companyId);
-    }
-
-    const { data, error } = await query;
-    if (error && !isMissingRelationError(error)) throw error;
-
-    if (data && data.length > 0) {
-      const courseCounts = new Map<string, number>();
+    const courseIdSet = new Set(courseIds);
+    const courseCounts = new Map<string, number>();
+    let hasData = false;
+    for (let off = 0; ; off += 1000) {
+      let query = db
+        .from('learner_directory_rollups')
+        .select('active_course_ids')
+        .range(off, off + 999);
+      if (companyId) query = query.eq('company_id', companyId);
+      const { data, error } = await query;
+      if (error && !isMissingRelationError(error)) throw error;
+      if (!data || data.length === 0) break;
+      hasData = true;
       for (const row of data as Array<{ active_course_ids: string[] | null }>) {
         for (const courseId of row.active_course_ids ?? []) {
-          if (courseIds.includes(courseId)) {
+          if (courseIdSet.has(courseId)) {
             courseCounts.set(courseId, (courseCounts.get(courseId) || 0) + 1);
           }
         }
       }
-
+      if (data.length < 1000) break;
+    }
+    if (hasData) {
       return courses.map(course => ({
         ...course,
         learner_count: courseCounts.get(course.id) || 0,
