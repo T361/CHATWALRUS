@@ -11,11 +11,8 @@ interface LearnerFiltersProps {
 }
 
 const STATUS_OPTIONS: { value: string; label: string }[] = [
-  { value: 'all', label: 'All Statuses' },
-  { value: 'not_started' satisfies LearnerStatus, label: 'Not Started' },
-  { value: 'at_risk' satisfies LearnerStatus, label: 'At Risk' },
-  { value: 'slightly_behind' satisfies LearnerStatus, label: 'Slightly Behind' },
-  { value: 'on_track' satisfies LearnerStatus, label: 'On Track' },
+  { value: 'all',            label: 'All Statuses' },
+  { value: 'not_started' satisfies LearnerStatus,     label: 'Not Started' },
   { value: 'high_engagement' satisfies LearnerStatus, label: 'High Engagement' },
 ];
 

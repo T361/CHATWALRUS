@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
       .select('id, role, company_id, companies(slug)')
       .eq('code', passcode)
       .eq('status', 'active')
-      .eq('role', 'company')
+      .in('role', ['company', 'client'])
       .maybeSingle();
 
     if (error || !passcodeRecord || !passcodeRecord.company_id) {

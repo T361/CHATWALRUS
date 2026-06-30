@@ -11,7 +11,7 @@ interface CompanyCardProps {
 
 export default function CompanyCard({ name, slug, learnerCount, startDate, avgProgress, atRiskCount }: CompanyCardProps) {
   const progress = avgProgress ?? 0;
-  const progressColor = progress >= 70 ? 'var(--on-track)' : progress >= 40 ? 'var(--primary)' : 'var(--at-risk)';
+  const progressColor = progress >= 70 ? 'var(--primary)' : progress >= 40 ? 'var(--primary)' : 'var(--text-muted)';
 
   return (
     <Link href={`/company/${slug}`} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
@@ -19,19 +19,6 @@ export default function CompanyCard({ name, slug, learnerCount, startDate, avgPr
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.5rem', marginBottom: '0.875rem' }}>
           <h3 className="company-card-name" style={{ lineHeight: 1.25 }}>{name}</h3>
-          {atRiskCount !== undefined && atRiskCount > 0 && (
-            <span style={{
-              display: 'inline-flex', alignItems: 'center', gap: '0.25rem',
-              padding: '0.125rem 0.4375rem', borderRadius: '9999px',
-              fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.03em',
-              textTransform: 'uppercase', whiteSpace: 'nowrap', flexShrink: 0,
-              background: 'rgba(248,113,113,0.1)', color: 'var(--at-risk)',
-              border: '1px solid rgba(248,113,113,0.25)',
-            }}>
-              <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--at-risk)', flexShrink: 0 }} />
-              {atRiskCount} at risk
-            </span>
-          )}
         </div>
 
         {/* Progress */}

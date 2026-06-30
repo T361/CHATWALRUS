@@ -206,13 +206,12 @@ export default async function CompanyDashboardPage(
       {latestMilestone && (
         <div className="card" style={{ marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
           {[
-            { label: 'Avg Completion', value: `${Number(latestMilestone.average_completion_percent).toFixed(1)}%`, color: undefined },
-            { label: 'Benchmark',      value: `${Number(latestMilestone.benchmark_percent).toFixed(1)}%`,          color: undefined },
-            { label: 'At Risk %',      value: `${Number(latestMilestone.at_risk_percent).toFixed(1)}%`,            color: Number(latestMilestone.at_risk_percent) > 20 ? 'var(--danger)' : undefined },
-          ].map(({ label, value, color }) => (
+            { label: 'Avg Completion', value: `${Number(latestMilestone.average_completion_percent).toFixed(1)}%` },
+            { label: 'Benchmark',      value: `${Number(latestMilestone.benchmark_percent).toFixed(1)}%` },
+          ].map(({ label, value }) => (
             <div key={label} style={{ flex: 1, padding: '0.25rem 1rem', borderRight: '1px solid var(--border-muted)' }}>
               <p className="kpi-label">{label}</p>
-              <p className="kpi-value tabular" style={color ? { color } : {}}>{value}</p>
+              <p className="kpi-value tabular">{value}</p>
             </div>
           ))}
           {latestMilestone.alert_triggered && (

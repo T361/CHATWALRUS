@@ -2,19 +2,15 @@
 
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 
+const VISIBLE_STATUSES = new Set(['not_started', 'high_engagement']);
+
 const STATUS_COLORS: Record<string, string> = {
   not_started:     '#475569',
-  at_risk:         '#f87171',
-  slightly_behind: '#fbbf24',
-  on_track:        '#34d399',
   high_engagement: '#60a5fa',
 };
 
 const STATUS_LABELS: Record<string, string> = {
   not_started:     'Not Started',
-  at_risk:         'At Risk',
-  slightly_behind: 'Slightly Behind',
-  on_track:        'On Track',
   high_engagement: 'High Engagement',
 };
 
@@ -46,7 +42,7 @@ function ChartTooltip({ active, payload }: { active?: boolean; payload?: { name:
 
 export default function LearnerStatusChart({ data }: { data: StatusItem[] }) {
   const chartData = data
-    .filter((d) => d.count > 0)
+    .filter((d) => d.count > 0 && VISIBLE_STATUSES.has(d.status))
     .map((d) => ({
       name: STATUS_LABELS[d.status] || d.status,
       value: d.count,
