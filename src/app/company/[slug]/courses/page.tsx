@@ -213,6 +213,16 @@ export default async function CoursesPage(props: {
         <span className="btn btn-primary btn-sm" style={{ cursor: 'default' }}>
           Enrolled Only ({courses.filter(c => c.company_enrollment > 0).length})
         </span>
+        {allRoles.length > 0 && (
+          <CompanyRoleFilter
+            role={role}
+            roles={allRoles}
+            slug={params.slug}
+            filter={filter}
+            sortBy={sortBy}
+            sortDir={sortDir}
+          />
+        )}
       </div>
 
       {/* Courses Table */}
@@ -239,28 +249,13 @@ export default async function CoursesPage(props: {
                   <th style={{ fontWeight: 700, cursor: 'pointer', background: sortBy === 'completed' ? 'var(--surface)' : undefined }}>
                     <SortLink field="completed" label="Completed" {...sortLinkProps} />
                   </th>
-                  <th style={{ fontWeight: 700, minWidth: 140 }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                      <span>Roles</span>
-                      {allRoles.length > 0 && (
-                        <CompanyRoleFilter
-                          role={role}
-                          roles={allRoles}
-                          slug={params.slug}
-                          filter={filter}
-                          sortBy={sortBy}
-                          sortDir={sortDir}
-                        />
-                      )}
-                    </div>
-                  </th>
+                  {role && (
+                    <th style={{ fontWeight: 700, width: 80 }}>Roles</th>
+                  )}
                 </tr>
               </thead>
               <tbody>
                 {sorted.map(course => {
-                  const roleEntries = Object.entries(course.role_breakdown)
-                    .sort((a, b) => b[1] - a[1])
-                    .slice(0, 3);
                   return (
                   <tr key={course.id}>
                     <td style={{ fontWeight: 500 }}>{course.name}</td>
@@ -300,49 +295,19 @@ export default async function CoursesPage(props: {
                         <span style={{ color: 'var(--text-muted)' }}>—</span>
                       )}
                     </td>
-                    <td>
-                      {role ? (
-                        /* Selected role: show count for that role */
+                    {role && (
+                      <td>
                         <span style={{
-                          display: 'inline-flex', alignItems: 'center', gap: '0.25rem',
-                          padding: '0.125rem 0.375rem',
-                          borderRadius: '9999px',
-                          background: 'var(--primary-glow)',
-                          border: '1px solid var(--border-accent)',
-                          fontSize: '0.6875rem',
-                          fontWeight: 600,
-                          color: 'var(--primary)',
-                          whiteSpace: 'nowrap',
+                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                          minWidth: 28, padding: '0.125rem 0.5rem', borderRadius: 9999,
+                          background: (course.role_breakdown[role] || 0) > 0 ? 'var(--primary-glow)' : 'var(--surface)',
+                          color: (course.role_breakdown[role] || 0) > 0 ? 'var(--primary)' : 'var(--text-muted)',
+                          fontWeight: 700, fontSize: '0.8125rem', fontVariantNumeric: 'tabular-nums',
                         }}>
-                          {role}
-                          <span style={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
-                            {course.role_breakdown[role] || 0}
-                          </span>
+                          {course.role_breakdown[role] || 0}
                         </span>
-                      ) : roleEntries.length > 0 ? (
-                        /* All roles: show top-3 badges */
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
-                          {roleEntries.map(([r, count]) => (
-                            <span key={r} style={{
-                              display: 'inline-flex', alignItems: 'center', gap: '0.25rem',
-                              padding: '0.125rem 0.375rem',
-                              borderRadius: '9999px',
-                              background: 'var(--surface-raised)',
-                              border: '1px solid var(--border-muted)',
-                              fontSize: '0.6875rem',
-                              fontWeight: 500,
-                              color: 'var(--text-secondary)',
-                              whiteSpace: 'nowrap',
-                            }}>
-                              {r}
-                              <span style={{ fontWeight: 700, color: 'var(--text)', fontVariantNumeric: 'tabular-nums' }}>{count}</span>
-                            </span>
-                          ))}
-                        </div>
-                      ) : (
-                        <span style={{ color: 'var(--text-muted)' }}>—</span>
-                      )}
-                    </td>
+                      </td>
+                    )}
                   </tr>
                   );
                 })}
